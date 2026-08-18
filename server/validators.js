@@ -16,6 +16,8 @@ export const AREAS_CNEB = [
 export const GRADOS = ["1.° Sec", "2.° Sec", "3.° Sec", "4.° Sec", "5.° Sec"];
 export const TIPOS_RECURSO = ["Video", "Web / App", "PDF", "Simulación", "Juego", "Colección"];
 export const AUDIENCIAS = ["docente", "estudiante", "ambos"];
+export const AREA_TODAS = "Todas las áreas";
+export const AREAS_TUTORIAL = [...AREAS_CNEB, AREA_TODAS];
 
 const contenidoSchema = z.object({
   id: z.union([z.number(), z.string()]).optional(),
@@ -37,7 +39,7 @@ export const recursoSchema = z.object({
 
 export const tutorialSchema = z.object({
   titulo: z.string().min(1, "El título es obligatorio").max(200),
-  area: z.enum(AREAS_CNEB, { message: "Área curricular no válida" }),
+  area: z.enum(AREAS_TUTORIAL, { message: "Área curricular no válida" }),
   desc: z.string().min(1, "La descripción es obligatoria").max(3000),
   url: z.string().min(1, "El enlace de YouTube es obligatorio").max(500),
   audiencia: z.enum(AUDIENCIAS, { message: "Audiencia no válida" }).default("ambos"),

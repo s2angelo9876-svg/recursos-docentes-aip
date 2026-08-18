@@ -8,6 +8,8 @@ const AREAS_CNEB = [
   "Ciencias Sociales", "DPCC", "Educación Física", "Educación Religiosa",
   "Ciencia y Tecnología", "Educación para el Trabajo"
 ];
+// Solo para tutoriales: incluye la opción transversal "Todas las áreas"
+const AREAS_TUTORIAL = [...AREAS_CNEB, "Todas las áreas"];
 const GRADOS = ["1.° Sec", "2.° Sec", "3.° Sec", "4.° Sec", "5.° Sec"];
 const TIPOS_RECURSO = ["Video", "Web / App", "PDF", "Simulación", "Juego", "Colección"];
 
@@ -406,7 +408,7 @@ export default function AdminModal({ isOpen, onClose, type, editingItem }) {
                 <div className="space-y-1">
                   <label className="text-[10px] font-black uppercase text-gray-400 dark:text-gray-500 tracking-wider">Área Curricular</label>
                   <select className="w-full px-3 py-2 border border-gray-200 dark:border-dark-border bg-white dark:bg-dark-card rounded-xl text-xs outline-none text-gray-700 dark:text-gray-200" value={tutArea} onChange={(e) => setTutArea(e.target.value)}>
-                    {AREAS_CNEB.map(a => <option key={a} value={a}>{a}</option>)}
+                    {AREAS_TUTORIAL.map(a => <option key={a} value={a}>{a}</option>)}
                   </select>
                 </div>
                 <div className="space-y-1">

@@ -3,6 +3,13 @@ import { useApp } from "../context/AppContext";
 import { motion, AnimatePresence } from "framer-motion";
 import { getYouTubeId, getYouTubeThumbnail } from "../utils/youtube";
 
+const AREAS_CNEB = [
+  "Matemática", "Comunicación", "Inglés", "Arte y Cultura",
+  "Ciencias Sociales", "DPCC", "Educación Física", "Educación Religiosa",
+  "Ciencia y Tecnología", "Educación para el Trabajo"
+];
+const AREA_TODAS = "Todas las áreas";
+
 function YouTubeThumbnail({ url, title }) {
   const id = getYouTubeId(url);
   const [imgError, setImgError] = useState(false);
@@ -143,10 +150,18 @@ export default function Tutoriales({ isAdminMode = false, onEditClick = null, on
         p.audiencia === "ambos" ||
         p.audiencia === accessType;
 
+      const termino = busqueda.toLowerCase().trim();
+
+      // Un tutorial de "Todas las áreas" también coincide si la búsqueda
+      // corresponde al nombre de alguna área curricular (ej. "matemática")
+      const matchArea =
+        (p.area || "").toLowerCase().includes(termino) ||
+        (p.area === AREA_TODAS && AREAS_CNEB.some((a) => a.toLowerCase().includes(termino)));
+
       const matchBusqueda =
-        (p.titulo || "").toLowerCase().includes(busqueda.toLowerCase()) ||
-        (p.desc || "").toLowerCase().includes(busqueda.toLowerCase()) ||
-        (p.area || "").toLowerCase().includes(busqueda.toLowerCase());
+        (p.titulo || "").toLowerCase().includes(termino) ||
+        (p.desc || "").toLowerCase().includes(termino) ||
+        matchArea;
 
       return matchAudiencia && matchBusqueda;
     });
