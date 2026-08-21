@@ -19,6 +19,7 @@ import {
   recursoSchema,
   tutorialSchema,
   noticiaSchema,
+  evidenciaSchema,
   usuarioSchema,
   passwordUpdateSchema,
 } from "./server/validators.js";
@@ -135,7 +136,7 @@ const sequelize = createSequelizeInstance();
 
 // --- SEQUELIZE SCHEMA DEFINITIONS ---
 
-const { Usuario, Recurso, Tutorial, Noticia, AuditoriaSesion } = defineModels(sequelize);
+const { Usuario, Recurso, Tutorial, Noticia, Evidencia, AuditoriaSesion } = defineModels(sequelize);
 setAuditoriaModel(AuditoriaSesion);
 
 // --- AUDITED AUTHENTICATION MIDDLEWARE ---
@@ -901,6 +902,93 @@ app.delete("/api/noticias/:id", authenticateToken, requireRole(["Administrador"]
   }
 });
 
+// --- EVIDENCIAS ENDPOINTS ---
+
+app.get("/api/evidencias", async (req, res) => {
+  try {
+    const list = await Evidencia.findAll({ order: [["id", "DESC"]] });
+    res.json(list);
+  } catch (err) {
+    logger.error("Error al listar evidencias", { error: err.message, stack: err.stack });
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post("/api/evidencias", authenticateToken, requireRole(["Administrador", "Docente"]), validateBody(evidenciaSchema), async (req, res) => {
+  try {
+    const evidencia = await Evidencia.create(req.body);
+
+    await auditoriaFromRequest(req, {
+      usuarioId: req.user.id,
+      usuarioNombre: req.user.nombre,
+      usuario: req.user.usuario,
+      rol: req.user.rol,
+      accion: "EVIDENCIA_CREADA",
+      entidad: "evidencia",
+      entidadId: evidencia.id,
+      detalle: `Evidencia "${evidencia.titulo}" creada`,
+      exito: true,
+    });
+
+    res.status(201).json(evidencia);
+  } catch (err) {
+    logger.error("Error al crear evidencia", { error: err.message, stack: err.stack });
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.put("/api/evidencias/:id", authenticateToken, requireRole(["Administrador", "Docente"]), validateBody(evidenciaSchema), async (req, res) => {
+  try {
+    const { id } = req.params;
+    await Evidencia.update(req.body, { where: { id } });
+
+    await auditoriaFromRequest(req, {
+      usuarioId: req.user.id,
+      usuarioNombre: req.user.nombre,
+      usuario: req.user.usuario,
+      rol: req.user.rol,
+      accion: "EVIDENCIA_ACTUALIZADA",
+      entidad: "evidencia",
+      entidadId: Number(id),
+      detalle: `Evidencia "${req.body.titulo}" actualizada`,
+      exito: true,
+    });
+
+    res.json({ success: true });
+  } catch (err) {
+    logger.error("Error al actualizar evidencia", { error: err.message, stack: err.stack });
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.delete("/api/evidencias/:id", authenticateToken, requireRole(["Administrador", "Docente"]), async (req, res) => {
+  try {
+    const { id } = req.params;
+    const evidencia = await Evidencia.findByPk(id);
+    if (!evidencia) return res.status(404).json({ error: "Evidencia no encontrada" });
+
+    await deleteFile(evidencia.url);
+    await evidencia.destroy();
+
+    await auditoriaFromRequest(req, {
+      usuarioId: req.user.id,
+      usuarioNombre: req.user.nombre,
+      usuario: req.user.usuario,
+      rol: req.user.rol,
+      accion: "EVIDENCIA_ELIMINADA",
+      entidad: "evidencia",
+      entidadId: Number(id),
+      detalle: `Evidencia "${evidencia.titulo}" eliminada`,
+      exito: true,
+    });
+
+    res.json({ success: true });
+  } catch (err) {
+    logger.error("Error al eliminar evidencia", { error: err.message, stack: err.stack });
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // --- FILE UPLOAD ENDPOINT ---
 app.post("/api/upload", authenticateToken, requireRole(["Administrador", "Docente"]), (req, res) => {
   upload.single("file")(req, res, async (err) => {
@@ -945,14 +1033,15 @@ app.post("/api/admin/backup", authenticateToken, requireRole(["Administrador"]),
     fs.mkdirSync(currentBackupDir, { recursive: true });
 
     // Exportar datos a JSON para respaldo
-    const [recursos, tutoriales, noticias] = await Promise.all([
+    const [recursos, tutoriales, noticias, evidencias] = await Promise.all([
       Recurso.findAll(),
       Tutorial.findAll(),
       Noticia.findAll(),
+      Evidencia.findAll(),
     ]);
     fs.writeFileSync(
       path.join(currentBackupDir, "data.json"),
-      JSON.stringify({ recursos, tutoriales, noticias }, null, 2)
+      JSON.stringify({ recursos, tutoriales, noticias, evidencias }, null, 2)
     );
 
     logger.info(`[AUDIT] Copia de seguridad generada: ${currentBackupDir}`);
@@ -966,16 +1055,18 @@ app.post("/api/admin/backup", authenticateToken, requireRole(["Administrador"]),
 // --- API BACKUP IMPORT ---
 app.post("/api/import", authenticateToken, requireRole(["Administrador"]), async (req, res) => {
   try {
-    const { recursos, tutoriales, proyectos, noticias } = req.body;
+    const { recursos, tutoriales, proyectos, noticias, evidencias } = req.body;
     const tutorialesImport = tutoriales || proyectos || [];
 
     await Recurso.destroy({ where: {} });
     await Tutorial.destroy({ where: {} });
     await Noticia.destroy({ where: {} });
+    await Evidencia.destroy({ where: {} });
 
     if (recursos && recursos.length > 0) await Recurso.bulkCreate(recursos);
     if (tutorialesImport.length > 0) await Tutorial.bulkCreate(tutorialesImport);
     if (noticias && noticias.length > 0) await Noticia.bulkCreate(noticias);
+    if (evidencias && evidencias.length > 0) await Evidencia.bulkCreate(evidencias);
 
     res.json({ success: true });
   } catch (err) {
@@ -1158,12 +1249,14 @@ function loadSeedData() {
       recursos: (data.recursos || []).map(omitId),
       tutoriales: (data.tutoriales || data.proyectos || []).map(omitId),
       noticias: (data.noticias || []).map(omitId),
+      evidencias: (data.evidencias || []).map(omitId),
     };
   }
   return {
     recursos: SEED_RECURSOS,
     tutoriales: SEED_TUTORIALES,
     noticias: SEED_NOTICIAS,
+    evidencias: [],
   };
 }
 
@@ -1268,6 +1361,11 @@ sequelize.sync({ alter: true })
     if (await Noticia.count() === 0 && seedData.noticias.length > 0) {
       await Noticia.bulkCreate(seedData.noticias);
       logger.info(`📰 ${seedData.noticias.length} noticias de ejemplo cargadas.`);
+    }
+
+    if (await Evidencia.count() === 0 && seedData.evidencias.length > 0) {
+      await Evidencia.bulkCreate(seedData.evidencias);
+      logger.info(`🖼️ ${seedData.evidencias.length} evidencias de ejemplo cargadas.`);
     }
 
     app.listen(PORT, "0.0.0.0", () => {

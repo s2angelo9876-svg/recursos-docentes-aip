@@ -38,6 +38,15 @@ export function defineModels(sequelize) {
     autor: { type: DataTypes.STRING, allowNull: false },
   });
 
+  const Evidencia = sequelize.define("Evidencia", {
+    titulo: { type: DataTypes.STRING, allowNull: false },
+    mes: { type: DataTypes.STRING, allowNull: false }, // "Marzo" ... "Diciembre"
+    categoria: { type: DataTypes.STRING, allowNull: false, defaultValue: "Otro" },
+    tipo: { type: DataTypes.STRING, allowNull: false, defaultValue: "Foto" }, // "Foto" | "Video"
+    desc: { type: DataTypes.TEXT, allowNull: false },
+    url: { type: DataTypes.STRING, allowNull: false }, // imagen subida o enlace externo
+  });
+
   const AuditoriaSesion = sequelize.define("AuditoriaSesion", {
     usuarioId: { type: DataTypes.INTEGER, allowNull: true },
     usuarioNombre: { type: DataTypes.STRING, allowNull: true },
@@ -52,5 +61,5 @@ export function defineModels(sequelize) {
     exito: { type: DataTypes.BOOLEAN, defaultValue: true },
   });
 
-  return { Usuario, Recurso, Tutorial, Noticia, AuditoriaSesion };
+  return { Usuario, Recurso, Tutorial, Noticia, Evidencia, AuditoriaSesion };
 }

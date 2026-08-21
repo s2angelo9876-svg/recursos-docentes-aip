@@ -12,6 +12,9 @@ const AREAS_CNEB = [
 const AREAS_TUTORIAL = [...AREAS_CNEB, "Todas las áreas"];
 const GRADOS = ["1.° Sec", "2.° Sec", "3.° Sec", "4.° Sec", "5.° Sec"];
 const TIPOS_RECURSO = ["Video", "Web / App", "PDF", "Simulación", "Juego", "Colección"];
+const MESES = ["Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
+const CATEGORIAS_EVIDENCIA = ["Gestión", "Robótica", "Taller", "Feria", "Concurso", "Capacitación", "Proyecto", "Celebración", "Otro"];
+const TIPOS_EVIDENCIA = ["Foto", "Video"];
 
 /**
  * AdminModal — Modal CMS reutilizable para agregar/editar recursos, tutoriales y noticias.
@@ -26,6 +29,7 @@ export default function AdminModal({ isOpen, onClose, type, editingItem }) {
     addRecurso, updateRecurso,
     addTutorial, updateTutorial,
     addNoticia, updateNoticia,
+    addEvidencia, updateEvidencia,
     token, logout
   } = useApp();
 
@@ -60,6 +64,16 @@ export default function AdminModal({ isOpen, onClose, type, editingItem }) {
   const [notTitulo, setNotTitulo] = useState("");
   const [notDesc, setNotDesc] = useState("");
   const [notAutor, setNotAutor] = useState("");
+
+  // ── Evidencias ────────────────────────────────────────────
+  const [eviTitulo, setEviTitulo] = useState("");
+  const [eviMes, setEviMes] = useState(MESES[0]);
+  const [eviCategoria, setEviCategoria] = useState(CATEGORIAS_EVIDENCIA[0]);
+  const [eviTipo, setEviTipo] = useState(TIPOS_EVIDENCIA[0]);
+  const [eviDesc, setEviDesc] = useState("");
+  const [eviSourceType, setEviSourceType] = useState("url");
+  const [eviUrl, setEviUrl] = useState("");
+  const [eviFile, setEviFile] = useState(null);
 
   // ── Populate form when editing ────────────────────────────
   useEffect(() => {
@@ -96,6 +110,15 @@ export default function AdminModal({ isOpen, onClose, type, editingItem }) {
         setNotTitulo(editingItem.titulo || "");
         setNotDesc(editingItem.desc || "");
         setNotAutor(editingItem.autor || "");
+      } else if (type === "evidencias") {
+        setEviTitulo(editingItem.titulo || "");
+        setEviMes(editingItem.mes || MESES[0]);
+        setEviCategoria(editingItem.categoria || CATEGORIAS_EVIDENCIA[0]);
+        setEviTipo(editingItem.tipo || TIPOS_EVIDENCIA[0]);
+        setEviDesc(editingItem.desc || "");
+        setEviSourceType("url");
+        setEviUrl(editingItem.url || "");
+        setEviFile(null);
       }
     } else {
       // Reset for "add" mode
@@ -107,6 +130,9 @@ export default function AdminModal({ isOpen, onClose, type, editingItem }) {
       setTutTitulo(""); setTutArea(AREAS_CNEB[0]); setTutDesc("");
       setTutUrl(""); setTutAudiencia("ambos");
       setNotTitulo(""); setNotDesc(""); setNotAutor("");
+      setEviTitulo(""); setEviMes(MESES[0]); setEviCategoria(CATEGORIAS_EVIDENCIA[0]);
+      setEviTipo(TIPOS_EVIDENCIA[0]); setEviDesc("");
+      setEviSourceType("url"); setEviUrl(""); setEviFile(null);
     }
   }, [isOpen, editingItem, type]);
 
@@ -211,6 +237,26 @@ export default function AdminModal({ isOpen, onClose, type, editingItem }) {
       if (!notTitulo || !notDesc || !notAutor) { alert("Complete los campos obligatorios."); return; }
       const data = { titulo: notTitulo, desc: notDesc, autor: notAutor };
       editingItem ? await updateNoticia(editingItem.id, { ...editingItem, ...data }) : await addNoticia(data);
+
+    } else if (type === "evidencias") {
+      if (!eviTitulo || !eviDesc) { alert("Complete los campos obligatorios."); return; }
+      let finalUrl = "";
+      if (eviSourceType === "url") {
+        if (!eviUrl) { alert("Ingrese la URL de la evidencia."); return; }
+        finalUrl = eviUrl;
+      } else {
+        if (eviFile) {
+          const uploaded = await uploadFile(eviFile);
+          if (!uploaded) return;
+          finalUrl = uploaded;
+        } else if (editingItem?.url) {
+          finalUrl = editingItem.url;
+        } else {
+          alert("Seleccione un archivo."); return;
+        }
+      }
+      const data = { titulo: eviTitulo, mes: eviMes, categoria: eviCategoria, tipo: eviTipo, desc: eviDesc, url: finalUrl };
+      editingItem ? await updateEvidencia(editingItem.id, data) : await addEvidencia(data);
     }
 
     onClose();
@@ -218,8 +264,8 @@ export default function AdminModal({ isOpen, onClose, type, editingItem }) {
 
   if (!isOpen) return null;
 
-  const typeLabel = type === "recursos" ? "Recurso" : type === "tutoriales" ? "Tutorial" : "Comunicado";
-  const typeIcon = type === "recursos" ? "fas fa-book" : type === "tutoriales" ? "fab fa-youtube" : "fas fa-bullhorn";
+  const typeLabel = type === "recursos" ? "Recurso" : type === "tutoriales" ? "Tutorial" : type === "evidencias" ? "Evidencia" : "Comunicado";
+  const typeIcon = type === "recursos" ? "fas fa-book" : type === "tutoriales" ? "fab fa-youtube" : type === "evidencias" ? "fas fa-images" : "fas fa-bullhorn";
 
   const youtubePreviewId = type === "tutoriales" ? getYouTubeId(tutUrl) : null;
 
@@ -435,6 +481,69 @@ export default function AdminModal({ isOpen, onClose, type, editingItem }) {
               <div className="space-y-1">
                 <label className="text-[10px] font-black uppercase text-gray-400 dark:text-gray-500 tracking-wider">Descripción *</label>
                 <textarea required rows={3} placeholder="Describe el contenido del tutorial..." className="w-full px-3 py-2 border border-gray-200 dark:border-dark-border bg-white dark:bg-dark-card rounded-xl text-xs focus:ring-2 focus:ring-primary outline-none text-gray-800 dark:text-gray-200 resize-none" value={tutDesc} onChange={(e) => setTutDesc(e.target.value)} />
+              </div>
+            </>
+          )}
+
+          {/* ── EVIDENCIA FIELDS ──────────────────────────── */}
+          {type === "evidencias" && (
+            <>
+              <div className="space-y-1">
+                <label className="text-[10px] font-black uppercase text-gray-400 dark:text-gray-500 tracking-wider">Título de la Actividad *</label>
+                <input type="text" required placeholder="Ej. Feria de Ciencias 2026" className="w-full px-3 py-2 border border-gray-200 dark:border-dark-border bg-white dark:bg-dark-card rounded-xl text-xs focus:ring-2 focus:ring-primary outline-none text-gray-800 dark:text-gray-200" value={eviTitulo} onChange={(e) => setEviTitulo(e.target.value)} />
+              </div>
+
+              <div className="grid grid-cols-3 gap-3">
+                <div className="space-y-1">
+                  <label className="text-[10px] font-black uppercase text-gray-400 dark:text-gray-500 tracking-wider">Mes *</label>
+                  <select className="w-full px-3 py-2 border border-gray-200 dark:border-dark-border bg-white dark:bg-dark-card rounded-xl text-xs outline-none text-gray-700 dark:text-gray-200" value={eviMes} onChange={(e) => setEviMes(e.target.value)}>
+                    {MESES.map(m => <option key={m} value={m}>{m}</option>)}
+                  </select>
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[10px] font-black uppercase text-gray-400 dark:text-gray-500 tracking-wider">Categoría *</label>
+                  <select className="w-full px-3 py-2 border border-gray-200 dark:border-dark-border bg-white dark:bg-dark-card rounded-xl text-xs outline-none text-gray-700 dark:text-gray-200" value={eviCategoria} onChange={(e) => setEviCategoria(e.target.value)}>
+                    {CATEGORIAS_EVIDENCIA.map(c => <option key={c} value={c}>{c}</option>)}
+                  </select>
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[10px] font-black uppercase text-gray-400 dark:text-gray-500 tracking-wider">Tipo *</label>
+                  <select className="w-full px-3 py-2 border border-gray-200 dark:border-dark-border bg-white dark:bg-dark-card rounded-xl text-xs outline-none text-gray-700 dark:text-gray-200" value={eviTipo} onChange={(e) => setEviTipo(e.target.value)}>
+                    {TIPOS_EVIDENCIA.map(t => <option key={t} value={t}>{t}</option>)}
+                  </select>
+                </div>
+              </div>
+
+              <div className="space-y-3 p-4 border border-dashed border-gray-200 dark:border-dark-border bg-gray-50/50 dark:bg-dark-border/20 rounded-2xl">
+                <label className="text-[10px] font-black uppercase text-gray-400 dark:text-gray-500 tracking-wider block">Origen de la Evidencia *</label>
+                <div className="flex gap-2">
+                  <button type="button" onClick={() => setEviSourceType("url")} className={`flex-1 py-2 rounded-xl text-xs font-bold border transition-all flex items-center justify-center gap-1.5 ${eviSourceType === "url" ? "bg-primary dark:bg-dark-accent text-white border-primary" : "bg-white dark:bg-dark-card text-gray-600 dark:text-gray-300 border-gray-200 dark:border-dark-border"}`}>
+                    <i className="fas fa-link"></i> Enlace Web
+                  </button>
+                  <button type="button" onClick={() => setEviSourceType("archivo")} className={`flex-1 py-2 rounded-xl text-xs font-bold border transition-all flex items-center justify-center gap-1.5 ${eviSourceType === "archivo" ? "bg-primary dark:bg-dark-accent text-white border-primary" : "bg-white dark:bg-dark-card text-gray-600 dark:text-gray-300 border-gray-200 dark:border-dark-border"}`}>
+                    <i className="fas fa-file-upload"></i> Subir Archivo
+                  </button>
+                </div>
+                {eviSourceType === "url" ? (
+                  <input type="url" required placeholder={eviTipo === "Video" ? "https://www.youtube.com/watch?v=..." : "https://ejemplo.com/foto.jpg"} className="w-full px-3 py-2 border border-gray-200 dark:border-dark-border bg-white dark:bg-dark-card rounded-xl text-xs focus:ring-2 focus:ring-primary outline-none text-gray-800 dark:text-gray-200" value={eviUrl} onChange={(e) => setEviUrl(e.target.value)} />
+                ) : (
+                  <div className="space-y-1">
+                    <label className="block w-full py-3 border border-dashed border-gray-300 dark:border-dark-border hover:bg-gray-100 dark:hover:bg-dark-hover rounded-xl text-center cursor-pointer text-xs font-bold text-gray-600 dark:text-gray-300 transition-colors">
+                      <i className="fas fa-file-upload mr-2 text-primary dark:text-dark-accent text-lg"></i>
+                      {eviFile ? eviFile.name : (editingItem?.url ? "Cambiar archivo actual" : "Examinar archivo")}
+                      <input type="file" accept={eviTipo === "Video" ? "video/*" : "image/*"} onChange={(e) => setEviFile(e.target.files[0])} className="hidden" />
+                    </label>
+                    {!eviFile && editingItem?.url && (
+                      <div className="text-[10px] text-emerald-600 dark:text-emerald-400 italic font-bold text-center">✓ Archivo actual en el servidor</div>
+                    )}
+                  </div>
+                )}
+                {uploadProgressMsg && <div className="text-[9px] text-blue-600 dark:text-blue-400 font-black animate-pulse">{uploadProgressMsg}</div>}
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-[10px] font-black uppercase text-gray-400 dark:text-gray-500 tracking-wider">Descripción *</label>
+                <textarea required rows={3} placeholder="Breve descripción de la actividad..." className="w-full px-3 py-2 border border-gray-200 dark:border-dark-border bg-white dark:bg-dark-card rounded-xl text-xs focus:ring-2 focus:ring-primary outline-none text-gray-800 dark:text-gray-200 resize-none" value={eviDesc} onChange={(e) => setEviDesc(e.target.value)} />
               </div>
             </>
           )}

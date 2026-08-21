@@ -51,6 +51,27 @@ export const noticiaSchema = z.object({
   autor: z.string().min(1, "El autor es obligatorio").max(100),
 });
 
+export const MESES = [
+  "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto",
+  "Septiembre", "Octubre", "Noviembre", "Diciembre",
+];
+
+export const CATEGORIAS_EVIDENCIA = [
+  "Gestión", "Robótica", "Taller", "Feria", "Concurso",
+  "Capacitación", "Proyecto", "Celebración", "Otro",
+];
+
+export const TIPOS_EVIDENCIA = ["Foto", "Video"];
+
+export const evidenciaSchema = z.object({
+  titulo: z.string().min(1, "El título es obligatorio").max(200),
+  mes: z.enum(MESES, { message: "Mes no válido" }),
+  categoria: z.enum(CATEGORIAS_EVIDENCIA, { message: "Categoría no válida" }).default("Otro"),
+  tipo: z.enum(TIPOS_EVIDENCIA, { message: "Tipo de evidencia no válido" }).default("Foto"),
+  desc: z.string().min(1, "La descripción es obligatoria").max(3000),
+  url: z.string().min(1, "La imagen o enlace de la evidencia es obligatorio").max(1000),
+});
+
 export const usuarioSchema = z.object({
   nombre: z.string().min(1, "El nombre es obligatorio").max(100),
   usuario: z.string().min(3, "El usuario debe tener al menos 3 caracteres").max(50),

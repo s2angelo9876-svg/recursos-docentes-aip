@@ -7,6 +7,7 @@ import Hero from "./components/Hero";
 import Repositorio from "./components/Repositorio";
 import Tutoriales from "./components/Tutoriales";
 import Noticias from "./components/Noticias";
+import Evidencias from "./components/Evidencias";
 import AdminPanel from "./components/AdminPanel";
 import Login from "./components/Login";
 import AdminModal from "./components/AdminModal";
@@ -66,7 +67,7 @@ function SectionHeader({ icon, iconColor, title, onAdd }) {
 }
 
 function AppContent() {
-  const { currentUser, deleteTutorial } = useApp();
+  const { currentUser, deleteTutorial, deleteEvidencia } = useApp();
   const isAdmin = currentUser?.rol === "Administrador";
   const isDocente = currentUser?.rol === "Docente";
 
@@ -157,15 +158,19 @@ function AppContent() {
             } />
 
             <Route path="/evidencias" element={
-              isAdmin ? (
-                <motion.div key="evidencias" initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -15 }} transition={{ duration: 0.25 }}>
-                  <MaintenanceView title="Evidencias por Mes" />
-                </motion.div>
-              ) : (
-                <motion.div key="evidencias-maint" initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -15 }} transition={{ duration: 0.25 }}>
-                  <MaintenanceView title="Evidencias por Mes" />
-                </motion.div>
-              )
+              <motion.div key="evidencias" initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -15 }} transition={{ duration: 0.25 }} className="space-y-6 text-left">
+                <SectionHeader
+                  icon="fas fa-images"
+                  iconColor="bg-green-50 text-green-600 dark:bg-green-950/30 dark:text-green-400"
+                  title="Evidencias por Mes"
+                  onAdd={isAdmin || isDocente ? () => openCmsAdd("evidencias") : null}
+                />
+                <Evidencias
+                  isAdminMode={isAdmin || isDocente}
+                  onEditClick={(item) => openCmsEdit("evidencias", item)}
+                  onDeleteClick={(id) => { if (window.confirm("¿Eliminar esta evidencia?")) deleteEvidencia(id); }}
+                />
+              </motion.div>
             } />
 
             <Route path="/tutoriales" element={

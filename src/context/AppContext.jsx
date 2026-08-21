@@ -7,6 +7,7 @@ export function AppContextProvider({ children }) {
   const [recursos, setRecursos] = useState([]);
   const [tutoriales, setTutoriales] = useState([]);
   const [noticias, setNoticias] = useState([]);
+  const [evidencias, setEvidencias] = useState([]);
 
   // Client-specific settings kept in local browser
   const [favoritos, setFavoritos] = useState(() => {
@@ -49,14 +50,15 @@ export function AppContextProvider({ children }) {
   const loadDatabase = async ({ retries = 5, delayMs = 1500 } = {}) => {
     for (let attempt = 1; attempt <= retries; attempt++) {
       try {
-        const [resRec, resTut, resNot] = await Promise.all([
+        const [resRec, resTut, resNot, resEvi] = await Promise.all([
           fetch(`${API_BASE}/api/recursos`),
           fetch(`${API_BASE}/api/tutoriales`),
           fetch(`${API_BASE}/api/noticias`),
+          fetch(`${API_BASE}/api/evidencias`),
         ]);
 
         // Si el servidor aún no está listo (503) reintentamos
-        if (resRec.status === 503 || resTut.status === 503 || resNot.status === 503) {
+        if (resRec.status === 503 || resTut.status === 503 || resNot.status === 503 || resEvi.status === 503) {
           if (attempt < retries) {
             await new Promise((r) => setTimeout(r, delayMs * attempt));
             continue;
@@ -64,15 +66,17 @@ export function AppContextProvider({ children }) {
           return; // Se agotaron reintentos, quedamos con arrays vacíos
         }
 
-        const [rec, tut, not] = await Promise.all([
+        const [rec, tut, not, evi] = await Promise.all([
           resRec.ok ? resRec.json() : [],
           resTut.ok ? resTut.json() : [],
           resNot.ok ? resNot.json() : [],
+          resEvi.ok ? resEvi.json() : [],
         ]);
 
         setRecursos(rec);
         setTutoriales(tut);
         setNoticias(not);
+        setEvidencias(evi);
         return; // éxito
       } catch {
         // ECONNREFUSED u otro error de red — reintentamos
@@ -351,9 +355,63 @@ export function AppContextProvider({ children }) {
     }
   };
 
+  // --- CRUD ACTIONS FOR EVIDENCIAS ---
+  const addEvidencia = async (item) => {
+    try {
+      const response = await fetch(`${API_BASE}/api/evidencias`, {
+        method: "POST",
+        headers: getAuthHeaders(),
+        body: JSON.stringify(item),
+      });
+      if (await handleApiResponse(response)) {
+        if (response.ok) {
+          const newItem = await response.json();
+          setEvidencias((prev) => [newItem, ...prev]);
+        }
+      }
+    } catch (_err) {
+      console.error("Error al agregar evidencia:", _err);
+    }
+  };
+
+  const updateEvidencia = async (id, updatedItem) => {
+    try {
+      const response = await fetch(`${API_BASE}/api/evidencias/${id}`, {
+        method: "PUT",
+        headers: getAuthHeaders(),
+        body: JSON.stringify(updatedItem),
+      });
+      if (await handleApiResponse(response)) {
+        if (response.ok) {
+          setEvidencias((prev) =>
+            prev.map((item) => (String(item.id) === String(id) ? { ...updatedItem, id } : item))
+          );
+        }
+      }
+    } catch (_err) {
+      console.error("Error al editar evidencia:", _err);
+    }
+  };
+
+  const deleteEvidencia = async (id) => {
+    try {
+      const response = await fetch(`${API_BASE}/api/evidencias/${id}`, {
+        method: "DELETE",
+        headers: getAuthHeaders()
+      });
+      if (await handleApiResponse(response)) {
+        if (response.ok) {
+          setEvidencias((prev) => prev.filter((item) => String(item.id) !== String(id)));
+        }
+      }
+    } catch (_err) {
+      console.error("Error al eliminar evidencia:", _err);
+    }
+  };
+
   // --- EXPORT AND IMPORT DATABASE ---
   const exportData = () => {
-    const data = { recursos, tutoriales, noticias };
+    const data = { recursos, tutoriales, noticias, evidencias };
     const blob = new Blob([JSON.stringify(data, null, 2)], {
       type: "application/json",
     });
@@ -393,6 +451,7 @@ export function AppContextProvider({ children }) {
         recursos,
         tutoriales,
         noticias,
+        evidencias,
         favoritos,
         darkMode,
         setDarkMode,
@@ -411,6 +470,9 @@ export function AppContextProvider({ children }) {
         addNoticia,
         updateNoticia,
         deleteNoticia,
+        addEvidencia,
+        updateEvidencia,
+        deleteEvidencia,
         exportData,
         importData,
         tutorialAccess,
