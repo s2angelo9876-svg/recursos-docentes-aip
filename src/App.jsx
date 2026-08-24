@@ -12,39 +12,6 @@ import AdminPanel from "./components/AdminPanel";
 import Login from "./components/Login";
 import AdminModal from "./components/AdminModal";
 
-function MaintenanceView({ title }) {
-  return (
-    <div className="flex flex-col items-center justify-center min-h-[50vh] px-4 text-center">
-      <div className="relative bg-white dark:bg-dark-card border border-gray-200 dark:border-dark-border w-full max-w-lg rounded-3xl shadow-2xl p-8 overflow-hidden transition-colors">
-        {/* Glow sphere */}
-        <div className="absolute -top-16 -right-16 w-40 h-40 bg-amber-500/10 rounded-full blur-3xl pointer-events-none" />
-        <div className="absolute -bottom-16 -left-16 w-40 h-40 bg-orange-500/10 rounded-full blur-3xl pointer-events-none" />
-
-        <div className="h-16 w-16 rounded-2xl bg-gradient-to-br from-amber-500 to-orange-500 text-white flex items-center justify-center font-black text-2xl mx-auto shadow-lg mb-6 ring-4 ring-amber-500/20">
-          <i className="fas fa-tools animate-bounce"></i>
-        </div>
-
-        <h2 className="text-xl font-black uppercase text-gray-900 dark:text-white tracking-tight">
-          {title}
-        </h2>
-        <h3 className="text-sm font-bold text-amber-500 dark:text-amber-400 mt-2 uppercase tracking-wide">
-          Sección en Construcción o Mantenimiento
-        </h3>
-        <p className="text-xs text-gray-500 dark:text-gray-400 mt-4 leading-relaxed font-semibold max-w-md mx-auto">
-          Estamos trabajando para mejorar tu experiencia. Esta sección estará disponible próximamente para todos los usuarios.
-        </p>
-
-        <div className="mt-8 flex justify-center">
-          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-gray-50 dark:bg-dark-border border border-gray-200 dark:border-dark-border text-xs text-gray-500 dark:text-gray-400 font-bold">
-            <i className="fas fa-info-circle text-amber-500"></i>
-            Acceso restringido temporalmente
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
 function SectionHeader({ icon, iconColor, title, onAdd }) {
   return (
     <div className="flex items-center justify-between pb-2 border-b border-gray-200 dark:border-dark-border">
@@ -192,20 +159,18 @@ function AppContent() {
             <Route path="/proyectos" element={<Navigate to="/tutoriales" replace />} />
 
             <Route path="/noticias" element={
-              isAdmin ? (
-                <motion.div key="noticias" initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -15 }} transition={{ duration: 0.25 }} className="space-y-6 text-left">
-                  <SectionHeader
-                    icon="fas fa-bullhorn"
-                    iconColor="bg-purple-50 text-purple-600 dark:bg-purple-950/30 dark:text-purple-400"
-                    title="Comunicados y Talleres TIC"
-                  />
-                  <Noticias isAdminMode={false} />
-                </motion.div>
-              ) : (
-                <motion.div key="noticias-maint" initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -15 }} transition={{ duration: 0.25 }}>
-                  <MaintenanceView title="Comunicados y Talleres TIC" />
-                </motion.div>
-              )
+              <motion.div key="noticias" initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -15 }} transition={{ duration: 0.25 }} className="space-y-6 text-left">
+                <SectionHeader
+                  icon="fas fa-bullhorn"
+                  iconColor="bg-purple-50 text-purple-600 dark:bg-purple-950/30 dark:text-purple-400"
+                  title="Comunicados y Talleres TIC"
+                  onAdd={isAdmin ? () => openCmsAdd("noticias") : null}
+                />
+                <Noticias
+                  isAdminMode={isAdmin}
+                  onEditClick={(item) => openCmsEdit("noticias", item)}
+                />
+              </motion.div>
             } />
 
             <Route path="/admin" element={
