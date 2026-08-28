@@ -2,6 +2,7 @@ import { useState, useMemo } from "react";
 import { useApp } from "../context/AppContext";
 import { motion, AnimatePresence } from "framer-motion";
 import { getYouTubeId, getYouTubeThumbnail } from "../utils/youtube";
+import GaleriaModal from "./GaleriaModal";
 
 const MESES = [
   "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto",
@@ -59,6 +60,7 @@ export default function Evidencias({ isAdminMode = false, onEditClick = null, on
   const [mesSel, setMesSel] = useState(MES_INICIAL);
   const [busqueda, setBusqueda] = useState("");
   const [categoriaSel, setCategoriaSel] = useState("Todas");
+  const [galeriaOpen, setGaleriaOpen] = useState(false);
 
   const filtradas = useMemo(() => {
     const lista = evidencias || [];
@@ -101,6 +103,15 @@ export default function Evidencias({ isAdminMode = false, onEditClick = null, on
               <option key={c} value={c}>{c}</option>
             ))}
           </select>
+
+          <button
+            type="button"
+            onClick={() => setGaleriaOpen(true)}
+            className="flex items-center justify-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-r from-primary to-blue-600 dark:from-dark-accent dark:to-blue-500 text-white text-xs font-bold uppercase tracking-wider shadow-sm hover:shadow-md hover:opacity-95 active:scale-95 transition-all whitespace-nowrap"
+          >
+            <i className="fas fa-images"></i>
+            Galería Drive
+          </button>
         </div>
 
         {/* Pills de meses */}
@@ -200,6 +211,8 @@ export default function Evidencias({ isAdminMode = false, onEditClick = null, on
           </p>
         </div>
       )}
+
+      <GaleriaModal open={galeriaOpen} onClose={() => setGaleriaOpen(false)} />
     </div>
   );
 }
