@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 
 function ArrowLeftIcon() {
@@ -43,6 +43,8 @@ const ERROR_HINTS = {
   http: "Error al comunicarse con Google Drive.",
 };
 
+const SWIPE_THRESHOLD = 50;
+
 export default function GaleriaModal({
   open,
   onClose,
@@ -51,14 +53,18 @@ export default function GaleriaModal({
   error = null,
   initialIndex = 0,
   onRefresh = null,
-  title = "Galería Drive",
+  title = "Galería",
 }) {
   const [index, setIndex] = useState(initialIndex);
+  const [direction, setDirection] = useState(0);
   const [imgLoaded, setImgLoaded] = useState(false);
+  const touchStart = useRef(null);
+  const touchDelta = useRef(0);
 
   useEffect(() => {
     if (open) {
       setIndex(initialIndex);
+      setDirection(0);
       setImgLoaded(false);
     }
   }, [open, initialIndex]);
@@ -73,14 +79,24 @@ export default function GaleriaModal({
   }, [open]);
 
   const goPrev = useCallback(() => {
+    if (images.length < 2) return;
+    setDirection(-1);
     setIndex((i) => (i - 1 + images.length) % images.length);
     setImgLoaded(false);
   }, [images.length]);
 
   const goNext = useCallback(() => {
+    if (images.length < 2) return;
+    setDirection(1);
     setIndex((i) => (i + 1) % images.length);
     setImgLoaded(false);
   }, [images.length]);
+
+  const goTo = (i) => {
+    setDirection(i > index ? 1 : -1);
+    setIndex(i);
+    setImgLoaded(false);
+  };
 
   useEffect(() => {
     setImgLoaded(false);
@@ -97,7 +113,34 @@ export default function GaleriaModal({
     return () => window.removeEventListener("keydown", onKey);
   }, [open, onClose, goPrev, goNext]);
 
+  const handleTouchStart = (e) => {
+    if (images.length < 2) return;
+    touchStart.current = e.touches[0].clientX;
+    touchDelta.current = 0;
+  };
+
+  const handleTouchMove = (e) => {
+    if (touchStart.current === null) return;
+    touchDelta.current = e.touches[0].clientX - touchStart.current;
+  };
+
+  const handleTouchEnd = () => {
+    if (touchStart.current === null) return;
+    if (touchDelta.current > SWIPE_THRESHOLD) goPrev();
+    else if (touchDelta.current < -SWIPE_THRESHOLD) goNext();
+    touchStart.current = null;
+    touchDelta.current = 0;
+  };
+
   const current = images[index];
+  const showDots = images.length > 1 && images.length <= 15;
+  const showCounter = images.length > 15;
+
+  const slideVariants = {
+    enter: (dir) => ({ x: dir > 0 ? "100%" : "-100%", opacity: 0 }),
+    center: { x: 0, opacity: 1 },
+    exit: (dir) => ({ x: dir > 0 ? "-100%" : "100%", opacity: 0 }),
+  };
 
   return (
     <AnimatePresence>
@@ -109,26 +152,27 @@ export default function GaleriaModal({
           exit={{ opacity: 0 }}
           transition={{ duration: 0.2 }}
           onClick={onClose}
-          className="fixed inset-0 z-[100] bg-black/85 backdrop-blur-sm flex items-center justify-center p-3 sm:p-6"
+          className="fixed inset-0 z-[100] bg-black flex flex-col"
           role="dialog"
           aria-modal="true"
-          aria-label="Galería de imágenes"
+          aria-label={title}
         >
           <motion.div
-            initial={{ opacity: 0, scale: 0.96, y: 10 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.96, y: 10 }}
-            transition={{ duration: 0.22, ease: "easeOut" }}
+            initial={{ y: -20, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            exit={{ y: -20, opacity: 0 }}
+            transition={{ duration: 0.25, ease: "easeOut" }}
             onClick={(e) => e.stopPropagation()}
-            className="relative w-full max-w-5xl max-h-[95vh] bg-white dark:bg-dark-card rounded-2xl shadow-2xl overflow-hidden flex flex-col"
+            className="relative w-full h-full flex flex-col"
           >
-            <div className="flex items-center justify-between px-4 sm:px-5 py-3 border-b border-gray-100 dark:border-dark-border">
-              <div className="flex items-center gap-2">
-                <span className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded border bg-primary/10 text-primary border-primary/20 dark:bg-dark-accent/10 dark:text-dark-accent dark:border-dark-accent/20">
-                  <i className="fas fa-images mr-1"></i> {title}
+            <div className="flex items-center justify-between px-4 sm:px-6 py-3 sm:py-4 text-white z-20 absolute top-0 inset-x-0 bg-gradient-to-b from-black/70 via-black/30 to-transparent">
+              <div className="flex items-center gap-2 min-w-0">
+                <span className="text-[10px] sm:text-xs font-black uppercase tracking-wider px-2 py-1 rounded-md bg-white/10 backdrop-blur-sm flex-shrink-0">
+                  <i className="fas fa-images mr-1.5"></i>
+                  <span className="hidden sm:inline">{title}</span>
                 </span>
                 {!loading && !error && images.length > 0 && (
-                  <span className="text-xs text-gray-500 dark:text-gray-400 font-semibold">
+                  <span className="text-xs sm:text-sm font-bold opacity-90">
                     {index + 1} / {images.length}
                   </span>
                 )}
@@ -138,93 +182,103 @@ export default function GaleriaModal({
                 {onRefresh && (
                   <button
                     type="button"
-                    onClick={onRefresh}
+                    onClick={(e) => { e.stopPropagation(); onRefresh(); }}
                     disabled={loading}
                     title="Recargar"
-                    className="p-2 rounded-lg text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-dark-border disabled:opacity-50 transition-colors"
+                    className="p-2 rounded-full text-white/80 hover:text-white hover:bg-white/10 disabled:opacity-50 transition-colors"
                   >
                     <RefreshIcon />
                   </button>
                 )}
                 <button
                   type="button"
-                  onClick={onClose}
+                  onClick={(e) => { e.stopPropagation(); onClose(); }}
                   title="Cerrar (Esc)"
-                  className="p-2 rounded-lg text-gray-500 dark:text-gray-400 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-950/30 dark:hover:text-red-400 transition-colors"
+                  className="p-2 rounded-full text-white/80 hover:text-white hover:bg-red-500/80 transition-colors"
                 >
                   <CloseIcon />
                 </button>
               </div>
             </div>
 
-            <div className="relative flex-1 min-h-0 bg-gray-50 dark:bg-dark-bg">
+            <div
+              className="flex-1 relative overflow-hidden flex items-center justify-center"
+              onTouchStart={handleTouchStart}
+              onTouchMove={handleTouchMove}
+              onTouchEnd={handleTouchEnd}
+            >
               {loading && (
-                <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 text-gray-500 dark:text-gray-400">
-                  <div className="w-10 h-10 border-4 border-gray-200 dark:border-dark-border border-t-primary dark:border-t-dark-accent rounded-full animate-spin" />
-                  <span className="text-xs font-semibold uppercase tracking-wider">Cargando galería...</span>
+                <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 text-white">
+                  <div className="w-10 h-10 border-4 border-white/20 border-t-white rounded-full animate-spin" />
+                  <span className="text-xs font-semibold uppercase tracking-wider">Cargando...</span>
                 </div>
               )}
 
               {!loading && error && (
-                <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 px-6 text-center">
-                  <div className="w-14 h-14 rounded-full bg-red-50 dark:bg-red-950/30 text-red-600 dark:text-red-400 flex items-center justify-center text-2xl">
+                <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 px-6 text-center text-white">
+                  <div className="w-16 h-16 rounded-full bg-red-500/20 text-red-400 flex items-center justify-center text-2xl">
                     <i className="fas fa-exclamation-triangle"></i>
                   </div>
-                  <h3 className="text-sm font-bold text-gray-800 dark:text-gray-200 uppercase">
-                    No se pudo cargar la galería
-                  </h3>
-                  <p className="text-xs text-gray-500 dark:text-gray-400 max-w-md">{error.message}</p>
+                  <h3 className="text-base font-bold uppercase">No se pudo cargar</h3>
+                  <p className="text-xs opacity-80 max-w-md">{error.message}</p>
                   {ERROR_HINTS[error.code] && (
-                    <p className="text-[11px] text-gray-400 dark:text-gray-500 max-w-md">
-                      💡 {ERROR_HINTS[error.code]}
-                    </p>
+                    <p className="text-[11px] opacity-60 max-w-md">💡 {ERROR_HINTS[error.code]}</p>
                   )}
                 </div>
               )}
 
               {!loading && !error && images.length === 0 && (
-                <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 text-gray-400">
+                <div className="flex flex-col items-center justify-center gap-2 text-white/50">
                   <i className="far fa-folder-open text-5xl"></i>
-                  <span className="text-xs font-semibold uppercase tracking-wider">
-                    La carpeta está vacía
-                  </span>
+                  <span className="text-xs font-semibold uppercase tracking-wider">Vacío</span>
                 </div>
               )}
 
               {!loading && !error && current && (
-                <div className="absolute inset-0 flex items-center justify-center">
-                  {!imgLoaded && (
-                    <div className="absolute inset-0 flex items-center justify-center">
-                      <div className="w-8 h-8 border-4 border-gray-200 dark:border-dark-border border-t-primary dark:border-t-dark-accent rounded-full animate-spin" />
-                    </div>
-                  )}
-                  <img
-                    key={current.id}
-                    src={current.url}
-                    alt={current.name}
-                    loading="eager"
-                    onLoad={() => setImgLoaded(true)}
-                    onError={() => setImgLoaded(true)}
-                    className={`max-w-full max-h-full object-contain transition-opacity duration-300 ${imgLoaded ? "opacity-100" : "opacity-0"}`}
-                  />
-                </div>
+                <AnimatePresence initial={false} custom={direction} mode="popLayout">
+                  <motion.div
+                    key={current.id || index}
+                    custom={direction}
+                    variants={slideVariants}
+                    initial="enter"
+                    animate="center"
+                    exit="exit"
+                    transition={{ duration: 0.28, ease: [0.32, 0.72, 0, 1] }}
+                    className="absolute inset-0 flex items-center justify-center px-3 sm:px-12 py-16"
+                  >
+                    {!imgLoaded && (
+                      <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                        <div className="w-8 h-8 border-4 border-white/20 border-t-white rounded-full animate-spin" />
+                      </div>
+                    )}
+                    <img
+                      src={current.url}
+                      alt={current.name || `Imagen ${index + 1}`}
+                      loading="eager"
+                      onLoad={() => setImgLoaded(true)}
+                      onError={() => setImgLoaded(true)}
+                      draggable={false}
+                      className={`max-w-full max-h-full object-contain select-none transition-opacity duration-300 ${imgLoaded ? "opacity-100" : "opacity-0"}`}
+                    />
+                  </motion.div>
+                </AnimatePresence>
               )}
 
               {!loading && !error && images.length > 1 && (
                 <>
                   <button
                     type="button"
-                    onClick={goPrev}
-                    aria-label="Imagen anterior"
-                    className="absolute left-2 sm:left-3 top-1/2 -translate-y-1/2 w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-black/50 hover:bg-black/70 text-white flex items-center justify-center backdrop-blur-sm transition-all active:scale-95"
+                    onClick={(e) => { e.stopPropagation(); goPrev(); }}
+                    aria-label="Anterior"
+                    className="absolute left-2 sm:left-4 top-1/2 -translate-y-1/2 z-10 w-11 h-11 sm:w-12 sm:h-12 rounded-full bg-black/40 hover:bg-black/70 text-white flex items-center justify-center backdrop-blur-md transition-all active:scale-95 border border-white/10"
                   >
                     <ArrowLeftIcon />
                   </button>
                   <button
                     type="button"
-                    onClick={goNext}
-                    aria-label="Imagen siguiente"
-                    className="absolute right-2 sm:right-3 top-1/2 -translate-y-1/2 w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-black/50 hover:bg-black/70 text-white flex items-center justify-center backdrop-blur-sm transition-all active:scale-95"
+                    onClick={(e) => { e.stopPropagation(); goNext(); }}
+                    aria-label="Siguiente"
+                    className="absolute right-2 sm:right-4 top-1/2 -translate-y-1/2 z-10 w-11 h-11 sm:w-12 sm:h-12 rounded-full bg-black/40 hover:bg-black/70 text-white flex items-center justify-center backdrop-blur-md transition-all active:scale-95 border border-white/10"
                   >
                     <ArrowRightIcon />
                   </button>
@@ -232,39 +286,43 @@ export default function GaleriaModal({
               )}
             </div>
 
-            {!loading && !error && images.length > 0 && (
-              <div className="border-t border-gray-100 dark:border-dark-border">
-                <div className="px-4 sm:px-5 py-2 text-[11px] text-gray-600 dark:text-gray-300 font-medium truncate text-center">
-                  {current?.name}
-                </div>
-                {images.length > 1 && (
-                  <div className="px-3 sm:px-4 pb-3 pt-1 flex gap-2 overflow-x-auto">
-                    {images.map((img, i) => (
+            {!loading && !error && current && (
+              <motion.div
+                initial={{ y: 20, opacity: 0 }}
+                animate={{ y: 0, opacity: 1 }}
+                transition={{ delay: 0.1 }}
+                className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent text-white"
+              >
+                {current.name && (
+                  <div className="px-4 sm:px-6 py-2 sm:py-3 text-center">
+                    <p className="text-xs sm:text-sm font-medium opacity-90 truncate">
+                      {current.name}
+                    </p>
+                  </div>
+                )}
+
+                {showDots && (
+                  <div className="flex items-center justify-center gap-1.5 pb-3 sm:pb-4 px-4">
+                    {images.map((_, i) => (
                       <button
-                        key={img.id}
+                        key={i}
                         type="button"
-                        onClick={() => {
-                          setIndex(i);
-                          setImgLoaded(false);
-                        }}
-                        className={`flex-shrink-0 w-14 h-14 sm:w-16 sm:h-16 rounded-lg overflow-hidden border-2 transition-all ${
-                          i === index
-                            ? "border-primary dark:border-dark-accent scale-105"
-                            : "border-transparent opacity-60 hover:opacity-100"
-                        }`}
+                        onClick={() => goTo(i)}
                         aria-label={`Ir a imagen ${i + 1}`}
-                      >
-                        <img
-                          src={img.thumb || img.url}
-                          alt=""
-                          loading="lazy"
-                          className="w-full h-full object-cover"
-                        />
-                      </button>
+                        className={`h-1.5 rounded-full transition-all ${i === index ? "w-6 bg-white" : "w-1.5 bg-white/40 hover:bg-white/70"}`}
+                      />
                     ))}
                   </div>
                 )}
-              </div>
+
+                {showCounter && (
+                  <div className="flex justify-center pb-4">
+                    <span className="px-3 py-1 rounded-full bg-white/10 backdrop-blur-md text-xs font-bold">
+                      {index + 1} / {images.length}
+                    </span>
+                  </div>
+                )}
+              </motion.div>
             )}
           </motion.div>
         </motion.div>

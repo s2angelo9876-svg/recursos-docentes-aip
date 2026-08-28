@@ -904,10 +904,19 @@ app.delete("/api/noticias/:id", authenticateToken, requireRole(["Administrador"]
 
 // --- EVIDENCIAS ENDPOINTS ---
 
+function normalizeEvidencia(raw) {
+  const e = raw.toJSON ? raw.toJSON() : raw;
+  let imagenes = Array.isArray(e.imagenes) ? e.imagenes : [];
+  if (imagenes.length === 0 && e.url) {
+    imagenes = [{ url: e.url, name: "imagen", mimetype: null, size: null }];
+  }
+  return { ...e, imagenes };
+}
+
 app.get("/api/evidencias", async (req, res) => {
   try {
     const list = await Evidencia.findAll({ order: [["id", "DESC"]] });
-    res.json(list);
+    res.json(list.map(normalizeEvidencia));
   } catch (err) {
     logger.error("Error al listar evidencias", { error: err.message, stack: err.stack });
     res.status(500).json({ error: err.message });
@@ -916,7 +925,11 @@ app.get("/api/evidencias", async (req, res) => {
 
 app.post("/api/evidencias", authenticateToken, requireRole(["Administrador", "Docente"]), validateBody(evidenciaSchema), async (req, res) => {
   try {
-    const evidencia = await Evidencia.create(req.body);
+    const body = { ...req.body };
+    if (Array.isArray(body.imagenes) && body.imagenes.length > 0 && !body.url) {
+      body.url = body.imagenes[0].url;
+    }
+    const evidencia = await Evidencia.create(body);
 
     await auditoriaFromRequest(req, {
       usuarioId: req.user.id,
@@ -926,11 +939,11 @@ app.post("/api/evidencias", authenticateToken, requireRole(["Administrador", "Do
       accion: "EVIDENCIA_CREADA",
       entidad: "evidencia",
       entidadId: evidencia.id,
-      detalle: `Evidencia "${evidencia.titulo}" creada`,
+      detalle: `Evidencia "${evidencia.titulo}" creada (${Array.isArray(evidencia.imagenes) ? evidencia.imagenes.length : 1} imagen(es))`,
       exito: true,
     });
 
-    res.status(201).json(evidencia);
+    res.status(201).json(normalizeEvidencia(evidencia));
   } catch (err) {
     logger.error("Error al crear evidencia", { error: err.message, stack: err.stack });
     res.status(500).json({ error: err.message });
@@ -940,7 +953,11 @@ app.post("/api/evidencias", authenticateToken, requireRole(["Administrador", "Do
 app.put("/api/evidencias/:id", authenticateToken, requireRole(["Administrador", "Docente"]), validateBody(evidenciaSchema), async (req, res) => {
   try {
     const { id } = req.params;
-    await Evidencia.update(req.body, { where: { id } });
+    const body = { ...req.body };
+    if (Array.isArray(body.imagenes) && body.imagenes.length > 0 && !body.url) {
+      body.url = body.imagenes[0].url;
+    }
+    await Evidencia.update(body, { where: { id } });
 
     await auditoriaFromRequest(req, {
       usuarioId: req.user.id,
@@ -968,6 +985,13 @@ app.delete("/api/evidencias/:id", authenticateToken, requireRole(["Administrador
     if (!evidencia) return res.status(404).json({ error: "Evidencia no encontrada" });
 
     await deleteFile(evidencia.url);
+    if (Array.isArray(evidencia.imagenes)) {
+      for (const img of evidencia.imagenes) {
+        if (img?.url && img.url !== evidencia.url) {
+          await deleteFile(img.url);
+        }
+      }
+    }
     await evidencia.destroy();
 
     await auditoriaFromRequest(req, {
@@ -1016,6 +1040,50 @@ app.post("/api/upload", authenticateToken, requireRole(["Administrador", "Docent
       res.json({ success: true, url: result.url, filename: result.filename });
     } catch (uploadErr) {
       logger.error("[AUDIT] Error al guardar archivo:", { error: uploadErr.message });
+      res.status(500).json({ error: uploadErr.message });
+    }
+  });
+});
+
+// --- MULTIPLE FILE UPLOAD ENDPOINT (para colecciones de evidencias) ---
+app.post("/api/uploads", authenticateToken, requireRole(["Administrador", "Docente"]), (req, res) => {
+  upload.array("files", 30)(req, res, async (err) => {
+    if (err) {
+      if (err instanceof multer.MulterError) {
+        if (err.code === "LIMIT_FILE_SIZE") {
+          return res.status(400).json({ error: "Uno o más archivos exceden el límite de 10 MB." });
+        }
+        if (err.code === "LIMIT_UNEXPECTED_FILE") {
+          return res.status(400).json({ error: "Demasiados archivos (máximo 30)." });
+        }
+        return res.status(400).json({ error: err.message });
+      }
+      if (err.message?.includes("Tipo de archivo no permitido")) {
+        return res.status(400).json({ error: err.message });
+      }
+      return res.status(500).json({ error: err.message });
+    }
+    const files = req.files || [];
+    if (files.length === 0) {
+      return res.status(400).json({ error: "No se enviaron archivos" });
+    }
+
+    try {
+      const uploaded = [];
+      for (const f of files) {
+        const filename = generateFileName(f.originalname);
+        const result = await uploadFile(f.buffer, filename, f.mimetype);
+        uploaded.push({
+          url: result.url,
+          name: f.originalname,
+          size: f.size,
+          mimetype: f.mimetype,
+        });
+      }
+      logger.info(`[AUDIT] Subida múltiple: ${uploaded.length} archivos`);
+      res.json({ success: true, files: uploaded });
+    } catch (uploadErr) {
+      logger.error("[AUDIT] Error al guardar archivos:", { error: uploadErr.message });
       res.status(500).json({ error: uploadErr.message });
     }
   });

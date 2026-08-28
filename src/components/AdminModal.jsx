@@ -74,6 +74,9 @@ export default function AdminModal({ isOpen, onClose, type, editingItem }) {
   const [eviSourceType, setEviSourceType] = useState("url");
   const [eviUrl, setEviUrl] = useState("");
   const [eviFile, setEviFile] = useState(null);
+  const [eviFiles, setEviFiles] = useState([]);
+  const [eviCollectionMode, setEviCollectionMode] = useState(false);
+  const [eviExistingImagenes, setEviExistingImagenes] = useState([]);
 
   // ── Populate form when editing ────────────────────────────
   useEffect(() => {
@@ -116,9 +119,21 @@ export default function AdminModal({ isOpen, onClose, type, editingItem }) {
         setEviCategoria(editingItem.categoria || CATEGORIAS_EVIDENCIA[0]);
         setEviTipo(editingItem.tipo || TIPOS_EVIDENCIA[0]);
         setEviDesc(editingItem.desc || "");
-        setEviSourceType("url");
-        setEviUrl(editingItem.url || "");
-        setEviFile(null);
+        const existingImgs = Array.isArray(editingItem.imagenes) ? editingItem.imagenes : [];
+        setEviExistingImagenes(existingImgs);
+        if (existingImgs.length > 1) {
+          setEviSourceType("archivo");
+          setEviCollectionMode(true);
+          setEviUrl("");
+          setEviFile(null);
+          setEviFiles([]);
+        } else {
+          setEviSourceType("url");
+          setEviCollectionMode(false);
+          setEviUrl(editingItem.url || "");
+          setEviFile(null);
+          setEviFiles([]);
+        }
       }
     } else {
       // Reset for "add" mode
@@ -133,6 +148,7 @@ export default function AdminModal({ isOpen, onClose, type, editingItem }) {
       setEviTitulo(""); setEviMes(MESES[0]); setEviCategoria(CATEGORIAS_EVIDENCIA[0]);
       setEviTipo(TIPOS_EVIDENCIA[0]); setEviDesc("");
       setEviSourceType("url"); setEviUrl(""); setEviFile(null);
+      setEviFiles([]); setEviCollectionMode(false); setEviExistingImagenes([]);
     }
   }, [isOpen, editingItem, type]);
 
@@ -174,6 +190,51 @@ export default function AdminModal({ isOpen, onClose, type, editingItem }) {
     } finally {
       setLoadingFile(false);
     }
+  };
+
+  const uploadFiles = async (files) => {
+    if (!files || files.length === 0) return [];
+    const oversized = files.find(f => f.size > 10 * 1024 * 1024);
+    if (oversized) {
+      alert(`"${oversized.name}" excede el límite de 10 MB.`);
+      return null;
+    }
+    try {
+      setLoadingFile(true);
+      setUploadProgressMsg(`Subiendo ${files.length} archivo(s)...`);
+      const formData = new FormData();
+      for (const f of files) formData.append("files", f);
+      const response = await fetch(`${API_BASE}/api/uploads`, {
+        method: "POST",
+        headers: { ...(token ? { "Authorization": `Bearer ${token}` } : {}) },
+        body: formData
+      });
+      if (response.status === 401 || response.status === 403) {
+        logout();
+        alert("Tu sesión ha expirado.");
+        return null;
+      }
+      if (!response.ok) throw new Error("Error en la carga múltiple.");
+      const resData = await response.json();
+      setUploadProgressMsg(`¡${resData.files.length} archivo(s) subido(s)!`);
+      setTimeout(() => setUploadProgressMsg(""), 2000);
+      return resData.files;
+    } catch (_err) {
+      console.error(_err);
+      alert("Fallo al subir archivos al servidor.");
+      setUploadProgressMsg("Error al cargar.");
+      return null;
+    } finally {
+      setLoadingFile(false);
+    }
+  };
+
+  const removeEviFile = (idx) => {
+    setEviFiles(prev => prev.filter((_, i) => i !== idx));
+  };
+
+  const removeEviExisting = (idx) => {
+    setEviExistingImagenes(prev => prev.filter((_, i) => i !== idx));
   };
 
   const handleAddMaterial = async () => {
@@ -240,11 +301,36 @@ export default function AdminModal({ isOpen, onClose, type, editingItem }) {
 
     } else if (type === "evidencias") {
       if (!eviTitulo || !eviDesc) { alert("Complete los campos obligatorios."); return; }
-      let finalUrl = "";
+
+      let data;
       if (eviSourceType === "url") {
         if (!eviUrl) { alert("Ingrese la URL de la evidencia."); return; }
-        finalUrl = eviUrl;
+        data = {
+          titulo: eviTitulo,
+          mes: eviMes,
+          categoria: eviCategoria,
+          tipo: eviTipo,
+          desc: eviDesc,
+          url: eviUrl,
+          imagenes: [{ url: eviUrl, name: "imagen", mimetype: null, size: null }],
+        };
+      } else if (eviCollectionMode) {
+        const nuevas = eviFiles.length > 0 ? await uploadFiles(eviFiles) : null;
+        if (eviFiles.length > 0 && nuevas === null) return;
+        const uploaded = nuevas || [];
+        const all = [...eviExistingImagenes, ...uploaded];
+        if (all.length === 0) { alert("Sube al menos una foto o conserva las existentes."); return; }
+        data = {
+          titulo: eviTitulo,
+          mes: eviMes,
+          categoria: eviCategoria,
+          tipo: eviTipo,
+          desc: eviDesc,
+          url: all[0]?.url || "",
+          imagenes: all,
+        };
       } else {
+        let finalUrl;
         if (eviFile) {
           const uploaded = await uploadFile(eviFile);
           if (!uploaded) return;
@@ -254,8 +340,22 @@ export default function AdminModal({ isOpen, onClose, type, editingItem }) {
         } else {
           alert("Seleccione un archivo."); return;
         }
+        data = {
+          titulo: eviTitulo,
+          mes: eviMes,
+          categoria: eviCategoria,
+          tipo: eviTipo,
+          desc: eviDesc,
+          url: finalUrl,
+          imagenes: [{
+            url: finalUrl,
+            name: eviFile ? eviFile.name : "imagen",
+            mimetype: eviFile?.type || null,
+            size: eviFile?.size || null,
+          }],
+        };
       }
-      const data = { titulo: eviTitulo, mes: eviMes, categoria: eviCategoria, tipo: eviTipo, desc: eviDesc, url: finalUrl };
+
       editingItem ? await updateEvidencia(editingItem.id, data) : await addEvidencia(data);
     }
 
@@ -517,27 +617,107 @@ export default function AdminModal({ isOpen, onClose, type, editingItem }) {
               <div className="space-y-3 p-4 border border-dashed border-gray-200 dark:border-dark-border bg-gray-50/50 dark:bg-dark-border/20 rounded-2xl">
                 <label className="text-[10px] font-black uppercase text-gray-400 dark:text-gray-500 tracking-wider block">Origen de la Evidencia *</label>
                 <div className="flex gap-2">
-                  <button type="button" onClick={() => setEviSourceType("url")} className={`flex-1 py-2 rounded-xl text-xs font-bold border transition-all flex items-center justify-center gap-1.5 ${eviSourceType === "url" ? "bg-primary dark:bg-dark-accent text-white border-primary" : "bg-white dark:bg-dark-card text-gray-600 dark:text-gray-300 border-gray-200 dark:border-dark-border"}`}>
+                  <button type="button" onClick={() => { setEviSourceType("url"); setEviCollectionMode(false); }} className={`flex-1 py-2 rounded-xl text-xs font-bold border transition-all flex items-center justify-center gap-1.5 ${eviSourceType === "url" ? "bg-primary dark:bg-dark-accent text-white border-primary" : "bg-white dark:bg-dark-card text-gray-600 dark:text-gray-300 border-gray-200 dark:border-dark-border"}`}>
                     <i className="fas fa-link"></i> Enlace Web
                   </button>
-                  <button type="button" onClick={() => setEviSourceType("archivo")} className={`flex-1 py-2 rounded-xl text-xs font-bold border transition-all flex items-center justify-center gap-1.5 ${eviSourceType === "archivo" ? "bg-primary dark:bg-dark-accent text-white border-primary" : "bg-white dark:bg-dark-card text-gray-600 dark:text-gray-300 border-gray-200 dark:border-dark-border"}`}>
+                  <button type="button" onClick={() => { setEviSourceType("archivo"); }} className={`flex-1 py-2 rounded-xl text-xs font-bold border transition-all flex items-center justify-center gap-1.5 ${eviSourceType === "archivo" ? "bg-primary dark:bg-dark-accent text-white border-primary" : "bg-white dark:bg-dark-card text-gray-600 dark:text-gray-300 border-gray-200 dark:border-dark-border"}`}>
                     <i className="fas fa-file-upload"></i> Subir Archivo
                   </button>
                 </div>
+
                 {eviSourceType === "url" ? (
                   <input type="url" required placeholder={eviTipo === "Video" ? "https://www.youtube.com/watch?v=..." : "https://ejemplo.com/foto.jpg"} className="w-full px-3 py-2 border border-gray-200 dark:border-dark-border bg-white dark:bg-dark-card rounded-xl text-xs focus:ring-2 focus:ring-primary outline-none text-gray-800 dark:text-gray-200" value={eviUrl} onChange={(e) => setEviUrl(e.target.value)} />
                 ) : (
-                  <div className="space-y-1">
-                    <label className="block w-full py-3 border border-dashed border-gray-300 dark:border-dark-border hover:bg-gray-100 dark:hover:bg-dark-hover rounded-xl text-center cursor-pointer text-xs font-bold text-gray-600 dark:text-gray-300 transition-colors">
-                      <i className="fas fa-file-upload mr-2 text-primary dark:text-dark-accent text-lg"></i>
-                      {eviFile ? eviFile.name : (editingItem?.url ? "Cambiar archivo actual" : "Examinar archivo")}
-                      <input type="file" accept={eviTipo === "Video" ? "video/*" : "image/*"} onChange={(e) => setEviFile(e.target.files[0])} className="hidden" />
-                    </label>
-                    {!eviFile && editingItem?.url && (
-                      <div className="text-[10px] text-emerald-600 dark:text-emerald-400 italic font-bold text-center">✓ Archivo actual en el servidor</div>
+                  <>
+                    <div className="flex gap-2">
+                      <button type="button" onClick={() => setEviCollectionMode(false)} className={`flex-1 py-1.5 rounded-lg text-[10px] font-bold border transition-all ${!eviCollectionMode ? "bg-indigo-50 dark:bg-indigo-950/30 text-indigo-700 dark:text-indigo-400 border-indigo-200 dark:border-indigo-900/40" : "bg-white dark:bg-dark-card text-gray-600 dark:text-gray-300 border-gray-200 dark:border-dark-border"}`}>
+                        <i className="fas fa-image mr-1"></i> Una foto
+                      </button>
+                      <button type="button" onClick={() => setEviCollectionMode(true)} className={`flex-1 py-1.5 rounded-lg text-[10px] font-bold border transition-all ${eviCollectionMode ? "bg-indigo-50 dark:bg-indigo-950/30 text-indigo-700 dark:text-indigo-400 border-indigo-200 dark:border-indigo-900/40" : "bg-white dark:bg-dark-card text-gray-600 dark:text-gray-300 border-gray-200 dark:border-dark-border"}`}>
+                        <i className="fas fa-images mr-1"></i> Colección de fotos
+                      </button>
+                    </div>
+
+                    {!eviCollectionMode ? (
+                      <div className="space-y-1">
+                        <label className="block w-full py-3 border border-dashed border-gray-300 dark:border-dark-border hover:bg-gray-100 dark:hover:bg-dark-hover rounded-xl text-center cursor-pointer text-xs font-bold text-gray-600 dark:text-gray-300 transition-colors">
+                          <i className="fas fa-file-upload mr-2 text-primary dark:text-dark-accent text-lg"></i>
+                          {eviFile ? eviFile.name : (editingItem?.url ? "Cambiar archivo actual" : "Examinar archivo")}
+                          <input type="file" accept="image/*" onChange={(e) => setEviFile(e.target.files[0])} className="hidden" />
+                        </label>
+                        {!eviFile && editingItem?.url && (
+                          <div className="text-[10px] text-emerald-600 dark:text-emerald-400 italic font-bold text-center">✓ Archivo actual en el servidor</div>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="space-y-3">
+                        <label className="block w-full py-3 border border-dashed border-indigo-300 dark:border-indigo-900/50 hover:bg-indigo-50/50 dark:hover:bg-indigo-950/20 rounded-xl text-center cursor-pointer text-xs font-bold text-indigo-700 dark:text-indigo-400 transition-colors">
+                          <i className="fas fa-cloud-upload-alt mr-2 text-lg"></i>
+                          Selecciona una o varias fotos
+                          <input
+                            type="file"
+                            accept="image/*"
+                            multiple
+                            onChange={(e) => setEviFiles(Array.from(e.target.files || []))}
+                            className="hidden"
+                          />
+                        </label>
+
+                        {eviExistingImagenes.length > 0 && (
+                          <div className="space-y-1.5">
+                            <p className="text-[10px] font-bold uppercase text-gray-500 dark:text-gray-400 tracking-wider">Actuales ({eviExistingImagenes.length})</p>
+                            <div className="grid grid-cols-4 gap-2">
+                              {eviExistingImagenes.map((img, i) => (
+                                <div key={i} className="relative aspect-square rounded-lg overflow-hidden border border-gray-200 dark:border-dark-border group/preview">
+                                  <img src={img.url} alt="" className="w-full h-full object-cover" />
+                                  <button
+                                    type="button"
+                                    onClick={() => removeEviExisting(i)}
+                                    className="absolute top-1 right-1 w-5 h-5 rounded-full bg-red-600 text-white text-[10px] flex items-center justify-center opacity-0 group-hover/preview:opacity-100 transition-opacity"
+                                    title="Quitar"
+                                  >
+                                    <i className="fas fa-times"></i>
+                                  </button>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {eviFiles.length > 0 && (
+                          <div className="space-y-1.5">
+                            <p className="text-[10px] font-bold uppercase text-indigo-600 dark:text-indigo-400 tracking-wider">Nuevas ({eviFiles.length})</p>
+                            <div className="grid grid-cols-4 gap-2">
+                              {eviFiles.map((f, i) => (
+                                <div key={i} className="relative aspect-square rounded-lg overflow-hidden border border-indigo-200 dark:border-indigo-900/50 group/preview">
+                                  <img src={URL.createObjectURL(f)} alt="" className="w-full h-full object-cover" />
+                                  <button
+                                    type="button"
+                                    onClick={() => removeEviFile(i)}
+                                    className="absolute top-1 right-1 w-5 h-5 rounded-full bg-red-600 text-white text-[10px] flex items-center justify-center opacity-0 group-hover/preview:opacity-100 transition-opacity"
+                                    title="Quitar"
+                                  >
+                                    <i className="fas fa-times"></i>
+                                  </button>
+                                  <div className="absolute bottom-0 inset-x-0 bg-black/60 text-white text-[8px] px-1 py-0.5 truncate">
+                                    {f.name}
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        <p className="text-[10px] text-gray-500 dark:text-gray-400 italic text-center">
+                          {eviFiles.length === 0 && eviExistingImagenes.length === 0
+                            ? "Selecciona varias fotos a la vez (máx. 30, 10MB c/u)"
+                            : `Total: ${eviExistingImagenes.length + eviFiles.length} foto(s)`}
+                        </p>
+                      </div>
                     )}
-                  </div>
+                  </>
                 )}
+
                 {uploadProgressMsg && <div className="text-[9px] text-blue-600 dark:text-blue-400 font-black animate-pulse">{uploadProgressMsg}</div>}
               </div>
 

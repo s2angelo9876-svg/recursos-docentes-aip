@@ -42,11 +42,23 @@ const CATEGORIA_COLORS = {
   "Otro": "bg-gray-50 text-gray-500 dark:bg-dark-border dark:text-gray-400 border-gray-200 dark:border-dark-border",
 };
 
+function normalizeImgs(ev) {
+  const arr = Array.isArray(ev?.imagenes) ? ev.imagenes : [];
+  if (arr.length > 0) return arr;
+  if (ev?.url) return [{ url: ev.url, name: "imagen", mimetype: null, size: null }];
+  return [];
+}
+
 function EvidenciaMedia({ evidencia }) {
-  const ytId = evidencia.tipo === "Video" ? getYouTubeId(evidencia.url) : null;
+  const imgs = normalizeImgs(evidencia);
+  const isVideo = evidencia.tipo === "Video" && imgs.length === 1;
+  const ytId = isVideo ? getYouTubeId(imgs[0]?.url) : null;
+  const cover = imgs[0]?.url || "";
   const src = ytId
     ? getYouTubeThumbnail(ytId, "hqdefault")
-    : (evidencia.thumb || evidencia.url);
+    : (evidencia.thumb || cover);
+  const isCollection = imgs.length > 1 && !isVideo;
+  const isDrive = evidencia.source === "drive";
 
   return (
     <div className="relative overflow-hidden rounded-xl border border-gray-150 dark:border-dark-border bg-gray-100 dark:bg-dark-border aspect-video group/media">
@@ -57,14 +69,38 @@ function EvidenciaMedia({ evidencia }) {
         className="w-full h-full object-cover transition-transform duration-500 group-hover/media:scale-105"
         onError={(e) => { e.currentTarget.style.display = "none"; }}
       />
-      {evidencia.tipo === "Video" && (
+      {isVideo && (
         <div className="absolute inset-0 flex items-center justify-center bg-black/25">
           <div className="w-11 h-11 rounded-full bg-red-600 text-white flex items-center justify-center shadow-lg">
             <i className="fas fa-play text-sm ml-0.5"></i>
           </div>
         </div>
       )}
-      {evidencia.source === "drive" && (
+      {isCollection && (
+        <>
+          <div className="absolute top-2 right-2 w-7 h-7 rounded-full bg-indigo-600/90 text-white flex items-center justify-center shadow-md text-[10px] font-black">
+            <i className="fas fa-layer-group text-[11px]"></i>
+          </div>
+          <div className="absolute bottom-2 right-2 px-2 py-0.5 rounded-full bg-black/70 text-white text-[10px] font-black backdrop-blur-sm">
+            1 / {imgs.length}
+          </div>
+          {imgs.length >= 2 && (
+            <div className="absolute top-2 left-2 flex gap-1">
+              {imgs.slice(1, 4).map((img, i) => (
+                <div key={i} className="w-8 h-8 rounded-md overflow-hidden border-2 border-white/80 shadow-md rotate-3">
+                  <img src={img.url} alt="" className="w-full h-full object-cover" />
+                </div>
+              ))}
+              {imgs.length > 4 && (
+                <div className="w-8 h-8 rounded-md bg-black/70 text-white text-[9px] font-black flex items-center justify-center border-2 border-white/80 shadow-md">
+                  +{imgs.length - 4}
+                </div>
+              )}
+            </div>
+          )}
+        </>
+      )}
+      {isDrive && !isCollection && (
         <div className="absolute top-2 right-2 w-7 h-7 rounded-full bg-indigo-600/90 text-white flex items-center justify-center shadow-md">
           <i className="fas fa-images text-[11px]"></i>
         </div>
@@ -83,8 +119,8 @@ export default function Evidencias({ isAdminMode = false, onEditClick = null, on
   const [driveImages, setDriveImages] = useState([]);
   const [driveLoading, setDriveLoading] = useState(false);
   const [driveError, setDriveError] = useState(null);
-  const [galeriaOpen, setGaleriaOpen] = useState(false);
-  const [galeriaIndex, setGaleriaIndex] = useState(0);
+
+  const [galeria, setGaleria] = useState({ open: false, images: [], index: 0, title: "Galería", loading: false, error: null });
 
   const loadDrive = useCallback(async (force = false) => {
     setDriveLoading(true);
@@ -156,9 +192,42 @@ export default function Evidencias({ isAdminMode = false, onEditClick = null, on
     return [...regulares, ...driveFiltradas];
   }, [evidencias, driveEvidencias, mesSel, busqueda, categoriaSel]);
 
-  const openGaleria = (driveIndex = 0) => {
-    setGaleriaIndex(driveIndex);
-    setGaleriaOpen(true);
+  const openDriveGaleria = (driveIndex = 0) => {
+    const images = driveImages.map((img) => ({
+      id: img.id,
+      name: img.name,
+      url: img.url,
+      thumb: img.thumb,
+    }));
+    setGaleria({
+      open: true,
+      images,
+      index: driveIndex,
+      title: "Galería Drive",
+      loading: driveLoading,
+      error: driveError,
+    });
+  };
+
+  const openEvidenciaGaleria = (ev) => {
+    const images = normalizeImgs(ev).map((img, i) => ({
+      id: img.url || `img-${i}`,
+      name: img.name || `Foto ${i + 1}`,
+      url: img.url,
+      thumb: img.url,
+    }));
+    setGaleria({
+      open: true,
+      images,
+      index: 0,
+      title: ev.titulo || "Galería",
+      loading: false,
+      error: null,
+    });
+  };
+
+  const closeGaleria = () => {
+    setGaleria((g) => ({ ...g, open: false }));
   };
 
   return (
@@ -232,6 +301,9 @@ export default function Evidencias({ isAdminMode = false, onEditClick = null, on
           <AnimatePresence mode="popLayout">
             {filtradas.map((e) => {
               const isDrive = e.source === "drive";
+              const imgs = normalizeImgs(e);
+              const isVideo = e.tipo === "Video" && imgs.length === 1;
+              const isCollection = imgs.length > 1 && !isVideo;
               return (
                 <motion.div
                   layout
@@ -253,12 +325,17 @@ export default function Evidencias({ isAdminMode = false, onEditClick = null, on
                       <span className={`text-[8px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded border ${CATEGORIA_COLORS[e.categoria] || CATEGORIA_COLORS["Otro"]}`}>
                         {e.categoria}
                       </span>
-                      {e.tipo === "Video" && (
+                      {isVideo && (
                         <span className="text-[8px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded border bg-red-50 text-red-600 dark:bg-red-950/30 dark:text-red-400 border-red-100 dark:border-red-900/40">
                           <i className="fas fa-play mr-0.5 text-[7px]"></i> Video
                         </span>
                       )}
-                      {isDrive && (
+                      {isCollection && (
+                        <span className="text-[8px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded border bg-indigo-50 text-indigo-600 dark:bg-indigo-950/30 dark:text-indigo-400 border-indigo-100 dark:border-indigo-900/40">
+                          <i className="fas fa-layer-group mr-0.5 text-[7px]"></i> {imgs.length} Fotos
+                        </span>
+                      )}
+                      {isDrive && !isCollection && (
                         <span className="text-[8px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded border bg-indigo-50 text-indigo-600 dark:bg-indigo-950/30 dark:text-indigo-400 border-indigo-100 dark:border-indigo-900/40">
                           <i className="fas fa-images mr-0.5 text-[7px]"></i> Drive
                         </span>
@@ -272,10 +349,13 @@ export default function Evidencias({ isAdminMode = false, onEditClick = null, on
                       {e.desc}
                     </p>
 
-                    {isDrive ? (
+                    {isCollection || isDrive ? (
                       <button
                         type="button"
-                        onClick={() => openGaleria(e.driveIndex)}
+                        onClick={() => {
+                          if (isDrive) openDriveGaleria(e.driveIndex);
+                          else openEvidenciaGaleria(e);
+                        }}
                         className="mt-4 w-full py-2 bg-indigo-50 dark:bg-indigo-950/20 hover:bg-indigo-600 hover:text-white text-indigo-700 dark:text-indigo-400 transition-colors rounded-xl border border-indigo-200 dark:border-indigo-900/50 text-[10px] font-black uppercase tracking-wider flex items-center justify-center gap-1.5 active:scale-95"
                       >
                         <i className="fas fa-images text-[10px]"></i>
@@ -288,8 +368,8 @@ export default function Evidencias({ isAdminMode = false, onEditClick = null, on
                         rel="noopener noreferrer"
                         className="mt-4 w-full py-2 bg-gray-50 dark:bg-dark-border hover:bg-primary dark:hover:bg-dark-accent hover:text-white text-gray-700 dark:text-gray-300 transition-colors rounded-xl border border-gray-150 dark:border-dark-border text-[10px] font-black uppercase tracking-wider flex items-center justify-center gap-1.5 active:scale-95"
                       >
-                        <i className={`${e.tipo === "Video" ? "fas fa-play" : "fas fa-image"} text-[10px]`}></i>
-                        {e.tipo === "Video" ? "Ver Video" : "Ver Foto"}
+                        <i className={`${isVideo ? "fas fa-play" : "fas fa-image"} text-[10px]`}></i>
+                        {isVideo ? "Ver Video" : "Ver Foto"}
                       </a>
                     )}
 
@@ -326,13 +406,14 @@ export default function Evidencias({ isAdminMode = false, onEditClick = null, on
       )}
 
       <GaleriaModal
-        open={galeriaOpen}
-        onClose={() => setGaleriaOpen(false)}
-        images={driveImages}
-        loading={driveLoading}
-        error={driveError}
-        initialIndex={galeriaIndex}
-        onRefresh={() => loadDrive(true)}
+        open={galeria.open}
+        onClose={closeGaleria}
+        images={galeria.images}
+        loading={galeria.loading}
+        error={galeria.error}
+        initialIndex={galeria.index}
+        title={galeria.title}
+        onRefresh={galeria.title === "Galería Drive" ? () => loadDrive(true) : null}
       />
     </div>
   );

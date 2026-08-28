@@ -44,7 +44,8 @@ export function defineModels(sequelize) {
     categoria: { type: DataTypes.STRING, allowNull: false, defaultValue: "Otro" },
     tipo: { type: DataTypes.STRING, allowNull: false, defaultValue: "Foto" }, // "Foto" | "Video"
     desc: { type: DataTypes.TEXT, allowNull: false },
-    url: { type: DataTypes.STRING, allowNull: false }, // imagen subida o enlace externo
+    url: { type: DataTypes.STRING, allowNull: true }, // imagen única (YouTube/legado) o null
+    imagenes: { type: DataTypes.JSON, allowNull: true }, // [{url, name, size, mimetype}]
   });
 
   const AuditoriaSesion = sequelize.define("AuditoriaSesion", {
