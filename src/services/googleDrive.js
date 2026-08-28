@@ -68,8 +68,6 @@ export async function listDriveImages({ forceRefresh = false } = {}) {
     fields: "files(id,name,thumbnailLink,createdTime)",
     pageSize: "100",
     orderBy: "createdTime desc",
-    supportsAllDrives: "true",
-    includeItemsFromAllDrives: "true",
   });
 
   let res;

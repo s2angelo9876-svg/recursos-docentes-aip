@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { listDriveImages, DriveGalleryError, clearDriveCache } from "../services/googleDrive";
 
 function ArrowLeftIcon() {
   return (
@@ -44,37 +43,25 @@ const ERROR_HINTS = {
   http: "Error al comunicarse con Google Drive.",
 };
 
-export default function GaleriaModal({ open, onClose }) {
-  const [images, setImages] = useState([]);
-  const [index, setIndex] = useState(0);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
+export default function GaleriaModal({
+  open,
+  onClose,
+  images = [],
+  loading = false,
+  error = null,
+  initialIndex = 0,
+  onRefresh = null,
+  title = "Galería Drive",
+}) {
+  const [index, setIndex] = useState(initialIndex);
   const [imgLoaded, setImgLoaded] = useState(false);
 
-  const fetchImages = useCallback(async (force = false) => {
-    setLoading(true);
-    setError(null);
-    setImgLoaded(false);
-    if (force) clearDriveCache();
-    try {
-      const list = await listDriveImages({ forceRefresh: force });
-      setImages(list);
-      setIndex(0);
-    } catch (e) {
-      if (e instanceof DriveGalleryError) {
-        setError(e);
-      } else {
-        setError(new DriveGalleryError(e?.message || "Error desconocido", "unknown"));
-      }
-      setImages([]);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
   useEffect(() => {
-    if (open) fetchImages(false);
-  }, [open, fetchImages]);
+    if (open) {
+      setIndex(initialIndex);
+      setImgLoaded(false);
+    }
+  }, [open, initialIndex]);
 
   useEffect(() => {
     if (!open) return;
@@ -96,6 +83,10 @@ export default function GaleriaModal({ open, onClose }) {
   }, [images.length]);
 
   useEffect(() => {
+    setImgLoaded(false);
+  }, [index]);
+
+  useEffect(() => {
     if (!open) return;
     const onKey = (e) => {
       if (e.key === "Escape") onClose();
@@ -105,10 +96,6 @@ export default function GaleriaModal({ open, onClose }) {
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [open, onClose, goPrev, goNext]);
-
-  useEffect(() => {
-    setImgLoaded(false);
-  }, [index]);
 
   const current = images[index];
 
@@ -135,11 +122,10 @@ export default function GaleriaModal({ open, onClose }) {
             onClick={(e) => e.stopPropagation()}
             className="relative w-full max-w-5xl max-h-[95vh] bg-white dark:bg-dark-card rounded-2xl shadow-2xl overflow-hidden flex flex-col"
           >
-            {/* Header */}
             <div className="flex items-center justify-between px-4 sm:px-5 py-3 border-b border-gray-100 dark:border-dark-border">
               <div className="flex items-center gap-2">
                 <span className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded border bg-primary/10 text-primary border-primary/20 dark:bg-dark-accent/10 dark:text-dark-accent dark:border-dark-accent/20">
-                  <i className="fas fa-images mr-1"></i> Galería Drive
+                  <i className="fas fa-images mr-1"></i> {title}
                 </span>
                 {!loading && !error && images.length > 0 && (
                   <span className="text-xs text-gray-500 dark:text-gray-400 font-semibold">
@@ -149,15 +135,17 @@ export default function GaleriaModal({ open, onClose }) {
               </div>
 
               <div className="flex items-center gap-1">
-                <button
-                  type="button"
-                  onClick={() => fetchImages(true)}
-                  disabled={loading}
-                  title="Recargar"
-                  className="p-2 rounded-lg text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-dark-border disabled:opacity-50 transition-colors"
-                >
-                  <RefreshIcon />
-                </button>
+                {onRefresh && (
+                  <button
+                    type="button"
+                    onClick={onRefresh}
+                    disabled={loading}
+                    title="Recargar"
+                    className="p-2 rounded-lg text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-dark-border disabled:opacity-50 transition-colors"
+                  >
+                    <RefreshIcon />
+                  </button>
+                )}
                 <button
                   type="button"
                   onClick={onClose}
@@ -169,7 +157,6 @@ export default function GaleriaModal({ open, onClose }) {
               </div>
             </div>
 
-            {/* Body */}
             <div className="relative flex-1 min-h-0 bg-gray-50 dark:bg-dark-bg">
               {loading && (
                 <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 text-gray-500 dark:text-gray-400">
@@ -192,13 +179,6 @@ export default function GaleriaModal({ open, onClose }) {
                       💡 {ERROR_HINTS[error.code]}
                     </p>
                   )}
-                  <button
-                    type="button"
-                    onClick={() => fetchImages(false)}
-                    className="mt-2 px-4 py-2 rounded-xl bg-primary dark:bg-dark-accent text-white text-xs font-bold uppercase tracking-wider hover:opacity-90 transition-opacity"
-                  >
-                    Reintentar
-                  </button>
                 </div>
               )}
 
@@ -230,7 +210,6 @@ export default function GaleriaModal({ open, onClose }) {
                 </div>
               )}
 
-              {/* Flechas */}
               {!loading && !error && images.length > 1 && (
                 <>
                   <button
@@ -253,7 +232,6 @@ export default function GaleriaModal({ open, onClose }) {
               )}
             </div>
 
-            {/* Footer con nombre + miniaturas */}
             {!loading && !error && images.length > 0 && (
               <div className="border-t border-gray-100 dark:border-dark-border">
                 <div className="px-4 sm:px-5 py-2 text-[11px] text-gray-600 dark:text-gray-300 font-medium truncate text-center">
