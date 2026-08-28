@@ -61,7 +61,7 @@ export const CATEGORIAS_EVIDENCIA = [
   "Capacitación", "Proyecto", "Celebración", "Otro",
 ];
 
-export const TIPOS_EVIDENCIA = ["Foto", "Video"];
+export const TIPOS_EVIDENCIA = ["Foto", "Video", "Ambos"];
 
 export const imagenEvidenciaSchema = z.object({
   url: z.string().min(1).max(1000),
@@ -77,10 +77,11 @@ export const evidenciaSchema = z.object({
   tipo: z.enum(TIPOS_EVIDENCIA, { message: "Tipo de evidencia no válido" }).default("Foto"),
   desc: z.string().min(1, "La descripción es obligatoria").max(3000),
   url: z.string().min(1).max(1000).optional(),
-  imagenes: z.array(imagenEvidenciaSchema).max(30, "Máximo 30 imágenes por evidencia").optional(),
+  imagenes: z.array(imagenEvidenciaSchema).max(30, "Máximo 30 archivos por evidencia").optional(),
+  fecha: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Fecha no válida (YYYY-MM-DD)").optional(),
 }).refine(
   (data) => Boolean(data.url) || (Array.isArray(data.imagenes) && data.imagenes.length > 0),
-  { message: "Debes subir al menos una imagen o pegar un enlace", path: ["imagenes"] }
+  { message: "Debes subir al menos un archivo o pegar un enlace", path: ["imagenes"] }
 );
 
 export const usuarioSchema = z.object({

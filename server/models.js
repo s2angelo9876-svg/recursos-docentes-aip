@@ -42,10 +42,11 @@ export function defineModels(sequelize) {
     titulo: { type: DataTypes.STRING, allowNull: false },
     mes: { type: DataTypes.STRING, allowNull: false }, // "Marzo" ... "Diciembre"
     categoria: { type: DataTypes.STRING, allowNull: false, defaultValue: "Otro" },
-    tipo: { type: DataTypes.STRING, allowNull: false, defaultValue: "Foto" }, // "Foto" | "Video"
+    tipo: { type: DataTypes.STRING, allowNull: false, defaultValue: "Foto" }, // "Foto" | "Video" | "Ambos"
     desc: { type: DataTypes.TEXT, allowNull: false },
     url: { type: DataTypes.STRING, allowNull: true }, // imagen única (YouTube/legado) o null
     imagenes: { type: DataTypes.JSON, allowNull: true }, // [{url, name, size, mimetype}]
+    fecha: { type: DataTypes.DATEONLY, allowNull: false, defaultValue: DataTypes.NOW }, // YYYY-MM-DD
   });
 
   const AuditoriaSesion = sequelize.define("AuditoriaSesion", {

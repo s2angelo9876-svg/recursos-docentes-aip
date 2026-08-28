@@ -14,7 +14,7 @@ const GRADOS = ["1.° Sec", "2.° Sec", "3.° Sec", "4.° Sec", "5.° Sec"];
 const TIPOS_RECURSO = ["Video", "Web / App", "PDF", "Simulación", "Juego", "Colección"];
 const MESES = ["Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
 const CATEGORIAS_EVIDENCIA = ["Gestión", "Robótica", "Taller", "Feria", "Concurso", "Capacitación", "Proyecto", "Celebración", "Otro"];
-const TIPOS_EVIDENCIA = ["Foto", "Video"];
+const TIPOS_EVIDENCIA = ["Foto", "Video", "Ambos"];
 
 /**
  * AdminModal — Modal CMS reutilizable para agregar/editar recursos, tutoriales y noticias.
@@ -643,7 +643,12 @@ export default function AdminModal({ isOpen, onClose, type, editingItem }) {
                         <label className="block w-full py-3 border border-dashed border-gray-300 dark:border-dark-border hover:bg-gray-100 dark:hover:bg-dark-hover rounded-xl text-center cursor-pointer text-xs font-bold text-gray-600 dark:text-gray-300 transition-colors">
                           <i className="fas fa-file-upload mr-2 text-primary dark:text-dark-accent text-lg"></i>
                           {eviFile ? eviFile.name : (editingItem?.url ? "Cambiar archivo actual" : "Examinar archivo")}
-                          <input type="file" accept="image/*" onChange={(e) => setEviFile(e.target.files[0])} className="hidden" />
+                          <input
+                            type="file"
+                            accept={eviTipo === "Video" ? "video/*" : eviTipo === "Ambos" ? "image/*,video/*" : "image/*"}
+                            onChange={(e) => setEviFile(e.target.files[0])}
+                            className="hidden"
+                          />
                         </label>
                         {!eviFile && editingItem?.url && (
                           <div className="text-[10px] text-emerald-600 dark:text-emerald-400 italic font-bold text-center">✓ Archivo actual en el servidor</div>
@@ -653,10 +658,14 @@ export default function AdminModal({ isOpen, onClose, type, editingItem }) {
                       <div className="space-y-3">
                         <label className="block w-full py-3 border border-dashed border-indigo-300 dark:border-indigo-900/50 hover:bg-indigo-50/50 dark:hover:bg-indigo-950/20 rounded-xl text-center cursor-pointer text-xs font-bold text-indigo-700 dark:text-indigo-400 transition-colors">
                           <i className="fas fa-cloud-upload-alt mr-2 text-lg"></i>
-                          Selecciona una o varias fotos
+                          {eviTipo === "Video"
+                            ? "Selecciona uno o varios videos"
+                            : eviTipo === "Ambos"
+                              ? "Selecciona fotos y/o videos"
+                              : "Selecciona una o varias fotos"}
                           <input
                             type="file"
-                            accept="image/*"
+                            accept={eviTipo === "Video" ? "video/*" : eviTipo === "Ambos" ? "image/*,video/*" : "image/*"}
                             multiple
                             onChange={(e) => setEviFiles(Array.from(e.target.files || []))}
                             className="hidden"

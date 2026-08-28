@@ -45,6 +45,15 @@ const ERROR_HINTS = {
 
 const SWIPE_THRESHOLD = 50;
 
+function isVideo(item) {
+  if (!item) return false;
+  if (item.mimetype && item.mimetype.startsWith("video/")) return true;
+  if (typeof item.url === "string") {
+    return /\.(mp4|webm|ogg|mov|avi|mkv)(\?|$)/i.test(item.url);
+  }
+  return false;
+}
+
 export default function GaleriaModal({
   open,
   onClose,
@@ -246,20 +255,33 @@ export default function GaleriaModal({
                     transition={{ duration: 0.28, ease: [0.32, 0.72, 0, 1] }}
                     className="absolute inset-0 flex items-center justify-center px-3 sm:px-12 py-16"
                   >
-                    {!imgLoaded && (
+                    {!imgLoaded && !isVideo(current) && (
                       <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
                         <div className="w-8 h-8 border-4 border-white/20 border-t-white rounded-full animate-spin" />
                       </div>
                     )}
-                    <img
-                      src={current.url}
-                      alt={current.name || `Imagen ${index + 1}`}
-                      loading="eager"
-                      onLoad={() => setImgLoaded(true)}
-                      onError={() => setImgLoaded(true)}
-                      draggable={false}
-                      className={`max-w-full max-h-full object-contain select-none transition-opacity duration-300 ${imgLoaded ? "opacity-100" : "opacity-0"}`}
-                    />
+                    {isVideo(current) ? (
+                      <video
+                        key={current.url}
+                        src={current.url}
+                        controls
+                        autoPlay={false}
+                        playsInline
+                        className="max-w-full max-h-full object-contain"
+                        onLoadedData={() => setImgLoaded(true)}
+                        onError={() => setImgLoaded(true)}
+                      />
+                    ) : (
+                      <img
+                        src={current.url}
+                        alt={current.name || `Imagen ${index + 1}`}
+                        loading="eager"
+                        onLoad={() => setImgLoaded(true)}
+                        onError={() => setImgLoaded(true)}
+                        draggable={false}
+                        className={`max-w-full max-h-full object-contain select-none transition-opacity duration-300 ${imgLoaded ? "opacity-100" : "opacity-0"}`}
+                      />
+                    )}
                   </motion.div>
                 </AnimatePresence>
               )}

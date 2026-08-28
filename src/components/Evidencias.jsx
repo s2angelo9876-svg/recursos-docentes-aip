@@ -1,8 +1,7 @@
-import { useState, useMemo, useEffect, useCallback } from "react";
+import { useState, useMemo } from "react";
 import { useApp } from "../context/AppContext";
 import { motion, AnimatePresence } from "framer-motion";
 import { getYouTubeId, getYouTubeThumbnail } from "../utils/youtube";
-import { listDriveImages, DriveGalleryError, clearDriveCache } from "../services/googleDrive";
 import GaleriaModal from "./GaleriaModal";
 
 const MESES = [
@@ -10,12 +9,12 @@ const MESES = [
   "Septiembre", "Octubre", "Noviembre", "Diciembre",
 ];
 
+const MES_TODOS = "Todas";
+
 const CATEGORIAS = [
   "Gestión", "Robótica", "Taller", "Feria", "Concurso",
-  "Capacitación", "Proyecto", "Celebración", "Galería", "Otro",
+  "Capacitación", "Proyecto", "Celebración", "Otro",
 ];
-
-const DRIVE_CATEGORY = "Galería";
 
 const mesActual = new Date().getMonth();
 const MES_INICIAL = mesActual >= 2 ? MESES[mesActual - 2] : "Marzo";
@@ -29,44 +28,73 @@ const CATEGORIA_COLORS = {
   "Capacitación": "bg-cyan-50 text-cyan-600 dark:bg-cyan-950/30 dark:text-cyan-400 border-cyan-100 dark:border-cyan-900/40",
   "Proyecto": "bg-emerald-50 text-emerald-600 dark:bg-emerald-950/30 dark:text-emerald-400 border-emerald-100 dark:border-emerald-900/40",
   "Celebración": "bg-pink-50 text-pink-600 dark:bg-pink-950/30 dark:text-pink-400 border-pink-100 dark:border-pink-900/40",
-  "Galería": "bg-indigo-50 text-indigo-600 dark:bg-indigo-950/30 dark:text-indigo-400 border-indigo-100 dark:border-indigo-900/40",
   "Otro": "bg-gray-50 text-gray-500 dark:bg-dark-border dark:text-gray-400 border-gray-200 dark:border-dark-border",
 };
+
+function isVideoItem(item) {
+  if (!item) return false;
+  if (item.mimetype && item.mimetype.startsWith("video/")) return true;
+  if (item.mimetype && item.mimetype.startsWith("image/")) return false;
+  if (typeof item.url === "string") {
+    return /\.(mp4|webm|ogg|mov|avi|mkv)(\?|$)/i.test(item.url);
+  }
+  return false;
+}
 
 function normalizeImgs(ev) {
   const arr = Array.isArray(ev?.imagenes) ? ev.imagenes : [];
   if (arr.length > 0) return arr;
-  if (ev?.url) return [{ url: ev.url, name: "imagen", mimetype: null, size: null }];
+  if (ev?.url) return [{ url: ev.url, name: "archivo", mimetype: null, size: null }];
   return [];
 }
 
 function EvidenciaMedia({ evidencia }) {
   const imgs = normalizeImgs(evidencia);
-  const isVideo = evidencia.tipo === "Video" && imgs.length === 1;
-  const ytId = isVideo ? getYouTubeId(imgs[0]?.url) : null;
-  const cover = imgs[0]?.url || "";
-  const src = ytId
-    ? getYouTubeThumbnail(ytId, "hqdefault")
-    : (evidencia.thumb || cover);
-  const isCollection = imgs.length > 1 && !isVideo;
-  const isDrive = evidencia.source === "drive";
+  const ytId = evidencia.tipo === "Video" && imgs.length === 1
+    ? getYouTubeId(imgs[0]?.url)
+    : null;
+  const firstItem = imgs[0];
+  const isFirstVideo = !ytId && firstItem && isVideoItem(firstItem);
+  const isCollection = imgs.length > 1;
 
-  return (
-    <div className="relative overflow-hidden rounded-xl border border-gray-150 dark:border-dark-border bg-gray-100 dark:bg-dark-border aspect-video group/media">
+  const renderCover = () => {
+    if (ytId) {
+      return <img src={getYouTubeThumbnail(ytId, "hqdefault")} alt="" className="w-full h-full object-cover" />;
+    }
+    if (isFirstVideo) {
+      return (
+        <video
+          src={firstItem.url}
+          muted
+          playsInline
+          preload="metadata"
+          className="w-full h-full object-cover"
+        />
+      );
+    }
+    return (
       <img
-        src={src}
+        src={firstItem?.url || ""}
         alt={evidencia.titulo}
         loading="lazy"
         className="w-full h-full object-cover transition-transform duration-500 group-hover/media:scale-105"
         onError={(e) => { e.currentTarget.style.display = "none"; }}
       />
-      {isVideo && (
-        <div className="absolute inset-0 flex items-center justify-center bg-black/25">
+    );
+  };
+
+  return (
+    <div className="relative overflow-hidden rounded-xl border border-gray-150 dark:border-dark-border bg-gray-100 dark:bg-dark-border aspect-video group/media">
+      {renderCover()}
+
+      {(isFirstVideo || ytId) && (
+        <div className="absolute inset-0 flex items-center justify-center bg-black/25 pointer-events-none">
           <div className="w-11 h-11 rounded-full bg-red-600 text-white flex items-center justify-center shadow-lg">
             <i className="fas fa-play text-sm ml-0.5"></i>
           </div>
         </div>
       )}
+
       {isCollection && (
         <>
           <div className="absolute top-2 right-2 w-7 h-7 rounded-full bg-indigo-600/90 text-white flex items-center justify-center shadow-md text-[10px] font-black">
@@ -77,11 +105,20 @@ function EvidenciaMedia({ evidencia }) {
           </div>
           {imgs.length >= 2 && (
             <div className="absolute top-2 left-2 flex gap-1">
-              {imgs.slice(1, 4).map((img, i) => (
-                <div key={i} className="w-8 h-8 rounded-md overflow-hidden border-2 border-white/80 shadow-md rotate-3">
-                  <img src={img.url} alt="" className="w-full h-full object-cover" />
-                </div>
-              ))}
+              {imgs.slice(1, 4).map((img, i) => {
+                const isVid = isVideoItem(img);
+                return (
+                  <div key={i} className="w-8 h-8 rounded-md overflow-hidden border-2 border-white/80 shadow-md rotate-3 relative">
+                    {isVid ? (
+                      <div className="w-full h-full bg-gray-700 flex items-center justify-center text-white">
+                        <i className="fas fa-play text-[10px]"></i>
+                      </div>
+                    ) : (
+                      <img src={img.url} alt="" className="w-full h-full object-cover" />
+                    )}
+                  </div>
+                );
+              })}
               {imgs.length > 4 && (
                 <div className="w-8 h-8 rounded-md bg-black/70 text-white text-[9px] font-black flex items-center justify-center border-2 border-white/80 shadow-md">
                   +{imgs.length - 4}
@@ -91,215 +128,267 @@ function EvidenciaMedia({ evidencia }) {
           )}
         </>
       )}
-      {isDrive && !isCollection && (
-        <div className="absolute top-2 right-2 w-7 h-7 rounded-full bg-indigo-600/90 text-white flex items-center justify-center shadow-md">
-          <i className="fas fa-images text-[11px]"></i>
-        </div>
-      )}
     </div>
   );
 }
 
-function DriveCollectionCard({ driveImages, onOpen, loading }) {
-  if (driveImages.length === 0 && !loading) return null;
-
-  const preview = driveImages.slice(0, 4);
-  const total = driveImages.length;
-
-  const renderCollage = () => {
-    if (total === 0) {
-      return (
-        <div className="w-full h-full flex items-center justify-center text-gray-400">
-          <i className="fab fa-google-drive text-4xl"></i>
-        </div>
-      );
-    }
-    if (total === 1) {
-      return <img src={preview[0].url} alt="" className="w-full h-full object-cover" />;
-    }
-    if (total === 2) {
-      return (
-        <div className="grid grid-cols-2 h-full gap-0.5">
-          {preview.map((img, i) => (
-            <img key={i} src={img.thumb || img.url} alt="" className="w-full h-full object-cover" />
-          ))}
-        </div>
-      );
-    }
-    if (total === 3) {
-      return (
-        <div className="grid grid-cols-2 grid-rows-2 h-full gap-0.5">
-          <img src={preview[0].thumb || preview[0].url} alt="" className="row-span-2 w-full h-full object-cover" />
-          <img src={preview[1].thumb || preview[1].url} alt="" className="w-full h-full object-cover" />
-          <img src={preview[2].thumb || preview[2].url} alt="" className="w-full h-full object-cover" />
-        </div>
-      );
-    }
-    return (
-      <div className="grid grid-cols-2 grid-rows-2 h-full gap-0.5">
-        {preview.map((img, i) => (
-          <img key={i} src={img.thumb || img.url} alt="" className="w-full h-full object-cover" />
-        ))}
-      </div>
-    );
-  };
+function EvidenciaCard({ ev, onOpenGaleria, isAdminMode, onEditClick, onDeleteClick }) {
+  const imgs = normalizeImgs(ev);
+  const ytId = ev.tipo === "Video" && imgs.length === 1
+    ? getYouTubeId(imgs[0]?.url)
+    : null;
+  const isVideoOnly = ev.tipo === "Video" && imgs.length === 1 && !ytId && isVideoItem(imgs[0]);
+  const isCollection = imgs.length > 1;
 
   return (
     <motion.div
       layout
       initial={{ opacity: 0, scale: 0.95 }}
       animate={{ opacity: 1, scale: 1 }}
-      className="rounded-2xl border border-indigo-200 dark:border-indigo-900/50 bg-white dark:bg-dark-card shadow-sm hover:shadow-md hover:border-indigo-300 dark:hover:border-indigo-700 transition-all flex flex-col overflow-hidden"
+      exit={{ opacity: 0, scale: 0.95 }}
+      className="rounded-2xl border border-gray-150 dark:border-dark-border bg-white dark:bg-dark-card shadow-sm hover:shadow-md hover:border-gray-300 dark:hover:border-gray-700 transition-all flex flex-col overflow-hidden"
     >
       <div className="p-3 pb-0">
-        <div className="relative aspect-video rounded-xl overflow-hidden border border-gray-150 dark:border-dark-border bg-gray-100 dark:bg-dark-border">
-          {renderCollage()}
-
-          {loading && (
-            <div className="absolute inset-0 bg-black/30 flex items-center justify-center">
-              <div className="w-6 h-6 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-            </div>
-          )}
-
-          <div className="absolute top-2 left-2 px-2 py-1 rounded-md bg-white/95 dark:bg-dark-card/95 text-indigo-700 dark:text-indigo-400 text-[9px] font-black uppercase tracking-wider flex items-center gap-1 backdrop-blur-sm shadow-sm">
-            <i className="fab fa-google-drive text-[10px]"></i> Drive
-          </div>
-
-          {total > 0 && (
-            <div className="absolute bottom-2 right-2 px-2 py-1 rounded-md bg-black/80 text-white text-[10px] font-black backdrop-blur-sm">
-              <i className="fas fa-images mr-1"></i>
-              {total} {total === 1 ? "foto" : "fotos"}
-            </div>
-          )}
-        </div>
+        <EvidenciaMedia evidencia={ev} />
       </div>
 
       <div className="p-4 flex flex-col flex-1">
         <div className="flex flex-wrap items-center gap-1.5 mb-2">
           <span className="text-[8px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded border bg-gray-50 text-gray-500 dark:bg-dark-border dark:text-gray-400 border-gray-200 dark:border-dark-border">
-            <i className="far fa-images mr-1"></i> Carpeta Drive
+            <i className="far fa-calendar-alt mr-1"></i>{ev.mes}
           </span>
-          <span className="text-[8px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded border bg-indigo-50 text-indigo-600 dark:bg-indigo-950/30 dark:text-indigo-400 border-indigo-100 dark:border-indigo-900/40">
-            <i className="fab fa-google-drive mr-0.5 text-[7px]"></i> Compartida
+          <span className={`text-[8px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded border ${CATEGORIA_COLORS[ev.categoria] || CATEGORIA_COLORS["Otro"]}`}>
+            {ev.categoria}
           </span>
+          {ev.tipo === "Video" && (
+            <span className="text-[8px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded border bg-red-50 text-red-600 dark:bg-red-950/30 dark:text-red-400 border-red-100 dark:border-red-900/40">
+              <i className="fas fa-video mr-0.5 text-[7px]"></i> Video
+            </span>
+          )}
+          {ev.tipo === "Ambos" && (
+            <span className="text-[8px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded border bg-violet-50 text-violet-600 dark:bg-violet-950/30 dark:text-violet-400 border-violet-100 dark:border-violet-900/40">
+              <i className="fas fa-photo-video mr-0.5 text-[7px]"></i> Mixto
+            </span>
+          )}
+          {isCollection && (
+            <span className="text-[8px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded border bg-indigo-50 text-indigo-600 dark:bg-indigo-950/30 dark:text-indigo-400 border-indigo-100 dark:border-indigo-900/40">
+              <i className="fas fa-layer-group mr-0.5 text-[7px]"></i> {imgs.length}
+            </span>
+          )}
         </div>
 
-        <h4 className="font-bold text-sm text-gray-900 dark:text-white mb-2 uppercase leading-tight text-left">
-          Galería Google Drive
+        <h4 className="font-bold text-sm text-gray-900 dark:text-white mb-2 uppercase leading-tight line-clamp-2 text-left">
+          {ev.titulo}
         </h4>
         <p className="text-xs text-gray-500 dark:text-gray-400 leading-relaxed line-clamp-3 flex-1 text-left">
-          {total > 0
-            ? `Colección de ${total} foto${total === 1 ? "" : "s"} almacenada${total === 1 ? "" : "s"} en la carpeta compartida de Google Drive.`
-            : "Cargando carpeta compartida de Google Drive..."}
+          {ev.desc}
         </p>
 
-        <button
-          type="button"
-          onClick={onOpen}
-          disabled={total === 0}
-          className="mt-4 w-full py-2 bg-indigo-50 dark:bg-indigo-950/20 hover:bg-indigo-600 hover:text-white text-indigo-700 dark:text-indigo-400 transition-colors rounded-xl border border-indigo-200 dark:border-indigo-900/50 text-[10px] font-black uppercase tracking-wider flex items-center justify-center gap-1.5 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          <i className="fas fa-images text-[10px]"></i>
-          Ver Galería
-        </button>
+        {isCollection ? (
+          <button
+            type="button"
+            onClick={() => onOpenGaleria(ev)}
+            className="mt-4 w-full py-2 bg-indigo-50 dark:bg-indigo-950/20 hover:bg-indigo-600 hover:text-white text-indigo-700 dark:text-indigo-400 transition-colors rounded-xl border border-indigo-200 dark:border-indigo-900/50 text-[10px] font-black uppercase tracking-wider flex items-center justify-center gap-1.5 active:scale-95"
+          >
+            <i className="fas fa-images text-[10px]"></i>
+            Ver {ev.tipo === "Video" ? "Videos" : ev.tipo === "Ambos" ? "Archivos" : "Fotos"}
+          </button>
+        ) : ytId ? (
+          <a
+            href={imgs[0].url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="mt-4 w-full py-2 bg-red-50 dark:bg-red-950/20 hover:bg-red-600 hover:text-white text-red-700 dark:text-red-400 transition-colors rounded-xl border border-red-200 dark:border-red-900/50 text-[10px] font-black uppercase tracking-wider flex items-center justify-center gap-1.5 active:scale-95"
+          >
+            <i className="fab fa-youtube text-[10px]"></i>
+            Ver en YouTube
+          </a>
+        ) : isVideoOnly ? (
+          <a
+            href={imgs[0].url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="mt-4 w-full py-2 bg-red-50 dark:bg-red-950/20 hover:bg-red-600 hover:text-white text-red-700 dark:text-red-400 transition-colors rounded-xl border border-red-200 dark:border-red-900/50 text-[10px] font-black uppercase tracking-wider flex items-center justify-center gap-1.5 active:scale-95"
+          >
+            <i className="fas fa-play text-[10px]"></i>
+            Ver Video
+          </a>
+        ) : (
+          <a
+            href={imgs[0]?.url || "#"}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="mt-4 w-full py-2 bg-gray-50 dark:bg-dark-border hover:bg-primary dark:hover:bg-dark-accent hover:text-white text-gray-700 dark:text-gray-300 transition-colors rounded-xl border border-gray-150 dark:border-dark-border text-[10px] font-black uppercase tracking-wider flex items-center justify-center gap-1.5 active:scale-95"
+          >
+            <i className="fas fa-image text-[10px]"></i>
+            Ver Foto
+          </a>
+        )}
+
+        {isAdminMode && (
+          <div className="flex gap-2 mt-2">
+            <button
+              onClick={() => onEditClick && onEditClick(ev)}
+              className="flex-1 py-1.5 bg-amber-50 dark:bg-amber-950/10 hover:bg-amber-500 hover:text-white border border-amber-200 dark:border-amber-900/50 text-amber-700 dark:text-amber-400 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 active:scale-95"
+            >
+              <i className="fas fa-edit text-[9px]"></i> Editar
+            </button>
+            <button
+              onClick={() => onDeleteClick && onDeleteClick(ev.id)}
+              className="flex-1 py-1.5 bg-red-50 dark:bg-red-950/10 hover:bg-red-600 hover:text-white border border-red-200 dark:border-red-900/50 text-red-700 dark:text-red-400 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 active:scale-95"
+            >
+              <i className="fas fa-trash-alt text-[9px]"></i> Eliminar
+            </button>
+          </div>
+        )}
       </div>
     </motion.div>
   );
 }
 
 export default function Evidencias({ isAdminMode = false, onEditClick = null, onDeleteClick = null }) {
-  const { evidencias, deleteEvidencia } = useApp();
+  const { evidencias } = useApp();
 
   const [mesSel, setMesSel] = useState(MES_INICIAL);
   const [busqueda, setBusqueda] = useState("");
   const [categoriaSel, setCategoriaSel] = useState("Todas");
 
-  const [driveImages, setDriveImages] = useState([]);
-  const [driveLoading, setDriveLoading] = useState(false);
-  const [driveError, setDriveError] = useState(null);
-
-  const [galeria, setGaleria] = useState({ open: false, images: [], index: 0, title: "Galería", loading: false, error: null });
-
-  const loadDrive = useCallback(async (force = false) => {
-    setDriveLoading(true);
-    setDriveError(null);
-    if (force) clearDriveCache();
-    try {
-      const list = await listDriveImages({ forceRefresh: force });
-      setDriveImages(list);
-    } catch (e) {
-      const err = e instanceof DriveGalleryError
-        ? e
-        : new DriveGalleryError(e?.message || "Error desconocido", "unknown");
-      setDriveError(err);
-      setDriveImages([]);
-    } finally {
-      setDriveLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    loadDrive(false);
-  }, [loadDrive]);
+  const [galeria, setGaleria] = useState({ open: false, images: [], index: 0, title: "Galería" });
 
   const filtradas = useMemo(() => {
     const base = evidencias || [];
     const q = busqueda.toLowerCase();
 
-    return base.filter((e) => {
-      const matchMes = e.mes === mesSel;
-      const matchCategoria =
-        categoriaSel === "Todas" || categoriaSel === "Galería"
-          ? true
-          : e.categoria === categoriaSel;
-      const matchBusqueda =
-        (e.titulo || "").toLowerCase().includes(q) ||
-        (e.desc || "").toLowerCase().includes(q);
-      return matchMes && matchCategoria && matchBusqueda;
-    });
+    return base
+      .filter((e) => {
+        const matchMes = mesSel === MES_TODOS || e.mes === mesSel;
+        const matchCategoria =
+          categoriaSel === "Todas"
+            ? true
+            : e.categoria === categoriaSel;
+        const matchBusqueda =
+          (e.titulo || "").toLowerCase().includes(q) ||
+          (e.desc || "").toLowerCase().includes(q);
+        return matchMes && matchCategoria && matchBusqueda;
+      })
+      .sort((a, b) => {
+        const da = a.fecha ? new Date(a.fecha).getTime() : 0;
+        const db = b.fecha ? new Date(b.fecha).getTime() : 0;
+        return db - da;
+      });
   }, [evidencias, mesSel, busqueda, categoriaSel]);
 
-  const showDriveCard =
-    driveImages.length > 0 &&
-    (categoriaSel === "Todas" || categoriaSel === DRIVE_CATEGORY);
-
-  const openDriveGaleria = (driveIndex = 0) => {
-    const images = driveImages.map((img) => ({
-      id: img.id,
-      name: img.name,
-      url: img.url,
-      thumb: img.thumb,
-    }));
-    setGaleria({
-      open: true,
-      images,
-      index: driveIndex,
-      title: "Galería Google Drive",
-      loading: driveLoading,
-      error: driveError,
-    });
-  };
+  const grouped = useMemo(() => {
+    if (mesSel !== MES_TODOS) return null;
+    const map = new Map();
+    for (const e of filtradas) {
+      const fecha = e.fecha ? new Date(e.fecha) : new Date();
+      const year = String(fecha.getFullYear());
+      if (!map.has(year)) map.set(year, new Map());
+      const monthKey = e.mes || MESES[0];
+      if (!map.get(year).has(monthKey)) map.get(year).set(monthKey, []);
+      map.get(year).get(monthKey).push(e);
+    }
+    return map;
+  }, [filtradas, mesSel]);
 
   const openEvidenciaGaleria = (ev) => {
     const images = normalizeImgs(ev).map((img, i) => ({
       id: img.url || `img-${i}`,
-      name: img.name || `Foto ${i + 1}`,
+      name: img.name || `Archivo ${i + 1}`,
       url: img.url,
       thumb: img.url,
+      mimetype: img.mimetype || null,
     }));
     setGaleria({
       open: true,
       images,
       index: 0,
       title: ev.titulo || "Galería",
-      loading: false,
-      error: null,
     });
   };
 
-  const closeGaleria = () => {
-    setGaleria((g) => ({ ...g, open: false }));
+  const closeGaleria = () => setGaleria((g) => ({ ...g, open: false }));
+
+  const renderFlat = () => (
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+      <AnimatePresence mode="popLayout">
+        {filtradas.map((e) => (
+          <EvidenciaCard
+            key={e.id}
+            ev={e}
+            onOpenGaleria={openEvidenciaGaleria}
+            isAdminMode={isAdminMode}
+            onEditClick={onEditClick}
+            onDeleteClick={onDeleteClick}
+          />
+        ))}
+      </AnimatePresence>
+    </div>
+  );
+
+  const renderGrouped = () => {
+    if (grouped.size === 0) return renderEmpty();
+    return (
+      <div className="space-y-8">
+        {Array.from(grouped.entries()).map(([year, months]) => (
+          <section key={year}>
+            <div className="flex items-center gap-3 mb-4">
+              <h2 className="text-2xl font-black text-gray-900 dark:text-white tracking-tight">
+                {year}
+              </h2>
+              <div className="flex-1 h-px bg-gradient-to-r from-gray-300 dark:from-dark-border to-transparent" />
+              <span className="text-[10px] font-black uppercase tracking-wider px-2 py-1 rounded bg-gray-100 dark:bg-dark-border text-gray-600 dark:text-gray-300">
+                {[...months.values()].reduce((acc, arr) => acc + arr.length, 0)} items
+              </span>
+            </div>
+
+            <div className="space-y-6">
+              {Array.from(months.entries()).map(([month, items]) => (
+                <div key={month}>
+                  <div className="flex items-center gap-2 mb-3">
+                    <h3 className="text-xs font-black uppercase tracking-wider text-gray-500 dark:text-gray-400">
+                      <i className="far fa-calendar-alt mr-1.5"></i>
+                      {month}
+                    </h3>
+                    <span className="text-[10px] font-bold text-gray-400 dark:text-gray-500">
+                      ({items.length})
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+                    <AnimatePresence mode="popLayout">
+                      {items.map((e) => (
+                        <EvidenciaCard
+                          key={e.id}
+                          ev={e}
+                          onOpenGaleria={openEvidenciaGaleria}
+                          isAdminMode={isAdminMode}
+                          onEditClick={onEditClick}
+                          onDeleteClick={onDeleteClick}
+                        />
+                      ))}
+                    </AnimatePresence>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
+        ))}
+      </div>
+    );
   };
+
+  const renderEmpty = () => (
+    <div className="py-16 bg-white dark:bg-dark-card rounded-2xl border border-dashed border-gray-200 dark:border-dark-border text-center">
+      <i className="far fa-star text-gray-300 dark:text-gray-600 text-5xl mb-4"></i>
+      <h3 className="text-base font-bold text-gray-700 dark:text-gray-300 uppercase">Sin evidencias</h3>
+      <p className="text-gray-400 dark:text-gray-500 text-xs mt-1 max-w-xs mx-auto">
+        {mesSel === MES_TODOS
+          ? "Aún no hay evidencias registradas."
+          : "Prueba cambiando el mes o el filtro."}
+      </p>
+    </div>
+  );
 
   return (
     <div className="space-y-6">
@@ -323,25 +412,23 @@ export default function Evidencias({ isAdminMode = false, onEditClick = null, on
             value={categoriaSel}
             onChange={(e) => setCategoriaSel(e.target.value)}
           >
-            <option value="Todas">Todas</option>
+            <option value="Todas">Todas las categorías</option>
             {CATEGORIAS.map((c) => (
               <option key={c} value={c}>{c}</option>
             ))}
           </select>
-
-          <button
-            type="button"
-            onClick={() => loadDrive(true)}
-            disabled={driveLoading}
-            title="Recargar galería Drive"
-            className="flex items-center justify-center gap-2 px-4 py-2 rounded-xl border border-indigo-200 dark:border-indigo-900/50 bg-indigo-50 dark:bg-indigo-950/20 text-indigo-700 dark:text-indigo-400 text-xs font-bold uppercase tracking-wider hover:bg-indigo-100 dark:hover:bg-indigo-950/40 disabled:opacity-50 transition-all whitespace-nowrap"
-          >
-            <i className={`fas ${driveLoading ? "fa-spinner fa-spin" : "fa-sync-alt"}`}></i>
-            {driveLoading ? "Cargando" : "Drive"}
-          </button>
         </div>
 
         <div className="flex flex-wrap items-center gap-1.5 pt-3 border-t border-gray-100 dark:border-dark-border">
+          <button
+            onClick={() => setMesSel(MES_TODOS)}
+            className={`px-3 py-1.5 rounded-full text-[10px] font-bold border transition-all ${mesSel === MES_TODOS
+              ? "bg-gradient-to-r from-primary to-blue-600 dark:from-dark-accent dark:to-blue-500 text-white border-transparent shadow-sm"
+              : "bg-gray-50 dark:bg-dark-border text-gray-600 dark:text-gray-300 border-gray-200 dark:border-dark-border hover:bg-gray-100"
+              }`}
+          >
+            <i className="fas fa-layer-group mr-1"></i> Todas
+          </button>
           {MESES.map((m) => (
             <button
               key={m}
@@ -355,135 +442,18 @@ export default function Evidencias({ isAdminMode = false, onEditClick = null, on
             </button>
           ))}
         </div>
-
-        {driveError && (
-          <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900/40 text-[11px] text-amber-700 dark:text-amber-400">
-            <i className="fas fa-exclamation-triangle"></i>
-            <span>
-              No se pudo cargar la galería de Drive: {driveError.message}
-              {driveError.code === "not_found" && " (verifica que la carpeta sea pública)"}
-            </span>
-          </div>
-        )}
       </div>
 
-      {filtradas.length > 0 || showDriveCard ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-          <AnimatePresence mode="popLayout">
-            {showDriveCard && (
-              <DriveCollectionCard
-                driveImages={driveImages}
-                loading={driveLoading}
-                onOpen={() => openDriveGaleria(0)}
-              />
-            )}
-            {filtradas.map((e) => {
-              const isDrive = e.source === "drive";
-              const imgs = normalizeImgs(e);
-              const isVideo = e.tipo === "Video" && imgs.length === 1;
-              const isCollection = imgs.length > 1 && !isVideo;
-              return (
-                <motion.div
-                  layout
-                  key={e.id}
-                  initial={{ opacity: 0, scale: 0.95 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  exit={{ opacity: 0, scale: 0.95 }}
-                  className="rounded-2xl border border-gray-150 dark:border-dark-border bg-white dark:bg-dark-card shadow-sm hover:shadow-md hover:border-gray-300 dark:hover:border-gray-700 transition-all flex flex-col overflow-hidden"
-                >
-                  <div className="p-3 pb-0">
-                    <EvidenciaMedia evidencia={e} />
-                  </div>
-
-                  <div className="p-4 flex flex-col flex-1">
-                    <div className="flex flex-wrap items-center gap-1.5 mb-2">
-                      <span className="text-[8px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded border bg-gray-50 text-gray-500 dark:bg-dark-border dark:text-gray-400 border-gray-200 dark:border-dark-border">
-                        <i className="far fa-calendar-alt mr-1"></i>{e.mes}
-                      </span>
-                      <span className={`text-[8px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded border ${CATEGORIA_COLORS[e.categoria] || CATEGORIA_COLORS["Otro"]}`}>
-                        {e.categoria}
-                      </span>
-                      {isVideo && (
-                        <span className="text-[8px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded border bg-red-50 text-red-600 dark:bg-red-950/30 dark:text-red-400 border-red-100 dark:border-red-900/40">
-                          <i className="fas fa-play mr-0.5 text-[7px]"></i> Video
-                        </span>
-                      )}
-                      {isCollection && (
-                        <span className="text-[8px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded border bg-indigo-50 text-indigo-600 dark:bg-indigo-950/30 dark:text-indigo-400 border-indigo-100 dark:border-indigo-900/40">
-                          <i className="fas fa-layer-group mr-0.5 text-[7px]"></i> {imgs.length} Fotos
-                        </span>
-                      )}
-                    </div>
-
-                    <h4 className="font-bold text-sm text-gray-900 dark:text-white mb-2 uppercase leading-tight line-clamp-2 text-left">
-                      {e.titulo}
-                    </h4>
-                    <p className="text-xs text-gray-500 dark:text-gray-400 leading-relaxed line-clamp-3 flex-1 text-left">
-                      {e.desc}
-                    </p>
-
-                    {isCollection ? (
-                      <button
-                        type="button"
-                        onClick={() => openEvidenciaGaleria(e)}
-                        className="mt-4 w-full py-2 bg-indigo-50 dark:bg-indigo-950/20 hover:bg-indigo-600 hover:text-white text-indigo-700 dark:text-indigo-400 transition-colors rounded-xl border border-indigo-200 dark:border-indigo-900/50 text-[10px] font-black uppercase tracking-wider flex items-center justify-center gap-1.5 active:scale-95"
-                      >
-                        <i className="fas fa-images text-[10px]"></i>
-                        Ver Fotos
-                      </button>
-                    ) : (
-                      <a
-                        href={e.url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="mt-4 w-full py-2 bg-gray-50 dark:bg-dark-border hover:bg-primary dark:hover:bg-dark-accent hover:text-white text-gray-700 dark:text-gray-300 transition-colors rounded-xl border border-gray-150 dark:border-dark-border text-[10px] font-black uppercase tracking-wider flex items-center justify-center gap-1.5 active:scale-95"
-                      >
-                        <i className={`${isVideo ? "fas fa-play" : "fas fa-image"} text-[10px]`}></i>
-                        {isVideo ? "Ver Video" : "Ver Foto"}
-                      </a>
-                    )}
-
-                    {!isDrive && isAdminMode && (
-                      <div className="flex gap-2 mt-2">
-                        <button
-                          onClick={() => onEditClick && onEditClick(e)}
-                          className="flex-1 py-1.5 bg-amber-50 dark:bg-amber-950/10 hover:bg-amber-500 hover:text-white border border-amber-200 dark:border-amber-900/50 text-amber-700 dark:text-amber-400 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 active:scale-95"
-                        >
-                          <i className="fas fa-edit text-[9px]"></i> Editar
-                        </button>
-                        <button
-                          onClick={() => onDeleteClick ? onDeleteClick(e.id) : (window.confirm("¿Eliminar esta evidencia?") && deleteEvidencia(e.id))}
-                          className="flex-1 py-1.5 bg-red-50 dark:bg-red-950/10 hover:bg-red-600 hover:text-white border border-red-200 dark:border-red-900/50 text-red-700 dark:text-red-400 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 active:scale-95"
-                        >
-                          <i className="fas fa-trash-alt text-[9px]"></i> Eliminar
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                </motion.div>
-              );
-            })}
-          </AnimatePresence>
-        </div>
-      ) : (
-        <div className="py-16 bg-white dark:bg-dark-card rounded-2xl border border-dashed border-gray-200 dark:border-dark-border text-center">
-          <i className="far fa-star text-gray-300 dark:text-gray-600 text-5xl mb-4"></i>
-          <h3 className="text-base font-bold text-gray-700 dark:text-gray-300 uppercase">Sin evidencias</h3>
-          <p className="text-gray-400 dark:text-gray-500 text-xs mt-1 max-w-xs mx-auto">
-            Prueba cambiando el mes o el filtro.
-          </p>
-        </div>
-      )}
+      {filtradas.length > 0
+        ? (mesSel === MES_TODOS ? renderGrouped() : renderFlat())
+        : renderEmpty()}
 
       <GaleriaModal
         open={galeria.open}
         onClose={closeGaleria}
         images={galeria.images}
-        loading={galeria.loading}
-        error={galeria.error}
         initialIndex={galeria.index}
         title={galeria.title}
-        onRefresh={galeria.title === "Galería Drive" ? () => loadDrive(true) : null}
       />
     </div>
   );
