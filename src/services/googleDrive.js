@@ -1,7 +1,6 @@
-const FOLDER_ID = import.meta.env.VITE_DRIVE_FOLDER_ID;
 const API_KEY = import.meta.env.VITE_GOOGLE_API_KEY;
 
-const CACHE_KEY = "drive_gallery_v1";
+const CACHE_PREFIX = "drive_gallery_";
 const CACHE_TTL = 60 * 60 * 1000;
 
 export class DriveGalleryError extends Error {
@@ -13,12 +12,22 @@ export class DriveGalleryError extends Error {
 }
 
 function isConfigured() {
-  return Boolean(FOLDER_ID && API_KEY);
+  return Boolean(API_KEY);
 }
 
-function readCache() {
+export function extractDriveFolderId(input) {
+  if (!input) return null;
+  const trimmed = String(input).trim();
+  if (!trimmed) return null;
+  const match = trimmed.match(/\/folders\/([a-zA-Z0-9_-]+)/);
+  if (match) return match[1];
+  if (/^[a-zA-Z0-9_-]{20,}$/.test(trimmed)) return trimmed;
+  return null;
+}
+
+function readCache(folderId) {
   try {
-    const raw = sessionStorage.getItem(CACHE_KEY);
+    const raw = sessionStorage.getItem(CACHE_PREFIX + folderId);
     if (!raw) return null;
     const { ts, data } = JSON.parse(raw);
     if (!ts || !Array.isArray(data)) return null;
@@ -29,39 +38,55 @@ function readCache() {
   }
 }
 
-function writeCache(data) {
+function writeCache(folderId, data) {
   try {
     sessionStorage.setItem(
-      CACHE_KEY,
+      CACHE_PREFIX + folderId,
       JSON.stringify({ ts: Date.now(), data })
     );
   } catch {
-    // sessionStorage lleno o deshabilitado: ignorar
+    // sessionStorage lleno o deshabilitado
   }
 }
 
-export function clearDriveCache() {
+export function clearDriveCache(folderId) {
   try {
-    sessionStorage.removeItem(CACHE_KEY);
+    if (folderId) sessionStorage.removeItem(CACHE_PREFIX + folderId);
+    else {
+      const keys = [];
+      for (let i = 0; i < sessionStorage.length; i++) {
+        const k = sessionStorage.key(i);
+        if (k && k.startsWith(CACHE_PREFIX)) keys.push(k);
+      }
+      keys.forEach((k) => sessionStorage.removeItem(k));
+    }
   } catch {
     // ignorar
   }
 }
 
-export async function listDriveImages({ forceRefresh = false } = {}) {
+export async function listDriveImages({ folderId: input, forceRefresh = false } = {}) {
   if (!isConfigured()) {
     throw new DriveGalleryError(
-      "Faltan VITE_GOOGLE_API_KEY o VITE_DRIVE_FOLDER_ID en .env",
+      "Falta VITE_GOOGLE_API_KEY en .env",
       "config"
     );
   }
 
+  const folderId = extractDriveFolderId(input);
+  if (!folderId) {
+    throw new DriveGalleryError(
+      "URL o ID de carpeta de Google Drive no válido",
+      "invalid_url"
+    );
+  }
+
   if (!forceRefresh) {
-    const cached = readCache();
+    const cached = readCache(folderId);
     if (cached) return cached;
   }
 
-  const q = `'${FOLDER_ID}' in parents and mimeType contains 'image/' and trashed = false`;
+  const q = `'${folderId}' in parents and mimeType contains 'image/' and trashed = false`;
   const params = new URLSearchParams({
     q,
     key: API_KEY,
@@ -104,6 +129,6 @@ export async function listDriveImages({ forceRefresh = false } = {}) {
     created: f.createdTime,
   }));
 
-  writeCache(data);
+  writeCache(folderId, data);
   return data;
 }

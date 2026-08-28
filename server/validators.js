@@ -78,10 +78,14 @@ export const evidenciaSchema = z.object({
   desc: z.string().min(1, "La descripción es obligatoria").max(3000),
   url: z.string().min(1).max(1000).optional(),
   imagenes: z.array(imagenEvidenciaSchema).max(30, "Máximo 30 archivos por evidencia").optional(),
+  driveFolderUrl: z.string().url("URL de Drive no válida").max(1000).optional().or(z.literal("")),
   fecha: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Fecha no válida (YYYY-MM-DD)").optional(),
 }).refine(
-  (data) => Boolean(data.url) || (Array.isArray(data.imagenes) && data.imagenes.length > 0),
-  { message: "Debes subir al menos un archivo o pegar un enlace", path: ["imagenes"] }
+  (data) =>
+    Boolean(data.url) ||
+    Boolean(data.driveFolderUrl) ||
+    (Array.isArray(data.imagenes) && data.imagenes.length > 0),
+  { message: "Debes subir archivos, pegar un enlace o indicar una carpeta de Drive", path: ["imagenes"] }
 );
 
 export const usuarioSchema = z.object({

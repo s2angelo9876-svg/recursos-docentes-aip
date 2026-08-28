@@ -2,6 +2,7 @@ import { useState, useMemo } from "react";
 import { useApp } from "../context/AppContext";
 import { motion, AnimatePresence } from "framer-motion";
 import { getYouTubeId, getYouTubeThumbnail } from "../utils/youtube";
+import { listDriveImages, DriveGalleryError } from "../services/googleDrive";
 import GaleriaModal from "./GaleriaModal";
 
 const MESES = [
@@ -13,7 +14,7 @@ const MES_TODOS = "Todas";
 
 const CATEGORIAS = [
   "Gestión", "Robótica", "Taller", "Feria", "Concurso",
-  "Capacitación", "Proyecto", "Celebración", "Otro",
+  "Capacitación", "Proyecto", "Celebración", "Galería", "Otro",
 ];
 
 const mesActual = new Date().getMonth();
@@ -27,7 +28,8 @@ const CATEGORIA_COLORS = {
   "Concurso": "bg-red-50 text-red-600 dark:bg-red-950/30 dark:text-red-400 border-red-100 dark:border-red-900/40",
   "Capacitación": "bg-cyan-50 text-cyan-600 dark:bg-cyan-950/30 dark:text-cyan-400 border-cyan-100 dark:border-cyan-900/40",
   "Proyecto": "bg-emerald-50 text-emerald-600 dark:bg-emerald-950/30 dark:text-emerald-400 border-emerald-100 dark:border-emerald-900/40",
-  "Celebración": "bg-pink-50 text-pink-600 dark:bg-pink-950/30 dark:text-pink-400 border-pink-100 dark:border-pink-900/40",
+  "Celebración": "bg-pink-50 text-pink-600 dark:text-pink-600 dark:bg-pink-950/30 dark:text-pink-400 border-pink-100 dark:border-pink-900/40",
+  "Galería": "bg-indigo-50 text-indigo-600 dark:bg-indigo-950/30 dark:text-indigo-400 border-indigo-100 dark:border-indigo-900/40",
   "Otro": "bg-gray-50 text-gray-500 dark:bg-dark-border dark:text-gray-400 border-gray-200 dark:border-dark-border",
 };
 
@@ -139,6 +141,7 @@ function EvidenciaCard({ ev, onOpenGaleria, isAdminMode, onEditClick, onDeleteCl
     : null;
   const isVideoOnly = ev.tipo === "Video" && imgs.length === 1 && !ytId && isVideoItem(imgs[0]);
   const isCollection = imgs.length > 1;
+  const isDriveFolder = Boolean(ev.driveFolderUrl);
 
   return (
     <motion.div
@@ -170,9 +173,14 @@ function EvidenciaCard({ ev, onOpenGaleria, isAdminMode, onEditClick, onDeleteCl
               <i className="fas fa-photo-video mr-0.5 text-[7px]"></i> Mixto
             </span>
           )}
-          {isCollection && (
+          {isCollection && !isDriveFolder && (
             <span className="text-[8px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded border bg-indigo-50 text-indigo-600 dark:bg-indigo-950/30 dark:text-indigo-400 border-indigo-100 dark:border-indigo-900/40">
               <i className="fas fa-layer-group mr-0.5 text-[7px]"></i> {imgs.length}
+            </span>
+          )}
+          {isDriveFolder && (
+            <span className="text-[8px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded border bg-indigo-50 text-indigo-600 dark:bg-indigo-950/30 dark:text-indigo-400 border-indigo-100 dark:border-indigo-900/40">
+              <i className="fab fa-google-drive mr-0.5 text-[7px]"></i> Carpeta
             </span>
           )}
         </div>
@@ -184,14 +192,14 @@ function EvidenciaCard({ ev, onOpenGaleria, isAdminMode, onEditClick, onDeleteCl
           {ev.desc}
         </p>
 
-        {isCollection ? (
+        {isCollection || isDriveFolder ? (
           <button
             type="button"
             onClick={() => onOpenGaleria(ev)}
             className="mt-4 w-full py-2 bg-indigo-50 dark:bg-indigo-950/20 hover:bg-indigo-600 hover:text-white text-indigo-700 dark:text-indigo-400 transition-colors rounded-xl border border-indigo-200 dark:border-indigo-900/50 text-[10px] font-black uppercase tracking-wider flex items-center justify-center gap-1.5 active:scale-95"
           >
-            <i className="fas fa-images text-[10px]"></i>
-            Ver {ev.tipo === "Video" ? "Videos" : ev.tipo === "Ambos" ? "Archivos" : "Fotos"}
+            <i className={`${isDriveFolder ? "fab fa-google-drive" : "fas fa-images"} text-[10px]`}></i>
+            Ver Galería
           </button>
         ) : ytId ? (
           <a
@@ -253,7 +261,14 @@ export default function Evidencias({ isAdminMode = false, onEditClick = null, on
   const [busqueda, setBusqueda] = useState("");
   const [categoriaSel, setCategoriaSel] = useState("Todas");
 
-  const [galeria, setGaleria] = useState({ open: false, images: [], index: 0, title: "Galería" });
+  const [galeria, setGaleria] = useState({
+    open: false,
+    images: [],
+    index: 0,
+    title: "Galería",
+    loading: false,
+    error: null,
+  });
 
   const filtradas = useMemo(() => {
     const base = evidencias || [];
@@ -292,7 +307,40 @@ export default function Evidencias({ isAdminMode = false, onEditClick = null, on
     return map;
   }, [filtradas, mesSel]);
 
-  const openEvidenciaGaleria = (ev) => {
+  const openEvidenciaGaleria = async (ev) => {
+    if (ev.driveFolderUrl) {
+      setGaleria({
+        open: true,
+        images: [],
+        index: 0,
+        title: ev.titulo || "Galería Drive",
+        loading: true,
+        error: null,
+      });
+      try {
+        const list = await listDriveImages({ folderId: ev.driveFolderUrl });
+        const images = list.map((img) => ({
+          id: img.id,
+          name: img.name,
+          url: img.url,
+          thumb: img.thumb,
+          mimetype: "image/jpeg",
+        }));
+        setGaleria((g) => ({
+          ...g,
+          images,
+          loading: false,
+          error: images.length === 0 ? new DriveGalleryError("La carpeta está vacía o no es accesible", "empty") : null,
+        }));
+      } catch (err) {
+        const e = err instanceof DriveGalleryError
+          ? err
+          : new DriveGalleryError(err?.message || "Error desconocido", "unknown");
+        setGaleria((g) => ({ ...g, loading: false, error: e }));
+      }
+      return;
+    }
+
     const images = normalizeImgs(ev).map((img, i) => ({
       id: img.url || `img-${i}`,
       name: img.name || `Archivo ${i + 1}`,
@@ -305,6 +353,8 @@ export default function Evidencias({ isAdminMode = false, onEditClick = null, on
       images,
       index: 0,
       title: ev.titulo || "Galería",
+      loading: false,
+      error: null,
     });
   };
 
@@ -452,6 +502,8 @@ export default function Evidencias({ isAdminMode = false, onEditClick = null, on
         open={galeria.open}
         onClose={closeGaleria}
         images={galeria.images}
+        loading={galeria.loading}
+        error={galeria.error}
         initialIndex={galeria.index}
         title={galeria.title}
       />

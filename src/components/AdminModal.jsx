@@ -77,6 +77,7 @@ export default function AdminModal({ isOpen, onClose, type, editingItem }) {
   const [eviFiles, setEviFiles] = useState([]);
   const [eviCollectionMode, setEviCollectionMode] = useState(false);
   const [eviExistingImagenes, setEviExistingImagenes] = useState([]);
+  const [eviDriveUrl, setEviDriveUrl] = useState("");
 
   // ── Populate form when editing ────────────────────────────
   useEffect(() => {
@@ -121,15 +122,24 @@ export default function AdminModal({ isOpen, onClose, type, editingItem }) {
         setEviDesc(editingItem.desc || "");
         const existingImgs = Array.isArray(editingItem.imagenes) ? editingItem.imagenes : [];
         setEviExistingImagenes(existingImgs);
-        if (existingImgs.length > 1) {
+        if (editingItem.driveFolderUrl) {
+          setEviSourceType("drive");
+          setEviDriveUrl(editingItem.driveFolderUrl);
+          setEviCollectionMode(false);
+          setEviUrl("");
+          setEviFile(null);
+          setEviFiles([]);
+        } else if (existingImgs.length > 1) {
           setEviSourceType("archivo");
           setEviCollectionMode(true);
+          setEviDriveUrl("");
           setEviUrl("");
           setEviFile(null);
           setEviFiles([]);
         } else {
           setEviSourceType("url");
           setEviCollectionMode(false);
+          setEviDriveUrl("");
           setEviUrl(editingItem.url || "");
           setEviFile(null);
           setEviFiles([]);
@@ -149,6 +159,7 @@ export default function AdminModal({ isOpen, onClose, type, editingItem }) {
       setEviTipo(TIPOS_EVIDENCIA[0]); setEviDesc("");
       setEviSourceType("url"); setEviUrl(""); setEviFile(null);
       setEviFiles([]); setEviCollectionMode(false); setEviExistingImagenes([]);
+      setEviDriveUrl("");
     }
   }, [isOpen, editingItem, type]);
 
@@ -303,7 +314,19 @@ export default function AdminModal({ isOpen, onClose, type, editingItem }) {
       if (!eviTitulo || !eviDesc) { alert("Complete los campos obligatorios."); return; }
 
       let data;
-      if (eviSourceType === "url") {
+      if (eviSourceType === "drive") {
+        if (!eviDriveUrl) { alert("Pega el link de la carpeta de Google Drive."); return; }
+        data = {
+          titulo: eviTitulo,
+          mes: eviMes,
+          categoria: eviCategoria,
+          tipo: eviTipo,
+          desc: eviDesc,
+          url: null,
+          imagenes: null,
+          driveFolderUrl: eviDriveUrl,
+        };
+      } else if (eviSourceType === "url") {
         if (!eviUrl) { alert("Ingrese la URL de la evidencia."); return; }
         data = {
           titulo: eviTitulo,
@@ -313,6 +336,7 @@ export default function AdminModal({ isOpen, onClose, type, editingItem }) {
           desc: eviDesc,
           url: eviUrl,
           imagenes: [{ url: eviUrl, name: "imagen", mimetype: null, size: null }],
+          driveFolderUrl: null,
         };
       } else if (eviCollectionMode) {
         const nuevas = eviFiles.length > 0 ? await uploadFiles(eviFiles) : null;
@@ -328,6 +352,7 @@ export default function AdminModal({ isOpen, onClose, type, editingItem }) {
           desc: eviDesc,
           url: all[0]?.url || "",
           imagenes: all,
+          driveFolderUrl: null,
         };
       } else {
         let finalUrl;
@@ -353,6 +378,7 @@ export default function AdminModal({ isOpen, onClose, type, editingItem }) {
             mimetype: eviFile?.type || null,
             size: eviFile?.size || null,
           }],
+          driveFolderUrl: null,
         };
       }
 
@@ -620,13 +646,31 @@ export default function AdminModal({ isOpen, onClose, type, editingItem }) {
                   <button type="button" onClick={() => { setEviSourceType("url"); setEviCollectionMode(false); }} className={`flex-1 py-2 rounded-xl text-xs font-bold border transition-all flex items-center justify-center gap-1.5 ${eviSourceType === "url" ? "bg-primary dark:bg-dark-accent text-white border-primary" : "bg-white dark:bg-dark-card text-gray-600 dark:text-gray-300 border-gray-200 dark:border-dark-border"}`}>
                     <i className="fas fa-link"></i> Enlace Web
                   </button>
-                  <button type="button" onClick={() => { setEviSourceType("archivo"); }} className={`flex-1 py-2 rounded-xl text-xs font-bold border transition-all flex items-center justify-center gap-1.5 ${eviSourceType === "archivo" ? "bg-primary dark:bg-dark-accent text-white border-primary" : "bg-white dark:bg-dark-card text-gray-600 dark:text-gray-300 border-gray-200 dark:border-dark-border"}`}>
+                  <button type="button" onClick={() => { setEviSourceType("archivo"); setEviCollectionMode(false); }} className={`flex-1 py-2 rounded-xl text-xs font-bold border transition-all flex items-center justify-center gap-1.5 ${eviSourceType === "archivo" ? "bg-primary dark:bg-dark-accent text-white border-primary" : "bg-white dark:bg-dark-card text-gray-600 dark:text-gray-300 border-gray-200 dark:border-dark-border"}`}>
                     <i className="fas fa-file-upload"></i> Subir Archivo
+                  </button>
+                  <button type="button" onClick={() => { setEviSourceType("drive"); setEviCollectionMode(false); }} className={`flex-1 py-2 rounded-xl text-xs font-bold border transition-all flex items-center justify-center gap-1.5 ${eviSourceType === "drive" ? "bg-primary dark:bg-dark-accent text-white border-primary" : "bg-white dark:bg-dark-card text-gray-600 dark:text-gray-300 border-gray-200 dark:border-dark-border"}`}>
+                    <i className="fab fa-google-drive"></i> Drive
                   </button>
                 </div>
 
                 {eviSourceType === "url" ? (
                   <input type="url" required placeholder={eviTipo === "Video" ? "https://www.youtube.com/watch?v=..." : "https://ejemplo.com/foto.jpg"} className="w-full px-3 py-2 border border-gray-200 dark:border-dark-border bg-white dark:bg-dark-card rounded-xl text-xs focus:ring-2 focus:ring-primary outline-none text-gray-800 dark:text-gray-200" value={eviUrl} onChange={(e) => setEviUrl(e.target.value)} />
+                ) : eviSourceType === "drive" ? (
+                  <div className="space-y-2">
+                    <input
+                      type="url"
+                      required
+                      placeholder="https://drive.google.com/drive/folders/..."
+                      className="w-full px-3 py-2 border border-indigo-200 dark:border-indigo-900/50 bg-white dark:bg-dark-card rounded-xl text-xs focus:ring-2 focus:ring-indigo-500 outline-none text-gray-800 dark:text-gray-200"
+                      value={eviDriveUrl}
+                      onChange={(e) => setEviDriveUrl(e.target.value)}
+                    />
+                    <p className="text-[10px] text-gray-500 dark:text-gray-400 italic">
+                      <i className="fas fa-info-circle mr-1"></i>
+                      Pega el link de una carpeta de Drive que tenga habilitada la opción "Cualquier persona con el enlace puede ver".
+                    </p>
+                  </div>
                 ) : (
                   <>
                     <div className="flex gap-2">

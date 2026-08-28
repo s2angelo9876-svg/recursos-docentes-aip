@@ -929,6 +929,7 @@ app.post("/api/evidencias", authenticateToken, requireRole(["Administrador", "Do
     if (Array.isArray(body.imagenes) && body.imagenes.length > 0 && !body.url) {
       body.url = body.imagenes[0].url;
     }
+    if (!body.driveFolderUrl) body.driveFolderUrl = null;
     if (!body.fecha) body.fecha = new Date().toISOString().slice(0, 10);
     const evidencia = await Evidencia.create(body);
 
@@ -958,6 +959,7 @@ app.put("/api/evidencias/:id", authenticateToken, requireRole(["Administrador", 
     if (Array.isArray(body.imagenes) && body.imagenes.length > 0 && !body.url) {
       body.url = body.imagenes[0].url;
     }
+    if (!body.driveFolderUrl) body.driveFolderUrl = null;
     await Evidencia.update(body, { where: { id } });
 
     await auditoriaFromRequest(req, {

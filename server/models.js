@@ -46,6 +46,7 @@ export function defineModels(sequelize) {
     desc: { type: DataTypes.TEXT, allowNull: false },
     url: { type: DataTypes.STRING, allowNull: true }, // imagen única (YouTube/legado) o null
     imagenes: { type: DataTypes.JSON, allowNull: true }, // [{url, name, size, mimetype}]
+    driveFolderUrl: { type: DataTypes.STRING, allowNull: true, validate: { isURL: false } }, // URL de carpeta Drive
     fecha: { type: DataTypes.DATEONLY, allowNull: false, defaultValue: DataTypes.NOW }, // YYYY-MM-DD
   });
 
