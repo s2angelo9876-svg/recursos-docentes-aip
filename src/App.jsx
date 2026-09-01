@@ -201,9 +201,81 @@ function AppContent() {
       />
 
       {/* Footer */}
-      <footer className="py-6 border-t border-gray-150 dark:border-dark-border bg-white dark:bg-dark-card transition-colors duration-300">
-        <div className="max-w-6xl mx-auto px-4 text-center text-xs text-gray-500 dark:text-gray-400 font-semibold">
-          © 2026 I.E. Bandera del Perú · Aula de Innovación Pedagógica · Prof. Luis Fajardo
+      <footer className="bg-[#001D52] dark:bg-black text-white">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 py-12 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
+          {/* Column 1: Logo + descripción */}
+          <div>
+            <div className="flex items-center gap-2 mb-4">
+              <img src="/img/escudo.png" alt="Logo" className="w-10 h-10 rounded-xl bg-white/10 p-1" onError={(e) => { e.currentTarget.style.display = "none"; }} />
+              <div>
+                <h4 className="font-black text-base uppercase tracking-tight">INNOVA BANDERA</h4>
+                <p className="text-[10px] text-blue-200/70 font-semibold">I.E. Bandera del Perú · Pisco</p>
+              </div>
+            </div>
+            <p className="text-xs text-blue-100/70 leading-relaxed">
+              Institución educativa pública emblemática comprometida con la excelencia y la formación integral.
+            </p>
+          </div>
+
+          {/* Column 2: Navegación */}
+          <div>
+            <h5 className="text-[10px] font-black uppercase tracking-widest text-blue-300 mb-4">Navegación</h5>
+            <ul className="space-y-2 text-xs text-blue-100/80">
+              <li><button onClick={() => setActiveTab("portada")} className="hover:text-yellow-300 transition-colors">Inicio</button></li>
+              <li><button onClick={() => setActiveTab("recursos")} className="hover:text-yellow-300 transition-colors">Recursos</button></li>
+              <li><button onClick={() => setActiveTab("evidencias")} className="hover:text-yellow-300 transition-colors">Evidencias</button></li>
+              <li><button onClick={() => setActiveTab("tutoriales")} className="hover:text-yellow-300 transition-colors">Tutoriales</button></li>
+              <li><button onClick={() => setActiveTab("noticias")} className="hover:text-yellow-300 transition-colors">Noticias</button></li>
+            </ul>
+          </div>
+
+          {/* Column 3: Recursos */}
+          <div>
+            <h5 className="text-[10px] font-black uppercase tracking-widest text-blue-300 mb-4">Recursos</h5>
+            <ul className="space-y-2 text-xs text-blue-100/80">
+              <li><a href="#" className="hover:text-yellow-300 transition-colors">Biblioteca Digital</a></li>
+              <li><a href="#" className="hover:text-yellow-300 transition-colors">Soporte Técnico</a></li>
+              <li><a href="#" className="hover:text-yellow-300 transition-colors">Portal Académico</a></li>
+              <li><a href="#" className="hover:text-yellow-300 transition-colors">Calendario Escolar</a></li>
+            </ul>
+          </div>
+
+          {/* Column 4: Contacto */}
+          <div>
+            <h5 className="text-[10px] font-black uppercase tracking-widest text-blue-300 mb-4">Contacto</h5>
+            <ul className="space-y-2 text-xs text-blue-100/80">
+              <li className="flex items-start gap-2">
+                <i className="fas fa-envelope mt-0.5 text-blue-300"></i>
+                <a href="mailto:contacto@banderadelperu.edu.pe" className="hover:text-yellow-300 transition-colors break-all">contacto@banderadelperu.edu.pe</a>
+              </li>
+              <li className="flex items-start gap-2">
+                <i className="fas fa-map-marker-alt mt-0.5 text-blue-300"></i>
+                <span>Pisco, Ica, Perú</span>
+              </li>
+              <li className="flex items-start gap-2">
+                <i className="fas fa-phone mt-0.5 text-blue-300"></i>
+                <span>Aula de Innovación Pedagógica</span>
+              </li>
+            </ul>
+          </div>
+        </div>
+
+        {/* Bottom bar */}
+        <div className="border-t border-white/10">
+          <div className="max-w-6xl mx-auto px-4 sm:px-6 py-4 flex flex-col sm:flex-row items-center justify-between gap-3 text-[10px] text-blue-200/70">
+            <p className="font-semibold">© 2026 I.E. Bandera del Perú · Aula de Innovación Pedagógica · Prof. Luis Fajardo</p>
+            <div className="flex items-center gap-3">
+              <a href="#" aria-label="Facebook" className="w-7 h-7 rounded-full bg-white/10 hover:bg-yellow-400 hover:text-[#001D52] flex items-center justify-center transition-colors">
+                <i className="fab fa-facebook-f"></i>
+              </a>
+              <a href="#" aria-label="YouTube" className="w-7 h-7 rounded-full bg-white/10 hover:bg-red-500 hover:text-white flex items-center justify-center transition-colors">
+                <i className="fab fa-youtube"></i>
+              </a>
+              <a href="#" aria-label="Instagram" className="w-7 h-7 rounded-full bg-white/10 hover:bg-pink-500 hover:text-white flex items-center justify-center transition-colors">
+                <i className="fab fa-instagram"></i>
+              </a>
+            </div>
+          </div>
         </div>
       </footer>
     </div>
