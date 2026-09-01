@@ -17,14 +17,11 @@ const MESES = ["Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre
 const CATEGORIAS_EVIDENCIA = ["Gestión", "Robótica", "Taller", "Feria", "Concurso", "Capacitación", "Proyecto", "Celebración", "Otro"];
 const TIPOS_EVIDENCIA = ["Foto", "Video", "Ambos"];
 
-// Tope de archivos permitidos en una colección de evidencias
-const MAX_EVIDENCE_FILES = 30;
-
-// Fusiona archivos nuevos con los existentes, descartando duplicados (mismo nombre + tamaño)
-// y respetando el tope máximo. Devuelve { next, dropped, capped } para que la UI pueda avisar.
+// Fusiona archivos nuevos con los existentes, descartando duplicados (mismo nombre + tamaño).
+// Sin tope de cantidad: una colección puede tener tantas fotos como el usuario necesite.
 const mergeEvidenceFiles = (prev, incoming) => {
   if (!incoming || incoming.length === 0) {
-    return { next: prev, dropped: [], capped: 0 };
+    return { next: prev, dropped: [] };
   }
   const seen = new Set(prev.map((f) => `${f.name}::${f.size}::${f.lastModified || 0}`));
   const dropped = [];
@@ -35,15 +32,10 @@ const mergeEvidenceFiles = (prev, incoming) => {
       dropped.push(f.name);
       continue;
     }
-    if (prev.length + accepted.length >= MAX_EVIDENCE_FILES) {
-      dropped.push(f.name);
-      continue;
-    }
     seen.add(key);
     accepted.push(f);
   }
-  const capped = Math.max(0, prev.length + accepted.length - MAX_EVIDENCE_FILES);
-  return { next: [...prev, ...accepted], dropped, capped };
+  return { next: [...prev, ...accepted], dropped };
 };
 
 /**
@@ -325,9 +317,8 @@ export default function AdminModal({ isOpen, onClose, type, editingItem }) {
     setEviFiles(prev => prev.filter((_, i) => i !== idx));
   };
 
-  // Maneja la selección de archivos en el modo colección: ACUMULA, descarta duplicados
-  // y respeta el máximo de MAX_EVIDENCE_FILES. Resetea el input para permitir
-  // volver a elegir los mismos archivos.
+  // Maneja la selección de archivos en el modo colección: ACUMULA y descarta duplicados.
+  // Resetea el input para permitir volver a elegir los mismos archivos.
   const handleEviCollectionPick = (e) => {
     const incoming = Array.from(e.target.files || []);
     if (incoming.length === 0) {
@@ -335,12 +326,9 @@ export default function AdminModal({ isOpen, onClose, type, editingItem }) {
       return;
     }
     setEviFiles((prev) => {
-      const { next, dropped, capped } = mergeEvidenceFiles(prev, incoming);
+      const { next, dropped } = mergeEvidenceFiles(prev, incoming);
       if (dropped.length > 0) {
-        const reason = capped > 0
-          ? `Se omitieron ${dropped.length} archivo(s) (máx. ${MAX_EVIDENCE_FILES}).`
-          : `Se omitieron ${dropped.length} archivo(s) duplicado(s).`;
-        setUploadProgressMsg(reason);
+        setUploadProgressMsg(`Se omitieron ${dropped.length} archivo(s) duplicado(s).`);
         setTimeout(() => setUploadProgressMsg(""), 3500);
       } else {
         setUploadProgressMsg(`+${incoming.length} archivo(s) añadido(s)`);
@@ -967,8 +955,8 @@ export default function AdminModal({ isOpen, onClose, type, editingItem }) {
 
                         <p className="text-[10px] text-gray-500 dark:text-gray-400 italic text-center">
                           {eviFiles.length === 0 && eviExistingImagenes.length === 0
-                            ? `Puedes agregar más fotos en varias selecciones (máx. ${MAX_EVIDENCE_FILES}, 100MB c/u)`
-                            : `Total: ${eviExistingImagenes.length + eviFiles.length}/${MAX_EVIDENCE_FILES} foto(s) · puedes seguir agregando`}
+                            ? `Puedes agregar más fotos en varias selecciones (100MB c/u)`
+                            : `Total: ${eviExistingImagenes.length + eviFiles.length} foto(s) · puedes seguir agregando`}
                         </p>
                       </div>
                     )}
