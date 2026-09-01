@@ -9,7 +9,7 @@ import jwt from "jsonwebtoken";
 import rateLimit from "express-rate-limit";
 import helmet from "helmet";
 import { fileURLToPath } from "url";
-import { Sequelize, Op } from "sequelize";
+import { Sequelize, Op, DataTypes } from "sequelize";
 import { defineModels } from "./server/models.js";
 import * as XLSX from "xlsx";
 import { uploadFile, deleteFile } from "./server/services/storage.js";
@@ -932,6 +932,8 @@ app.post("/api/evidencias", authenticateToken, requireRole(["Administrador", "Do
     }
     if (!body.driveFolderUrl) body.driveFolderUrl = null;
     if (!body.fecha) body.fecha = new Date().toISOString().slice(0, 10);
+    body.imagenes = Array.isArray(body.imagenes) ? body.imagenes : null;
+
     const evidencia = await Evidencia.create(body);
 
     await auditoriaFromRequest(req, {
@@ -948,8 +950,23 @@ app.post("/api/evidencias", authenticateToken, requireRole(["Administrador", "Do
 
     res.status(201).json(normalizeEvidencia(evidencia));
   } catch (err) {
-    logger.error("Error al crear evidencia", { error: err.message, stack: err.stack });
-    res.status(500).json({ error: err.message });
+    logger.error("Error al crear evidencia", {
+      error: err.message,
+      stack: err.stack,
+      name: err.name,
+      code: err.code,
+      sql: err.sql,
+      sqlMessage: err.parent?.message,
+      body: { titulo: req.body?.titulo, hasImagenes: Array.isArray(req.body?.imagenes), hasDrive: !!req.body?.driveFolderUrl },
+    });
+    const isUniqueError = err.name === "SequelizeUniqueConstraintError";
+    const isValidationError = err.name === "SequelizeValidationError";
+    const message = isUniqueError
+      ? "Ya existe una evidencia con esos datos."
+      : isValidationError
+        ? err.errors?.map((e) => e.message).join("; ") || err.message
+        : err.parent?.message || err.message;
+    res.status(500).json({ error: message });
   }
 });
 
@@ -1402,6 +1419,34 @@ const SEED_NOTICIAS = [
 sequelize.sync({ alter: true })
   .then(async () => {
     logger.info("🔋 Base de datos sincronizada.");
+
+    try {
+      const cols = await sequelize.getQueryInterface().describeTable("Evidencia");
+      const required = ["imagenes", "driveFolderUrl", "fecha"];
+      const missing = required.filter((c) => !cols[c]);
+      if (missing.length > 0) {
+        logger.error(`⚠️ Columnas faltantes en Evidencia: ${missing.join(", ")}`);
+        for (const col of missing) {
+          try {
+            logger.info(`➕ Agregando columna Evidencia.${col}...`);
+            if (col === "imagenes") {
+              await sequelize.getQueryInterface().addColumn("Evidencia", "imagenes", { type: DataTypes.JSON, allowNull: true });
+            } else if (col === "driveFolderUrl") {
+              await sequelize.getQueryInterface().addColumn("Evidencia", "driveFolderUrl", { type: DataTypes.STRING, allowNull: true });
+            } else if (col === "fecha") {
+              await sequelize.getQueryInterface().addColumn("Evidencia", "fecha", { type: DataTypes.DATEONLY, allowNull: true, defaultValue: DataTypes.NOW });
+            }
+            logger.info(`✅ Columna Evidencia.${col} agregada.`);
+          } catch (addErr) {
+            logger.error(`❌ No se pudo agregar Evidencia.${col}: ${addErr.message}`);
+          }
+        }
+      } else {
+        logger.info("✅ Todas las columnas de Evidencia presentes.");
+      }
+    } catch (schemaErr) {
+      logger.error("Error al verificar esquema de Evidencia:", { error: schemaErr.message });
+    }
 
     const userCount = await Usuario.count();
 
