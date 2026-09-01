@@ -34,10 +34,12 @@ import {
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const app = express();
 const PORT = process.env.PORT || 5000;
 const SECRET_KEY = process.env.JWT_SECRET || "innova-bandera-secret-key-2026";
 const isProduction = process.env.NODE_ENV === "production";
+
+const app = express();
+if (isProduction) app.set("trust proxy", 1);
 
 if (isProduction && !process.env.JWT_SECRET) {
   logger.error("❌ JWT_SECRET es obligatorio en producción. Defínalo en .env");
