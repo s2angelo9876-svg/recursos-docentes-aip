@@ -11,6 +11,7 @@ import Evidencias from "./components/Evidencias";
 import AdminPanel from "./components/AdminPanel";
 import Login from "./components/Login";
 import AdminModal from "./components/AdminModal";
+import ConfirmModal from "./components/ConfirmModal";
 
 function SectionHeader({ icon, iconColor, title, onAdd }) {
   return (
@@ -62,9 +63,24 @@ function AppContent() {
   // ── CMS Modal state (shared across all views) ──────────
   const [cmsModal, setCmsModal] = useState({ open: false, type: "recursos", item: null });
 
+  // ── Confirm-delete modal state (reemplaza window.confirm) ──
+  const [pendingDelete, setPendingDelete] = useState(null);
+
   const openCmsAdd = (type) => setCmsModal({ open: true, type, item: null });
   const openCmsEdit = (type, item) => setCmsModal({ open: true, type, item });
   const closeCms = () => setCmsModal({ open: false, type: "recursos", item: null });
+
+  const closeDelete = () => setPendingDelete(null);
+
+  const confirmDelete = async () => {
+    if (!pendingDelete) return;
+    if (pendingDelete.kind === "evidencia") {
+      await deleteEvidencia(pendingDelete.id);
+    } else if (pendingDelete.kind === "tutorial") {
+      await deleteTutorial(pendingDelete.id);
+    }
+    setPendingDelete(null);
+  };
 
   return (
     <div className="min-h-screen bg-[#F8F9FA] dark:bg-dark-bg text-gray-900 dark:text-gray-100 antialiased flex flex-col justify-between transition-colors duration-300">
@@ -135,7 +151,7 @@ function AppContent() {
                 <Evidencias
                   isAdminMode={isAdmin || isDocente}
                   onEditClick={(item) => openCmsEdit("evidencias", item)}
-                  onDeleteClick={(id) => { if (window.confirm("¿Eliminar esta evidencia?")) deleteEvidencia(id); }}
+                  onDeleteClick={(item) => setPendingDelete({ kind: "evidencia", id: item.id, titulo: item.titulo })}
                 />
               </motion.div>
             } />
@@ -151,7 +167,7 @@ function AppContent() {
                 <Tutoriales
                   isAdminMode={isAdmin}
                   onEditClick={(item) => openCmsEdit("tutoriales", item)}
-                  onDeleteClick={(id) => { if (window.confirm("¿Eliminar este tutorial?")) deleteTutorial(id); }}
+                  onDeleteClick={(item) => setPendingDelete({ kind: "tutorial", id: item.id, titulo: item.titulo })}
                 />
               </motion.div>
             } />
@@ -275,6 +291,27 @@ function AppContent() {
           </div>
         </div>
       </footer>
+
+      <ConfirmModal
+        open={!!pendingDelete}
+        title={
+          pendingDelete?.kind === "evidencia"
+            ? "Eliminar evidencia"
+            : pendingDelete?.kind === "tutorial"
+              ? "Eliminar tutorial"
+              : "Confirmar eliminación"
+        }
+        message={
+          pendingDelete?.titulo
+            ? `¿Seguro que deseas eliminar "${pendingDelete.titulo}"? Esta acción no se puede deshacer.`
+            : "¿Seguro que deseas eliminar este elemento? Esta acción no se puede deshacer."
+        }
+        confirmText="Sí, eliminar"
+        cancelText="Cancelar"
+        tone="danger"
+        onConfirm={confirmDelete}
+        onClose={closeDelete}
+      />
     </div>
   );
 }

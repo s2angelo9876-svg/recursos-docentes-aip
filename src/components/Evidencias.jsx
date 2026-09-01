@@ -21,22 +21,30 @@ const mesActual = new Date().getMonth();
 const MES_INICIAL = mesActual >= 2 ? MESES[mesActual - 2] : "Marzo";
 
 const CATEGORIA_COLORS = {
-  "Gestión": "bg-blue-50 text-blue-600 dark:bg-blue-950/30 dark:text-blue-400 border-blue-100 dark:border-blue-900/40",
-  "Robótica": "bg-green-50 text-green-600 dark:bg-green-950/30 dark:text-green-400 border-green-100 dark:border-green-900/40",
-  "Taller": "bg-purple-50 text-purple-600 dark:bg-purple-950/30 dark:text-purple-400 border-purple-100 dark:border-purple-900/40",
-  "Feria": "bg-amber-50 text-amber-600 dark:bg-amber-950/30 dark:text-amber-400 border-amber-100 dark:border-amber-900/40",
-  "Concurso": "bg-red-50 text-red-600 dark:bg-red-950/30 dark:text-red-400 border-red-100 dark:border-red-900/40",
-  "Capacitación": "bg-cyan-50 text-cyan-600 dark:bg-cyan-950/30 dark:text-cyan-400 border-cyan-100 dark:border-cyan-900/40",
-  "Proyecto": "bg-emerald-50 text-emerald-600 dark:bg-emerald-950/30 dark:text-emerald-400 border-emerald-100 dark:border-emerald-900/40",
-  "Celebración": "bg-pink-50 text-pink-600 dark:text-pink-600 dark:bg-pink-950/30 dark:text-pink-400 border-pink-100 dark:border-pink-900/40",
-  "Galería": "bg-indigo-50 text-indigo-600 dark:bg-indigo-950/30 dark:text-indigo-400 border-indigo-100 dark:border-indigo-900/40",
-  "Otro": "bg-gray-50 text-gray-500 dark:bg-dark-border dark:text-gray-400 border-gray-200 dark:border-dark-border",
+  "Gestión":       "bg-primary-50 text-primary-700 dark:bg-primary-600/15 dark:text-primary-300 border-primary-100 dark:border-primary-500/30",
+  "Robótica":      "bg-emerald-50 text-emerald-700 dark:bg-emerald-600/15 dark:text-emerald-300 border-emerald-100 dark:border-emerald-500/30",
+  "Taller":        "bg-violet-50 text-violet-700 dark:bg-violet-600/15 dark:text-violet-300 border-violet-100 dark:border-violet-500/30",
+  "Feria":         "bg-amber-50 text-amber-700 dark:bg-amber-500/15 dark:text-amber-300 border-amber-100 dark:border-amber-500/30",
+  "Concurso":      "bg-accent-50 text-accent-700 dark:bg-accent-700/15 dark:text-accent-300 border-accent-100 dark:border-accent-700/30",
+  "Capacitación":  "bg-cyan-50 text-cyan-700 dark:bg-cyan-600/15 dark:text-cyan-300 border-cyan-100 dark:border-cyan-500/30",
+  "Proyecto":      "bg-emerald-50 text-emerald-700 dark:bg-emerald-600/15 dark:text-emerald-300 border-emerald-100 dark:border-emerald-500/30",
+  "Celebración":   "bg-pink-50 text-pink-700 dark:bg-pink-600/15 dark:text-pink-300 border-pink-100 dark:border-pink-500/30",
+  "Galería":       "bg-indigo-50 text-indigo-700 dark:bg-indigo-600/15 dark:text-indigo-300 border-indigo-100 dark:border-indigo-500/30",
+  "Otro":          "bg-slate-50 text-slate-700 dark:bg-slate-600/15 dark:text-slate-300 border-slate-200 dark:border-slate-500/30",
 };
+
+const TIPO_META = {
+  Foto:   { icon: "fa-image",          cls: "bg-primary-500" },
+  Video:  { icon: "fa-video",          cls: "bg-accent-500" },
+  Ambos:  { icon: "fa-photo-film",     cls: "bg-violet-500" },
+};
+
+const easeOut = [0.16, 1, 0.3, 1];
 
 function isVideoItem(item) {
   if (!item) return false;
-  if (item.mimetype && item.mimetype.startsWith("video/")) return true;
-  if (item.mimetype && item.mimetype.startsWith("image/")) return false;
+  if (item.mimetype?.startsWith("video/")) return true;
+  if (item.mimetype?.startsWith("image/")) return false;
   if (typeof item.url === "string") {
     return /\.(mp4|webm|ogg|mov|avi|mkv)(\?|$)/i.test(item.url);
   }
@@ -86,34 +94,35 @@ function EvidenciaMedia({ evidencia }) {
   };
 
   return (
-    <div className="relative overflow-hidden rounded-xl border border-gray-150 dark:border-dark-border bg-gray-100 dark:bg-dark-border aspect-video group/media">
+    <div className="relative overflow-hidden rounded-t-cardLg border-b border-line dark:border-dark-border bg-surface-sunk dark:bg-dark-elev aspect-video group/media">
       {renderCover()}
 
       {(isFirstVideo || ytId) && (
-        <div className="absolute inset-0 flex items-center justify-center bg-black/25 pointer-events-none">
-          <div className="w-11 h-11 rounded-full bg-red-600 text-white flex items-center justify-center shadow-lg">
-            <i className="fas fa-play text-sm ml-0.5"></i>
-          </div>
+        <div className="absolute inset-0 flex items-center justify-center bg-black/30 pointer-events-none">
+          <span className="inline-flex h-12 w-12 items-center justify-center rounded-full bg-accent-600 text-white shadow-glow">
+            <i className="fas fa-play text-sm ml-0.5" />
+          </span>
         </div>
       )}
 
       {isCollection && (
         <>
-          <div className="absolute top-2 right-2 w-7 h-7 rounded-full bg-indigo-600/90 text-white flex items-center justify-center shadow-md text-[10px] font-black">
-            <i className="fas fa-layer-group text-[11px]"></i>
-          </div>
-          <div className="absolute bottom-2 right-2 px-2 py-0.5 rounded-full bg-black/70 text-white text-[10px] font-black backdrop-blur-sm">
-            1 / {imgs.length}
-          </div>
+          <span className="absolute top-3 right-3 inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-indigo-600/95 text-white text-[10px] font-semibold shadow-sm">
+            <i className="fas fa-layer-group text-[9px]" />
+            {imgs.length}
+          </span>
           {imgs.length >= 2 && (
-            <div className="absolute top-2 left-2 flex gap-1">
+            <div className="absolute top-3 left-3 flex gap-1.5">
               {imgs.slice(1, 4).map((img, i) => {
                 const isVid = isVideoItem(img);
                 return (
-                  <div key={i} className="w-8 h-8 rounded-md overflow-hidden border-2 border-white/80 shadow-md rotate-3 relative">
+                  <div
+                    key={i}
+                    className="w-7 h-7 rounded-md overflow-hidden border-2 border-white/80 shadow-md rotate-3 relative"
+                  >
                     {isVid ? (
-                      <div className="w-full h-full bg-gray-700 flex items-center justify-center text-white">
-                        <i className="fas fa-play text-[10px]"></i>
+                      <div className="w-full h-full bg-slate-700 flex items-center justify-center text-white">
+                        <i className="fas fa-play text-[9px]" />
                       </div>
                     ) : (
                       <img src={img.url} alt="" className="w-full h-full object-cover" />
@@ -122,7 +131,7 @@ function EvidenciaMedia({ evidencia }) {
                 );
               })}
               {imgs.length > 4 && (
-                <div className="w-8 h-8 rounded-md bg-black/70 text-white text-[9px] font-black flex items-center justify-center border-2 border-white/80 shadow-md">
+                <div className="w-7 h-7 rounded-md bg-slate-900/85 text-white text-[9px] font-bold flex items-center justify-center border-2 border-white/80 shadow-md">
                   +{imgs.length - 4}
                 </div>
               )}
@@ -142,113 +151,107 @@ function EvidenciaCard({ ev, onOpenGaleria, isAdminMode, onEditClick, onDeleteCl
   const isVideoOnly = ev.tipo === "Video" && imgs.length === 1 && !ytId && isVideoItem(imgs[0]);
   const isCollection = imgs.length > 1;
   const isDriveFolder = Boolean(ev.driveFolderUrl);
+  const tipoMeta = TIPO_META[ev.tipo] || TIPO_META.Foto;
+  const catCls = CATEGORIA_COLORS[ev.categoria] || CATEGORIA_COLORS["Otro"];
 
   return (
-    <motion.div
+    <motion.article
       layout
-      initial={{ opacity: 0, scale: 0.95 }}
-      animate={{ opacity: 1, scale: 1 }}
-      exit={{ opacity: 0, scale: 0.95 }}
-      className="rounded-2xl border border-gray-150 dark:border-dark-border bg-white dark:bg-dark-card shadow-sm hover:shadow-md hover:border-gray-300 dark:hover:border-gray-700 transition-all flex flex-col overflow-hidden"
+      initial={{ opacity: 0, y: 12 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, scale: 0.96 }}
+      transition={{ duration: 0.35, ease: easeOut }}
+      className="group flex flex-col rounded-cardLg bg-white dark:bg-dark-card border border-line dark:border-dark-border shadow-card hover:shadow-card-hover hover:-translate-y-0.5 hover:border-primary-200 dark:hover:border-primary-500/40 transition-all duration-300 overflow-hidden"
     >
-      <div className="p-3 pb-0">
-        <EvidenciaMedia evidencia={ev} />
-      </div>
+      <EvidenciaMedia evidencia={ev} />
 
-      <div className="p-4 flex flex-col flex-1">
-        <div className="flex flex-wrap items-center gap-1.5 mb-2">
-          <span className="text-[8px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded border bg-gray-50 text-gray-500 dark:bg-dark-border dark:text-gray-400 border-gray-200 dark:border-dark-border">
-            <i className="far fa-calendar-alt mr-1"></i>{ev.mes}
+      <div className="p-5 flex flex-col flex-1">
+        <div className="flex flex-wrap items-center gap-1.5 mb-3">
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-semibold bg-surface-alt dark:bg-dark-elev text-ink-subtle">
+            <i className="far fa-calendar text-[9px]" />
+            {ev.mes}
           </span>
-          <span className={`text-[8px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded border ${CATEGORIA_COLORS[ev.categoria] || CATEGORIA_COLORS["Otro"]}`}>
+          <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-semibold border ${catCls}`}>
             {ev.categoria}
           </span>
-          {ev.tipo === "Video" && (
-            <span className="text-[8px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded border bg-red-50 text-red-600 dark:bg-red-950/30 dark:text-red-400 border-red-100 dark:border-red-900/40">
-              <i className="fas fa-video mr-0.5 text-[7px]"></i> Video
-            </span>
-          )}
-          {ev.tipo === "Ambos" && (
-            <span className="text-[8px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded border bg-violet-50 text-violet-600 dark:bg-violet-950/30 dark:text-violet-400 border-violet-100 dark:border-violet-900/40">
-              <i className="fas fa-photo-video mr-0.5 text-[7px]"></i> Mixto
-            </span>
-          )}
-          {isCollection && !isDriveFolder && (
-            <span className="text-[8px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded border bg-indigo-50 text-indigo-600 dark:bg-indigo-950/30 dark:text-indigo-400 border-indigo-100 dark:border-indigo-900/40">
-              <i className="fas fa-layer-group mr-0.5 text-[7px]"></i> {imgs.length}
-            </span>
-          )}
+          <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-semibold text-white ${tipoMeta.cls}`}>
+            <i className={`fas ${tipoMeta.icon} text-[9px]`} />
+            {ev.tipo}
+          </span>
           {isDriveFolder && (
-            <span className="text-[8px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded border bg-indigo-50 text-indigo-600 dark:bg-indigo-950/30 dark:text-indigo-400 border-indigo-100 dark:border-indigo-900/40">
-              <i className="fab fa-google-drive mr-0.5 text-[7px]"></i> Carpeta
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-semibold bg-indigo-50 text-indigo-700 dark:bg-indigo-600/15 dark:text-indigo-300 border border-indigo-100 dark:border-indigo-500/30">
+              <i className="fab fa-google-drive text-[9px]" />
+              Drive
             </span>
           )}
         </div>
 
-        <h4 className="font-bold text-sm text-gray-900 dark:text-white mb-2 uppercase leading-tight line-clamp-2 text-left">
+        <h3 className="text-[15px] font-semibold tracking-tight text-ink dark:text-white leading-snug line-clamp-2">
           {ev.titulo}
-        </h4>
-        <p className="text-xs text-gray-500 dark:text-gray-400 leading-relaxed line-clamp-3 flex-1 text-left">
+        </h3>
+        <p className="mt-1.5 text-[12.5px] text-ink-subtle leading-relaxed line-clamp-3 flex-1">
           {ev.desc}
         </p>
 
-        {isCollection || isDriveFolder ? (
-          <button
-            type="button"
-            onClick={() => onOpenGaleria(ev)}
-            className="mt-4 w-full py-2 bg-indigo-50 dark:bg-indigo-950/20 hover:bg-indigo-600 hover:text-white text-indigo-700 dark:text-indigo-400 transition-colors rounded-xl border border-indigo-200 dark:border-indigo-900/50 text-[10px] font-black uppercase tracking-wider flex items-center justify-center gap-1.5 active:scale-95"
-          >
-            <i className={`${isDriveFolder ? "fab fa-google-drive" : "fas fa-images"} text-[10px]`}></i>
-            Ver Galería
-          </button>
-        ) : ytId ? (
-          <a
-            href={imgs[0].url}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="mt-4 w-full py-2 bg-red-50 dark:bg-red-950/20 hover:bg-red-600 hover:text-white text-red-700 dark:text-red-400 transition-colors rounded-xl border border-red-200 dark:border-red-900/50 text-[10px] font-black uppercase tracking-wider flex items-center justify-center gap-1.5 active:scale-95"
-          >
-            <i className="fab fa-youtube text-[10px]"></i>
-            Ver en YouTube
-          </a>
-        ) : isVideoOnly ? (
-          <button
-            type="button"
-            onClick={() => onOpenGaleria(ev)}
-            className="mt-4 w-full py-2 bg-red-50 dark:bg-red-950/20 hover:bg-red-600 hover:text-white text-red-700 dark:text-red-400 transition-colors rounded-xl border border-red-200 dark:border-red-900/50 text-[10px] font-black uppercase tracking-wider flex items-center justify-center gap-1.5 active:scale-95"
-          >
-            <i className="fas fa-play text-[10px]"></i>
-            Ver Video
-          </button>
-        ) : (
-          <button
-            type="button"
-            onClick={() => onOpenGaleria(ev)}
-            className="mt-4 w-full py-2 bg-gray-50 dark:bg-dark-border hover:bg-primary dark:hover:bg-dark-accent hover:text-white text-gray-700 dark:text-gray-300 transition-colors rounded-xl border border-gray-150 dark:border-dark-border text-[10px] font-black uppercase tracking-wider flex items-center justify-center gap-1.5 active:scale-95"
-          >
-            <i className="fas fa-image text-[10px]"></i>
-            Ver Foto
-          </button>
-        )}
+        <div className="mt-4 pt-4 border-t border-line-subtle dark:border-dark-border space-y-2">
+          {isCollection || isDriveFolder ? (
+            <button
+              type="button"
+              onClick={() => onOpenGaleria(ev)}
+              className="w-full h-9 inline-flex items-center justify-center gap-2 rounded-btn bg-indigo-50 hover:bg-indigo-600 hover:text-white text-indigo-700 dark:bg-indigo-600/15 dark:text-indigo-300 dark:hover:bg-indigo-500 dark:hover:text-white text-[12px] font-semibold transition-colors border border-indigo-100 dark:border-indigo-500/30"
+            >
+              <i className={`${isDriveFolder ? "fab fa-google-drive" : "fas fa-images"} text-[11px]`} />
+              {isDriveFolder ? "Abrir carpeta" : `Ver galería (${imgs.length})`}
+            </button>
+          ) : ytId ? (
+            <a
+              href={imgs[0].url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="w-full h-9 inline-flex items-center justify-center gap-2 rounded-btn bg-accent-600 hover:bg-accent-700 text-white text-[12px] font-semibold transition-colors"
+            >
+              <i className="fab fa-youtube text-[11px]" />
+              Ver en YouTube
+            </a>
+          ) : isVideoOnly ? (
+            <button
+              type="button"
+              onClick={() => onOpenGaleria(ev)}
+              className="w-full h-9 inline-flex items-center justify-center gap-2 rounded-btn bg-accent-600 hover:bg-accent-700 text-white text-[12px] font-semibold transition-colors"
+            >
+              <i className="fas fa-play text-[10px]" />
+              Reproducir video
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={() => onOpenGaleria(ev)}
+              className="w-full h-9 inline-flex items-center justify-center gap-2 rounded-btn bg-primary-600 hover:bg-primary-700 text-white text-[12px] font-semibold transition-colors"
+            >
+              <i className="fas fa-expand text-[10px]" />
+              Ver foto
+            </button>
+          )}
 
-        {isAdminMode && (
-          <div className="flex gap-2 mt-2">
-            <button
-              onClick={() => onEditClick && onEditClick(ev)}
-              className="flex-1 py-1.5 bg-amber-50 dark:bg-amber-950/10 hover:bg-amber-500 hover:text-white border border-amber-200 dark:border-amber-900/50 text-amber-700 dark:text-amber-400 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 active:scale-95"
-            >
-              <i className="fas fa-edit text-[9px]"></i> Editar
-            </button>
-            <button
-              onClick={() => onDeleteClick && onDeleteClick(ev.id)}
-              className="flex-1 py-1.5 bg-red-50 dark:bg-red-950/10 hover:bg-red-600 hover:text-white border border-red-200 dark:border-red-900/50 text-red-700 dark:text-red-400 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 active:scale-95"
-            >
-              <i className="fas fa-trash-alt text-[9px]"></i> Eliminar
-            </button>
-          </div>
-        )}
+          {isAdminMode && (
+            <div className="flex gap-2">
+              <button
+                onClick={() => onEditClick && onEditClick(ev)}
+                className="flex-1 h-8 rounded-btn bg-amber-50 hover:bg-amber-500 hover:text-white text-amber-700 dark:bg-amber-500/15 dark:text-amber-300 dark:hover:bg-amber-500 dark:hover:text-white text-[11px] font-semibold transition-colors inline-flex items-center justify-center gap-1.5"
+              >
+                <i className="fas fa-pen text-[9px]" /> Editar
+              </button>
+              <button
+                onClick={() => onDeleteClick && onDeleteClick(ev)}
+                className="flex-1 h-8 rounded-btn bg-accent-50 hover:bg-accent-500 hover:text-white text-accent-600 dark:bg-accent-700/15 dark:text-accent-300 dark:hover:bg-accent-500 dark:hover:text-white text-[11px] font-semibold transition-colors inline-flex items-center justify-center gap-1.5"
+              >
+                <i className="fas fa-trash text-[9px]" /> Eliminar
+              </button>
+            </div>
+          )}
+        </div>
       </div>
-    </motion.div>
+    </motion.article>
   );
 }
 
@@ -271,14 +274,10 @@ export default function Evidencias({ isAdminMode = false, onEditClick = null, on
   const filtradas = useMemo(() => {
     const base = evidencias || [];
     const q = busqueda.toLowerCase();
-
     return base
       .filter((e) => {
         const matchMes = mesSel === MES_TODOS || e.mes === mesSel;
-        const matchCategoria =
-          categoriaSel === "Todas"
-            ? true
-            : e.categoria === categoriaSel;
+        const matchCategoria = categoriaSel === "Todas" || e.categoria === categoriaSel;
         const matchBusqueda =
           (e.titulo || "").toLowerCase().includes(q) ||
           (e.desc || "").toLowerCase().includes(q);
@@ -359,6 +358,16 @@ export default function Evidencias({ isAdminMode = false, onEditClick = null, on
 
   const closeGaleria = () => setGaleria((g) => ({ ...g, open: false }));
 
+  const handleFilterChange = (setter) => (value) => setter(value);
+
+  const clearFilters = () => {
+    setMesSel(MES_INICIAL);
+    setCategoriaSel("Todas");
+    setBusqueda("");
+  };
+
+  const hasActiveFilters = busqueda || categoriaSel !== "Todas" || mesSel !== MES_INICIAL;
+
   const renderFlat = () => (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
       <AnimatePresence mode="popLayout">
@@ -379,117 +388,142 @@ export default function Evidencias({ isAdminMode = false, onEditClick = null, on
   const renderGrouped = () => {
     if (grouped.size === 0) return renderEmpty();
     return (
-      <div className="space-y-8">
-        {Array.from(grouped.entries()).map(([year, months]) => (
-          <section key={year}>
-            <div className="flex items-center gap-3 mb-4">
-              <h2 className="text-2xl font-black text-gray-900 dark:text-white tracking-tight">
-                {year}
-              </h2>
-              <div className="flex-1 h-px bg-gradient-to-r from-gray-300 dark:from-dark-border to-transparent" />
-              <span className="text-[10px] font-black uppercase tracking-wider px-2 py-1 rounded bg-gray-100 dark:bg-dark-border text-gray-600 dark:text-gray-300">
-                {[...months.values()].reduce((acc, arr) => acc + arr.length, 0)} items
-              </span>
-            </div>
+      <div className="space-y-10">
+        {Array.from(grouped.entries()).map(([year, months]) => {
+          const totalYear = [...months.values()].reduce((acc, arr) => acc + arr.length, 0);
+          return (
+            <section key={year}>
+              <div className="flex items-center gap-3 mb-5">
+                <h2 className="text-[15px] font-semibold tracking-tight text-ink dark:text-white">
+                  {year}
+                </h2>
+                <span className="text-[11px] font-medium text-ink-subtle">
+                  {totalYear} {totalYear === 1 ? "actividad" : "actividades"}
+                </span>
+                <div className="flex-1 h-px bg-gradient-to-r from-line dark:from-dark-border to-transparent" />
+              </div>
 
-            <div className="space-y-6">
-              {Array.from(months.entries()).map(([month, items]) => (
-                <div key={month}>
-                  <div className="flex items-center gap-2 mb-3">
-                    <h3 className="text-xs font-black uppercase tracking-wider text-gray-500 dark:text-gray-400">
-                      <i className="far fa-calendar-alt mr-1.5"></i>
-                      {month}
-                    </h3>
-                    <span className="text-[10px] font-bold text-gray-400 dark:text-gray-500">
-                      ({items.length})
-                    </span>
+              <div className="space-y-7">
+                {Array.from(months.entries()).map(([month, items]) => (
+                  <div key={month}>
+                    <div className="flex items-center gap-2 mb-3">
+                      <h3 className="text-[12px] font-semibold tracking-tight text-ink dark:text-white inline-flex items-center gap-1.5">
+                        <i className="far fa-calendar text-ink-meta" />
+                        {month}
+                      </h3>
+                      <span className="text-[11px] text-ink-subtle">({items.length})</span>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+                      <AnimatePresence mode="popLayout">
+                        {items.map((e) => (
+                          <EvidenciaCard
+                            key={e.id}
+                            ev={e}
+                            onOpenGaleria={openEvidenciaGaleria}
+                            isAdminMode={isAdminMode}
+                            onEditClick={onEditClick}
+                            onDeleteClick={onDeleteClick}
+                          />
+                        ))}
+                      </AnimatePresence>
+                    </div>
                   </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-                    <AnimatePresence mode="popLayout">
-                      {items.map((e) => (
-                        <EvidenciaCard
-                          key={e.id}
-                          ev={e}
-                          onOpenGaleria={openEvidenciaGaleria}
-                          isAdminMode={isAdminMode}
-                          onEditClick={onEditClick}
-                          onDeleteClick={onDeleteClick}
-                        />
-                      ))}
-                    </AnimatePresence>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </section>
-        ))}
+                ))}
+              </div>
+            </section>
+          );
+        })}
       </div>
     );
   };
 
   const renderEmpty = () => (
-    <div className="py-16 bg-white dark:bg-dark-card rounded-2xl border border-dashed border-gray-200 dark:border-dark-border text-center">
-      <i className="far fa-star text-gray-300 dark:text-gray-600 text-5xl mb-4"></i>
-      <h3 className="text-base font-bold text-gray-700 dark:text-gray-300 uppercase">Sin evidencias</h3>
-      <p className="text-gray-400 dark:text-gray-500 text-xs mt-1 max-w-xs mx-auto">
+    <div className="rounded-cardLg border border-dashed border-line dark:border-dark-border bg-surface-alt/50 dark:bg-dark-card/40 py-16 px-6 text-center">
+      <span className="inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-surface-sunk dark:bg-dark-elev text-ink-meta mb-4">
+        <i className="far fa-image text-2xl" />
+      </span>
+      <h3 className="text-[15px] font-semibold text-ink dark:text-white">
+        Sin evidencias para mostrar
+      </h3>
+      <p className="mt-1.5 text-[13px] text-ink-subtle max-w-sm mx-auto">
         {mesSel === MES_TODOS
-          ? "Aún no hay evidencias registradas."
-          : "Prueba cambiando el mes o el filtro."}
+          ? "Aún no hay evidencias registradas en la plataforma."
+          : "Prueba con otro mes, categoría o limpia los filtros."}
       </p>
+      {hasActiveFilters && (
+        <button
+          onClick={clearFilters}
+          className="mt-4 h-9 px-4 rounded-btn bg-primary-600 hover:bg-primary-700 text-white text-[12px] font-semibold transition-colors"
+        >
+          Limpiar filtros
+        </button>
+      )}
     </div>
   );
 
   return (
     <div className="space-y-6">
-      <div className="bg-white dark:bg-dark-card p-5 rounded-2xl border border-gray-150 dark:border-dark-border shadow-sm space-y-4 transition-colors duration-300">
-        <div className="flex flex-col md:flex-row gap-3">
-          <div className="relative flex-1">
-            <span className="absolute left-3 top-3 text-gray-400 dark:text-gray-500 text-xs">
-              <i className="fas fa-search"></i>
-            </span>
-            <input
-              type="text"
-              className="w-full pl-9 pr-3 py-2 rounded-xl border border-gray-200 dark:border-dark-border bg-white dark:bg-dark-card text-gray-800 dark:text-gray-200 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary dark:focus:ring-dark-accent text-xs"
-              placeholder="Buscar actividad..."
-              value={busqueda}
-              onChange={(e) => setBusqueda(e.target.value)}
-            />
+      <div className="rounded-cardLg border border-line dark:border-dark-border bg-white dark:bg-dark-card shadow-card">
+        <div className="p-5 flex flex-col gap-4">
+          <div className="flex flex-col md:flex-row gap-3">
+            <div className="relative flex-1">
+              <i className="fas fa-magnifying-glass absolute left-3.5 top-1/2 -translate-y-1/2 text-ink-meta text-sm pointer-events-none" />
+              <input
+                type="text"
+                className="w-full pl-10 pr-4 h-11 rounded-btn border border-line dark:border-dark-border bg-white dark:bg-dark-input text-[13.5px] text-ink dark:text-white placeholder:text-ink-meta focus:outline-none focus:ring-2 focus:ring-primary-500/30 focus:border-primary-500 transition-all"
+                placeholder="Buscar actividad por título o descripción…"
+                value={busqueda}
+                onChange={(e) => handleFilterChange(setBusqueda)(e.target.value)}
+                aria-label="Buscar evidencias"
+              />
+            </div>
+
+            <div className="relative">
+              <select
+                className="appearance-none h-11 pl-4 pr-10 rounded-btn border border-line dark:border-dark-border bg-white dark:bg-dark-input text-[13px] text-ink dark:text-white focus:outline-none focus:ring-2 focus:ring-primary-500/30 focus:border-primary-500 transition-all cursor-pointer"
+                value={categoriaSel}
+                onChange={(e) => handleFilterChange(setCategoriaSel)(e.target.value)}
+                aria-label="Filtrar por categoría"
+              >
+                <option value="Todas">Todas las categorías</option>
+                {CATEGORIAS.map((c) => (
+                  <option key={c} value={c}>{c}</option>
+                ))}
+              </select>
+              <i className="fas fa-chevron-down absolute right-3 top-1/2 -translate-y-1/2 text-ink-meta text-[10px] pointer-events-none" />
+            </div>
           </div>
 
-          <select
-            className="border border-gray-200 dark:border-dark-border rounded-xl px-3 py-2 text-xs bg-white dark:bg-dark-card text-gray-700 dark:text-gray-200 outline-none"
-            value={categoriaSel}
-            onChange={(e) => setCategoriaSel(e.target.value)}
-          >
-            <option value="Todas">Todas las categorías</option>
-            {CATEGORIAS.map((c) => (
-              <option key={c} value={c}>{c}</option>
+          <div className="flex flex-wrap items-center gap-1.5 pt-3 border-t border-line-subtle dark:border-dark-border">
+            <span className="text-[10px] font-semibold text-ink-meta uppercase tracking-wider mr-1">
+              Mes
+            </span>
+            <FilterPill active={mesSel === MES_TODOS} onClick={() => setMesSel(MES_TODOS)}>
+              <i className="fas fa-layer-group text-[9px]" /> Todas
+            </FilterPill>
+            {MESES.map((m) => (
+              <FilterPill key={m} active={mesSel === m} onClick={() => setMesSel(m)}>
+                {m}
+              </FilterPill>
             ))}
-          </select>
+          </div>
         </div>
 
-        <div className="flex flex-wrap items-center gap-1.5 pt-3 border-t border-gray-100 dark:border-dark-border">
-          <button
-            onClick={() => setMesSel(MES_TODOS)}
-            className={`px-3 py-1.5 rounded-full text-[10px] font-bold border transition-all ${mesSel === MES_TODOS
-              ? "bg-gradient-to-r from-primary to-blue-600 dark:from-dark-accent dark:to-blue-500 text-white border-transparent shadow-sm"
-              : "bg-gray-50 dark:bg-dark-border text-gray-600 dark:text-gray-300 border-gray-200 dark:border-dark-border hover:bg-gray-100"
-              }`}
-          >
-            <i className="fas fa-layer-group mr-1"></i> Todas
-          </button>
-          {MESES.map((m) => (
+        <div className="px-5 pb-4 flex items-center justify-between text-[12px] text-ink-subtle">
+          <span>
+            <span className="font-semibold text-ink dark:text-white tabular-nums">
+              {filtradas.length}
+            </span>{" "}
+            {filtradas.length === 1 ? "evidencia" : "evidencias"}
+          </span>
+          {hasActiveFilters && (
             <button
-              key={m}
-              onClick={() => setMesSel(m)}
-              className={`px-3 py-1.5 rounded-full text-[10px] font-bold border transition-all ${mesSel === m
-                ? "bg-primary dark:bg-dark-accent text-white border-primary dark:border-dark-accent"
-                : "bg-gray-50 dark:bg-dark-border text-gray-600 dark:text-gray-300 border-gray-200 dark:border-dark-border hover:bg-gray-100"
-                }`}
+              onClick={clearFilters}
+              className="text-primary-600 dark:text-primary-300 hover:underline font-medium"
             >
-              {m}
+              Limpiar filtros
             </button>
-          ))}
+          )}
         </div>
       </div>
 
@@ -507,5 +541,21 @@ export default function Evidencias({ isAdminMode = false, onEditClick = null, on
         title={galeria.title}
       />
     </div>
+  );
+}
+
+function FilterPill({ active, onClick, children }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-[11px] font-medium transition-all duration-200 ${
+        active
+          ? "bg-primary-600 text-white shadow-sm"
+          : "bg-surface-sunk dark:bg-dark-elev text-ink-subtle hover:text-ink dark:hover:text-white hover:bg-line dark:hover:bg-dark-border"
+      }`}
+    >
+      {children}
+    </button>
   );
 }

@@ -226,20 +226,23 @@ export default function GaleriaModal({
               {!loading && error && (
                 <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 px-6 text-center text-white">
                   <div className="w-16 h-16 rounded-full bg-red-500/20 text-red-400 flex items-center justify-center text-2xl">
-                    <i className="fas fa-exclamation-triangle"></i>
+                    <i className="fas fa-exclamation-triangle" />
                   </div>
-                  <h3 className="text-base font-bold uppercase">No se pudo cargar</h3>
+                  <h3 className="text-base font-semibold">No se pudo cargar</h3>
                   <p className="text-xs opacity-80 max-w-md">{error.message}</p>
                   {ERROR_HINTS[error.code] && (
-                    <p className="text-[11px] opacity-60 max-w-md">💡 {ERROR_HINTS[error.code]}</p>
+                    <p className="text-[11px] opacity-60 max-w-md inline-flex items-center gap-1.5">
+                      <i className="fas fa-lightbulb text-amber-300" />
+                      {ERROR_HINTS[error.code]}
+                    </p>
                   )}
                 </div>
               )}
 
               {!loading && !error && images.length === 0 && (
                 <div className="flex flex-col items-center justify-center gap-2 text-white/50">
-                  <i className="far fa-folder-open text-5xl"></i>
-                  <span className="text-xs font-semibold uppercase tracking-wider">Vacío</span>
+                  <i className="far fa-folder-open text-5xl" />
+                  <span className="text-xs font-semibold">Sin archivos para mostrar</span>
                 </div>
               )}
 

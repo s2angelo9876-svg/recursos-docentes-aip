@@ -6,9 +6,11 @@ import { getYouTubeId, getYouTubeThumbnail } from "../utils/youtube";
 const AREAS_CNEB = [
   "Matemática", "Comunicación", "Inglés", "Arte y Cultura",
   "Ciencias Sociales", "DPCC", "Educación Física", "Educación Religiosa",
-  "Ciencia y Tecnología", "Educación para el Trabajo"
+  "Ciencia y Tecnología", "Educación para el Trabajo",
 ];
 const AREA_TODAS = "Todas las áreas";
+
+const easeOut = [0.16, 1, 0.3, 1];
 
 function YouTubeThumbnail({ url, title }) {
   const id = getYouTubeId(url);
@@ -17,17 +19,17 @@ function YouTubeThumbnail({ url, title }) {
 
   if (!id) {
     return (
-      <div className="w-full h-36 bg-gray-100 dark:bg-dark-border rounded-xl flex items-center justify-center">
-        <i className="fas fa-link text-gray-400 text-2xl"></i>
+      <div className="w-full aspect-video bg-surface-alt dark:bg-dark-elev rounded-t-cardLg flex items-center justify-center">
+        <i className="fas fa-link text-ink-meta text-2xl" />
       </div>
     );
   }
 
   if (playing) {
     return (
-      <div className="w-full aspect-video rounded-xl overflow-hidden">
+      <div className="w-full aspect-video rounded-t-cardLg overflow-hidden bg-black">
         <iframe
-          src={`https://www.youtube.com/embed/${id}?autoplay=1`}
+          src={`https://www.youtube.com/embed/${id}?autoplay=1&rel=0`}
           title={title}
           className="w-full h-full"
           allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
@@ -42,101 +44,136 @@ function YouTubeThumbnail({ url, title }) {
     : getYouTubeThumbnail(id, "mqdefault");
 
   return (
-    <div
-      className="relative w-full h-36 rounded-xl overflow-hidden cursor-pointer group/thumb"
+    <button
+      type="button"
       onClick={() => setPlaying(true)}
+      className="relative w-full aspect-video rounded-t-cardLg overflow-hidden group/thumb block"
+      aria-label={`Reproducir ${title}`}
     >
       <img
         src={thumb}
         alt={title}
-        className="w-full h-full object-cover transition-transform duration-300 group-hover/thumb:scale-105"
+        className="w-full h-full object-cover transition-transform duration-500 group-hover/thumb:scale-105"
         onError={() => setImgError(true)}
+        loading="lazy"
       />
-      <div className="absolute inset-0 bg-black/30 group-hover/thumb:bg-black/50 transition-colors flex items-center justify-center">
-        <div className="w-12 h-12 rounded-full bg-red-600 flex items-center justify-center shadow-xl group-hover/thumb:scale-110 transition-transform">
-          <i className="fas fa-play text-white text-sm ml-1"></i>
-        </div>
+      <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/15 to-transparent transition-opacity group-hover/thumb:opacity-90" />
+      <div className="absolute inset-0 flex items-center justify-center">
+        <span className="inline-flex h-14 w-14 items-center justify-center rounded-full bg-accent-600 text-white shadow-glow ring-4 ring-white/15 group-hover/thumb:scale-110 transition-transform">
+          <i className="fas fa-play text-base ml-0.5" />
+        </span>
       </div>
-    </div>
+      <span className="absolute bottom-2 left-2 inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-black/70 backdrop-blur text-white text-[10px] font-semibold">
+        <i className="fab fa-youtube" />
+        YouTube
+      </span>
+    </button>
   );
 }
 
 function AccessSelector({ onSelect }) {
   return (
-    <div className="flex flex-col items-center justify-center min-h-[55vh] px-4">
+    <div className="flex flex-col items-center justify-center min-h-[60vh] px-4">
       <motion.div
-        initial={{ opacity: 0, y: 20 }}
+        initial={{ opacity: 0, y: 16 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.4 }}
-        className="text-center mb-10"
+        transition={{ duration: 0.5, ease: easeOut }}
+        className="text-center mb-10 max-w-md"
       >
-        <div className="h-16 w-16 rounded-2xl bg-gradient-to-br from-red-500 to-orange-500 text-white flex items-center justify-center font-black text-2xl mx-auto shadow-lg mb-4 ring-4 ring-red-500/20">
-          <i className="fab fa-youtube"></i>
-        </div>
-        <h2 className="text-2xl font-black uppercase text-gray-900 dark:text-white tracking-tight">
+        <span className="inline-flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-accent-500 to-accent-700 text-white shadow-glow mb-5">
+          <i className="fab fa-youtube text-2xl" />
+        </span>
+        <h2 className="text-2xl sm:text-3xl font-bold tracking-tight text-ink dark:text-white">
           Tutoriales TIC
         </h2>
-        <p className="text-sm text-gray-500 dark:text-gray-400 mt-2 font-semibold">
-          ¿Cómo deseas acceder a los tutoriales?
+        <p className="mt-2 text-[14px] text-ink-subtle leading-relaxed">
+          ¿Cómo deseas acceder al catálogo de tutoriales pedagógicos?
         </p>
       </motion.div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 w-full max-w-xl">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 w-full max-w-xl">
         <motion.button
-          initial={{ opacity: 0, x: -20 }}
+          initial={{ opacity: 0, x: -16 }}
           animate={{ opacity: 1, x: 0 }}
-          transition={{ duration: 0.4, delay: 0.1 }}
+          transition={{ duration: 0.5, delay: 0.1, ease: easeOut }}
           onClick={() => onSelect("docente")}
-          className="group relative overflow-hidden p-8 rounded-[24px] border-2 border-blue-200 dark:border-blue-900/50 bg-white dark:bg-dark-card hover:border-blue-500 dark:hover:border-blue-500 hover:shadow-2xl hover:shadow-blue-500/10 transition-all text-left cursor-pointer active:scale-95"
+          className="group relative overflow-hidden rounded-cardLg border border-line dark:border-dark-border bg-white dark:bg-dark-card p-7 text-left hover:-translate-y-0.5 hover:shadow-card-hover hover:border-primary-200 dark:hover:border-primary-500/40 transition-all"
         >
-          <div className="absolute inset-0 bg-gradient-to-br from-blue-50/50 to-transparent dark:from-blue-950/20 opacity-0 group-hover:opacity-100 transition-opacity rounded-[22px]" />
-          <div className="relative z-10">
-            <div className="h-14 w-14 rounded-2xl bg-blue-50 dark:bg-blue-950/30 text-blue-600 dark:text-blue-400 flex items-center justify-center text-2xl mb-5 group-hover:scale-110 transition-transform shadow-sm">
-              <i className="fas fa-chalkboard-teacher"></i>
-            </div>
-            <h3 className="text-lg font-black text-gray-900 dark:text-white uppercase tracking-tight mb-1">
+          <div className="absolute inset-0 bg-gradient-to-br from-primary-500/[0.04] to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+          <div className="relative">
+            <span className="inline-flex h-12 w-12 items-center justify-center rounded-xl bg-primary-50 text-primary-600 dark:bg-primary-600/15 dark:text-primary-300 mb-4 group-hover:scale-110 transition-transform">
+              <i className="fas fa-chalkboard-teacher text-lg" />
+            </span>
+            <h3 className="text-[17px] font-semibold text-ink dark:text-white">
               Docente
             </h3>
-            <p className="text-xs text-gray-500 dark:text-gray-400 leading-relaxed font-semibold">
-              Accede al catálogo completo de tutoriales pedagógicos y recursos TIC.
+            <p className="mt-1.5 text-[13px] text-ink-subtle leading-relaxed">
+              Catálogo completo de tutoriales pedagógicos y recursos TIC para tu práctica.
             </p>
-            <span className="mt-5 inline-flex items-center gap-1.5 text-[10px] font-black text-blue-600 dark:text-blue-400 uppercase tracking-widest group-hover:gap-2.5 transition-all">
-              Ingresar <i className="fas fa-arrow-right text-[9px]"></i>
+            <span className="mt-5 inline-flex items-center gap-1.5 text-[12px] font-semibold text-primary-600 dark:text-primary-300 group-hover:gap-2.5 transition-all">
+              Ingresar <i className="fas fa-arrow-right text-[10px]" />
             </span>
           </div>
         </motion.button>
 
         <motion.button
-          initial={{ opacity: 0, x: 20 }}
+          initial={{ opacity: 0, x: 16 }}
           animate={{ opacity: 1, x: 0 }}
-          transition={{ duration: 0.4, delay: 0.15 }}
+          transition={{ duration: 0.5, delay: 0.15, ease: easeOut }}
           onClick={() => onSelect("estudiante")}
-          className="group relative overflow-hidden p-8 rounded-[24px] border-2 border-green-200 dark:border-green-900/50 bg-white dark:bg-dark-card hover:border-green-500 dark:hover:border-green-500 hover:shadow-2xl hover:shadow-green-500/10 transition-all text-left cursor-pointer active:scale-95"
+          className="group relative overflow-hidden rounded-cardLg border border-line dark:border-dark-border bg-white dark:bg-dark-card p-7 text-left hover:-translate-y-0.5 hover:shadow-card-hover hover:border-emerald-200 dark:hover:border-emerald-500/40 transition-all"
         >
-          <div className="absolute inset-0 bg-gradient-to-br from-green-50/50 to-transparent dark:from-green-950/20 opacity-0 group-hover:opacity-100 transition-opacity rounded-[22px]" />
-          <div className="relative z-10">
-            <div className="h-14 w-14 rounded-2xl bg-green-50 dark:bg-green-950/30 text-green-600 dark:text-green-400 flex items-center justify-center text-2xl mb-5 group-hover:scale-110 transition-transform shadow-sm">
-              <i className="fas fa-user-graduate"></i>
-            </div>
-            <h3 className="text-lg font-black text-gray-900 dark:text-white uppercase tracking-tight mb-1">
+          <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/[0.04] to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+          <div className="relative">
+            <span className="inline-flex h-12 w-12 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600 dark:bg-emerald-600/15 dark:text-emerald-300 mb-4 group-hover:scale-110 transition-transform">
+              <i className="fas fa-user-graduate text-lg" />
+            </span>
+            <h3 className="text-[17px] font-semibold text-ink dark:text-white">
               Estudiante
             </h3>
-            <p className="text-xs text-gray-500 dark:text-gray-400 leading-relaxed font-semibold">
-              Explora tutoriales educativos y aprende con videos seleccionados por tus docentes.
+            <p className="mt-1.5 text-[13px] text-ink-subtle leading-relaxed">
+              Aprende con videos seleccionados por tus docentes y tutores.
             </p>
-            <span className="mt-5 inline-flex items-center gap-1.5 text-[10px] font-black text-green-600 dark:text-green-400 uppercase tracking-widest group-hover:gap-2.5 transition-all">
-              Ingresar <i className="fas fa-arrow-right text-[9px]"></i>
+            <span className="mt-5 inline-flex items-center gap-1.5 text-[12px] font-semibold text-emerald-600 dark:text-emerald-300 group-hover:gap-2.5 transition-all">
+              Ingresar <i className="fas fa-arrow-right text-[10px]" />
             </span>
           </div>
         </motion.button>
       </div>
     </div>
+  );
+}
+
+function AudiencePill({ audience }) {
+  if (!audience || audience === "ambos") return null;
+  const map = {
+    docente: {
+      cls: "bg-primary-50 text-primary-700 dark:bg-primary-600/15 dark:text-primary-300",
+      icon: "fa-chalkboard-teacher",
+      label: "Docente",
+    },
+    estudiante: {
+      cls: "bg-emerald-50 text-emerald-700 dark:bg-emerald-600/15 dark:text-emerald-300",
+      icon: "fa-user-graduate",
+      label: "Estudiante",
+    },
+  };
+  const m = map[audience];
+  if (!m) return null;
+  return (
+    <span
+      className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[10px] font-semibold ${m.cls}`}
+    >
+      <i className={`fas ${m.icon} text-[8px]`} />
+      {m.label}
+    </span>
   );
 }
 
 export default function Tutoriales({ isAdminMode = false, onEditClick = null, onDeleteClick = null }) {
   const { tutoriales, deleteTutorial, tutorialAccess, setTutorialAccess } = useApp();
   const [busqueda, setBusqueda] = useState("");
+  const [areaSel, setAreaSel] = useState(AREA_TODAS);
   const accessType = isAdminMode ? null : tutorialAccess;
   const setAccessType = setTutorialAccess;
 
@@ -152,20 +189,19 @@ export default function Tutoriales({ isAdminMode = false, onEditClick = null, on
 
       const termino = busqueda.toLowerCase().trim();
 
-      // Un tutorial de "Todas las áreas" también coincide si la búsqueda
-      // corresponde al nombre de alguna área curricular (ej. "matemática")
       const matchArea =
+        areaSel === AREA_TODAS || p.area === areaSel;
+
+      const matchBusqueda =
+        !termino ||
+        (p.titulo || "").toLowerCase().includes(termino) ||
+        (p.desc || "").toLowerCase().includes(termino) ||
         (p.area || "").toLowerCase().includes(termino) ||
         (p.area === AREA_TODAS && AREAS_CNEB.some((a) => a.toLowerCase().includes(termino)));
 
-      const matchBusqueda =
-        (p.titulo || "").toLowerCase().includes(termino) ||
-        (p.desc || "").toLowerCase().includes(termino) ||
-        matchArea;
-
-      return matchAudiencia && matchBusqueda;
+      return matchAudiencia && matchArea && matchBusqueda;
     });
-  }, [tutoriales, busqueda, accessType, isAdminMode]);
+  }, [tutoriales, busqueda, accessType, isAdminMode, areaSel]);
 
   if (!accessType && !isAdminMode) {
     return <AccessSelector onSelect={setAccessType} />;
@@ -174,113 +210,156 @@ export default function Tutoriales({ isAdminMode = false, onEditClick = null, on
   return (
     <div className="space-y-6">
       {accessType && !isAdminMode && (
-        <div className="flex items-center justify-between">
-          <div className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest border ${accessType === "docente"
-              ? "bg-blue-50 dark:bg-blue-950/20 text-blue-600 dark:text-blue-400 border-blue-200 dark:border-blue-900/40"
-              : "bg-green-50 dark:bg-green-950/20 text-green-600 dark:text-green-400 border-green-200 dark:border-green-900/40"
-            }`}>
-            <i className={`fas ${accessType === "docente" ? "fa-chalkboard-teacher" : "fa-user-graduate"}`}></i>
+        <div className="flex items-center justify-between flex-wrap gap-2">
+          <span
+            className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-[11px] font-semibold border ${
+              accessType === "docente"
+                ? "bg-primary-50 dark:bg-primary-600/15 text-primary-700 dark:text-primary-300 border-primary-200 dark:border-primary-500/30"
+                : "bg-emerald-50 dark:bg-emerald-600/15 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-500/30"
+            }`}
+          >
+            <i
+              className={`fas ${
+                accessType === "docente" ? "fa-chalkboard-teacher" : "fa-user-graduate"
+              } text-[10px]`}
+            />
             Modo {accessType === "docente" ? "Docente" : "Estudiante"}
-          </div>
+          </span>
           <button
             onClick={() => setAccessType(null)}
-            className="text-[10px] text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 font-bold uppercase tracking-wider flex items-center gap-1 transition-colors"
+            className="text-[12px] text-ink-subtle hover:text-ink dark:hover:text-white font-medium flex items-center gap-1.5 transition-colors"
           >
-            <i className="fas fa-exchange-alt text-[9px]"></i> Cambiar
+            <i className="fas fa-arrow-rotate-left text-[10px]" />
+            Cambiar modo
           </button>
         </div>
       )}
 
-      <div className="bg-white dark:bg-dark-card p-5 rounded-2xl border border-gray-150 dark:border-dark-border shadow-sm transition-colors">
-        <div className="relative">
-          <span className="absolute left-3 top-3 text-gray-400 dark:text-gray-500 text-xs">
-            <i className="fas fa-search"></i>
+      <div className="rounded-cardLg border border-line dark:border-dark-border bg-white dark:bg-dark-card shadow-card">
+        <div className="p-5 flex flex-col gap-3">
+          <div className="flex flex-col md:flex-row gap-3">
+            <div className="relative flex-1">
+              <i className="fas fa-magnifying-glass absolute left-3.5 top-1/2 -translate-y-1/2 text-ink-meta text-sm pointer-events-none" />
+              <input
+                type="text"
+                className="w-full pl-10 pr-4 h-11 rounded-btn border border-line dark:border-dark-border bg-white dark:bg-dark-input text-[13.5px] text-ink dark:text-white placeholder:text-ink-meta focus:outline-none focus:ring-2 focus:ring-primary-500/30 focus:border-primary-500 transition-all"
+                placeholder="Buscar por título, área o descripción…"
+                value={busqueda}
+                onChange={(e) => setBusqueda(e.target.value)}
+                aria-label="Buscar tutoriales"
+              />
+            </div>
+            <div className="relative">
+              <select
+                className="appearance-none h-11 pl-4 pr-10 rounded-btn border border-line dark:border-dark-border bg-white dark:bg-dark-input text-[13px] text-ink dark:text-white focus:outline-none focus:ring-2 focus:ring-primary-500/30 focus:border-primary-500 transition-all cursor-pointer"
+                value={areaSel}
+                onChange={(e) => setAreaSel(e.target.value)}
+                aria-label="Filtrar por área"
+              >
+                <option value={AREA_TODAS}>Todas las áreas</option>
+                {AREAS_CNEB.map((a) => (
+                  <option key={a} value={a}>{a}</option>
+                ))}
+              </select>
+              <i className="fas fa-chevron-down absolute right-3 top-1/2 -translate-y-1/2 text-ink-meta text-[10px] pointer-events-none" />
+            </div>
+          </div>
+        </div>
+        <div className="px-5 pb-4 flex items-center justify-between text-[12px] text-ink-subtle">
+          <span>
+            <span className="font-semibold text-ink dark:text-white tabular-nums">
+              {tutorialesFiltrados.length}
+            </span>{" "}
+            {tutorialesFiltrados.length === 1 ? "tutorial disponible" : "tutoriales disponibles"}
           </span>
-          <input
-            type="text"
-            className="w-full pl-9 pr-3 py-2 rounded-xl border border-gray-200 dark:border-dark-border bg-white dark:bg-dark-card text-gray-800 dark:text-gray-200 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary dark:focus:ring-dark-accent text-xs"
-            placeholder="Buscar tutoriales por título, área o descripción..."
-            value={busqueda}
-            onChange={(e) => setBusqueda(e.target.value)}
-          />
+          {(busqueda || areaSel !== AREA_TODAS) && (
+            <button
+              onClick={() => {
+                setBusqueda("");
+                setAreaSel(AREA_TODAS);
+              }}
+              className="text-primary-600 dark:text-primary-300 hover:underline font-medium"
+            >
+              Limpiar filtros
+            </button>
+          )}
         </div>
       </div>
 
       {tutorialesFiltrados.length > 0 ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
           <AnimatePresence mode="popLayout">
-            {tutorialesFiltrados.map((p) => (
-              <motion.div
+            {tutorialesFiltrados.map((p, i) => (
+              <motion.article
                 layout
                 key={p.id}
-                initial={{ opacity: 0, scale: 0.95 }}
-                animate={{ opacity: 1, scale: 1 }}
-                exit={{ opacity: 0, scale: 0.95 }}
-                className="rounded-2xl border border-gray-150 dark:border-dark-border bg-white dark:bg-dark-card shadow-sm hover:shadow-md hover:border-gray-300 dark:hover:border-gray-700 transition-all flex flex-col overflow-hidden"
+                initial={{ opacity: 0, y: 12 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.96 }}
+                transition={{ duration: 0.35, delay: i * 0.04, ease: easeOut }}
+                className="group flex flex-col rounded-cardLg bg-white dark:bg-dark-card border border-line dark:border-dark-border shadow-card hover:shadow-card-hover hover:-translate-y-0.5 hover:border-primary-200 dark:hover:border-primary-500/40 transition-all duration-300 overflow-hidden"
               >
-                <div className="p-3 pb-0">
-                  <YouTubeThumbnail url={p.url} title={p.titulo} />
-                </div>
+                <YouTubeThumbnail url={p.url} title={p.titulo} />
 
-                <div className="p-4 flex flex-col flex-1">
-                  <div className="flex items-center justify-between mb-1">
-                    <div className="text-[9px] text-blue-600 dark:text-dark-accent-text font-black uppercase tracking-wide">
+                <div className="p-5 flex flex-col flex-1">
+                  <div className="flex items-center justify-between gap-2 flex-wrap">
+                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-primary-50 text-primary-700 dark:bg-primary-600/15 dark:text-primary-300">
                       {p.area}
-                    </div>
-                    {p.audiencia && p.audiencia !== "ambos" && (
-                      <span className={`text-[8px] font-black uppercase px-1.5 py-0.5 rounded ${p.audiencia === "docente"
-                          ? "bg-blue-50 text-blue-600 dark:bg-blue-950/30 dark:text-blue-400"
-                          : "bg-green-50 text-green-600 dark:bg-green-950/30 dark:text-green-400"
-                        }`}>
-                        {p.audiencia}
-                      </span>
-                    )}
+                    </span>
+                    <AudiencePill audience={p.audiencia} />
                   </div>
-                  <h4 className="font-bold text-sm text-gray-900 dark:text-white mb-2 uppercase leading-tight line-clamp-2">
+                  <h3 className="mt-2.5 text-[15px] font-semibold tracking-tight text-ink dark:text-white leading-snug line-clamp-2">
                     {p.titulo}
-                  </h4>
-                  <p className="text-xs text-gray-500 dark:text-gray-400 leading-relaxed line-clamp-3 flex-1">
+                  </h3>
+                  <p className="mt-1.5 text-[12.5px] text-ink-subtle leading-relaxed line-clamp-3 flex-1">
                     {p.desc}
                   </p>
 
-                  <a
-                    href={p.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="mt-4 w-full py-2 bg-red-50 dark:bg-red-950/10 hover:bg-red-600 hover:text-white border border-red-200 dark:border-red-900/40 text-red-600 dark:text-red-400 transition-all rounded-xl text-[10px] font-black uppercase tracking-wider flex items-center justify-center gap-1.5 active:scale-95"
-                  >
-                    <i className="fab fa-youtube"></i> Ver en YouTube
-                  </a>
+                  <div className="mt-4 pt-4 border-t border-line-subtle dark:border-dark-border space-y-2">
+                    <a
+                      href={p.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="w-full h-9 inline-flex items-center justify-center gap-2 rounded-btn bg-accent-600 hover:bg-accent-700 text-white text-[12px] font-semibold transition-colors"
+                    >
+                      <i className="fab fa-youtube text-[11px]" />
+                      Ver en YouTube
+                    </a>
 
-                  {isAdminMode && (
-                    <div className="flex gap-2 mt-2">
-                      <button
-                        onClick={() => onEditClick && onEditClick(p)}
-                        className="flex-1 py-1.5 bg-amber-50 dark:bg-amber-950/10 hover:bg-amber-500 hover:text-white border border-amber-200 dark:border-amber-900/50 text-amber-700 dark:text-amber-400 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 active:scale-95"
-                      >
-                        <i className="fas fa-edit text-[9px]"></i> Editar
-                      </button>
-                      <button
-                        onClick={() => onDeleteClick ? onDeleteClick(p.id) : (window.confirm("¿Eliminar este tutorial?") && deleteTutorial(p.id))}
-                        className="flex-1 py-1.5 bg-red-50 dark:bg-red-950/10 hover:bg-red-600 hover:text-white border border-red-200 dark:border-red-900/50 text-red-700 dark:text-red-400 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 active:scale-95"
-                      >
-                        <i className="fas fa-trash-alt text-[9px]"></i> Eliminar
-                      </button>
-                    </div>
-                  )}
+                    {isAdminMode && (
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => onEditClick && onEditClick(p)}
+                          className="flex-1 h-8 rounded-btn bg-amber-50 hover:bg-amber-500 hover:text-white text-amber-700 dark:bg-amber-500/15 dark:text-amber-300 dark:hover:bg-amber-500 dark:hover:text-white text-[11px] font-semibold transition-colors inline-flex items-center justify-center gap-1.5"
+                        >
+                          <i className="fas fa-pen text-[9px]" /> Editar
+                        </button>
+                        <button
+                          onClick={() => onDeleteClick ? onDeleteClick(p) : (window.confirm("¿Eliminar este tutorial?") && deleteTutorial(p.id))}
+                          className="flex-1 h-8 rounded-btn bg-accent-50 hover:bg-accent-500 hover:text-white text-accent-600 dark:bg-accent-700/15 dark:text-accent-300 dark:hover:bg-accent-500 dark:hover:text-white text-[11px] font-semibold transition-colors inline-flex items-center justify-center gap-1.5"
+                        >
+                          <i className="fas fa-trash text-[9px]" /> Eliminar
+                        </button>
+                      </div>
+                    )}
+                  </div>
                 </div>
-              </motion.div>
+              </motion.article>
             ))}
           </AnimatePresence>
         </div>
       ) : (
-        <div className="py-16 bg-white dark:bg-dark-card rounded-2xl border border-dashed border-gray-200 dark:border-dark-border text-center">
-          <i className="fab fa-youtube text-gray-300 dark:text-gray-600 text-5xl mb-4"></i>
-          <h3 className="text-base font-bold text-gray-700 dark:text-gray-300 uppercase">Sin tutoriales disponibles</h3>
-          <p className="text-gray-400 dark:text-gray-500 text-xs mt-1 max-w-xs mx-auto">
+        <div className="rounded-cardLg border border-dashed border-line dark:border-dark-border bg-surface-alt/50 dark:bg-dark-card/40 py-16 px-6 text-center">
+          <span className="inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-surface-sunk dark:bg-dark-elev text-ink-meta mb-4">
+            <i className="fab fa-youtube text-2xl" />
+          </span>
+          <h3 className="text-[15px] font-semibold text-ink dark:text-white">
+            Sin tutoriales que coincidan
+          </h3>
+          <p className="mt-1.5 text-[13px] text-ink-subtle max-w-sm mx-auto">
             {isAdminMode
               ? 'Agrega el primer tutorial usando el botón "Nuevo".'
-              : "No hay tutoriales para este perfil o prueba cambiar los criterios de búsqueda."}
+              : "Prueba con otro término o cambia el área curricular."}
           </p>
         </div>
       )}
