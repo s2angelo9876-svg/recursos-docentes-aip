@@ -102,6 +102,7 @@ const auditoriaLimiter = rateLimit({
 
 app.use("/api/", apiLimiter);
 app.use("/api/upload", uploadLimiter);
+app.use("/api/uploads", uploadLimiter);
 app.use("/api/admin/auditoria", auditoriaLimiter);
 
 // Initialize database connection (Supabase PostgreSQL)

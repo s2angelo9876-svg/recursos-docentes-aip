@@ -79,6 +79,17 @@ export default function AdminModal({ isOpen, onClose, type, editingItem }) {
   const [eviExistingImagenes, setEviExistingImagenes] = useState([]);
   const [eviDriveUrl, setEviDriveUrl] = useState("");
 
+  // ── Form-level error banner ───────────────────────────────
+  const [formError, setFormError] = useState("");
+  const [formSubmitting, setFormSubmitting] = useState(false);
+
+  useEffect(() => {
+    if (isOpen) {
+      setFormError("");
+      setFormSubmitting(false);
+    }
+  }, [isOpen, editingItem]);
+
   // ── Populate form when editing ────────────────────────────
   useEffect(() => {
     if (!isOpen) return;
@@ -271,51 +282,78 @@ export default function AdminModal({ isOpen, onClose, type, editingItem }) {
   // ── Submit ────────────────────────────────────────────────
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setFormError("");
+    setFormSubmitting(true);
 
+    let ok = false;
+    try {
+      ok = await _handleSubmit();
+    } catch (err) {
+      console.error("Submit error:", err);
+      setFormError(err?.message || "Error inesperado al guardar.");
+    } finally {
+      setFormSubmitting(false);
+    }
+    if (ok) onClose();
+  };
+
+  const _handleSubmit = async () => {
     if (type === "recursos") {
-      if (!recTitulo || !recDesc) { alert("Complete los campos obligatorios."); return; }
+      if (!recTitulo || !recDesc) { alert("Complete los campos obligatorios."); return false; }
       let finalUrl, finalContenidos;
       if (isCollection) {
-        if (recContenidos.length === 0) { alert("Añade al menos 1 material a la colección."); return; }
+        if (recContenidos.length === 0) { alert("Añade al menos 1 material a la colección."); return false; }
         finalUrl = recContenidos[0]?.url || "#";
         finalContenidos = recContenidos;
       } else {
         if (singleSourceType === "url") {
-          if (!singleUrl) { alert("Ingrese la URL del recurso."); return; }
+          if (!singleUrl) { alert("Ingrese la URL del recurso."); return false; }
           finalUrl = singleUrl;
         } else {
           if (singleFile) {
             const uploaded = await uploadFile(singleFile);
-            if (!uploaded) return;
+            if (!uploaded) return false;
             finalUrl = uploaded;
           } else if (editingItem?.url) {
             finalUrl = editingItem.url;
           } else {
-            alert("Seleccione un archivo."); return;
+            alert("Seleccione un archivo."); return false;
           }
         }
         finalContenidos = [{ id: Date.now(), titulo: recTitulo, tipo: singleSourceType, url: finalUrl, fileName: singleSourceType === "archivo" ? (singleFile ? singleFile.name : finalUrl.split("/").pop()) : null }];
       }
       const data = { titulo: recTitulo, area: recArea, grados: recGrados.length > 0 ? recGrados : ["Cualquiera"], tipo: isCollection ? "Colección" : recTipo, desc: recDesc, url: finalUrl, contenidos: finalContenidos };
-      editingItem ? await updateRecurso(editingItem.id, data) : await addRecurso(data);
+      const result = editingItem
+        ? await updateRecurso(editingItem.id, data)
+        : await addRecurso(data);
+      if (!result?.success) { setFormError(result?.error || "No se pudo guardar el recurso."); return false; }
+      return true;
 
     } else if (type === "tutoriales") {
-      if (!tutTitulo || !tutDesc || !tutUrl) { alert("Complete los campos obligatorios."); return; }
-      if (!isValidYouTubeUrl(tutUrl)) { alert("Ingrese un enlace válido de YouTube."); return; }
+      if (!tutTitulo || !tutDesc || !tutUrl) { alert("Complete los campos obligatorios."); return false; }
+      if (!isValidYouTubeUrl(tutUrl)) { alert("Ingrese un enlace válido de YouTube."); return false; }
       const data = { titulo: tutTitulo, area: tutArea, desc: tutDesc, url: tutUrl, audiencia: tutAudiencia };
-      editingItem ? await updateTutorial(editingItem.id, data) : await addTutorial(data);
+      const result = editingItem
+        ? await updateTutorial(editingItem.id, data)
+        : await addTutorial(data);
+      if (!result?.success) { setFormError(result?.error || "No se pudo guardar el tutorial."); return false; }
+      return true;
 
     } else if (type === "noticias") {
-      if (!notTitulo || !notDesc || !notAutor) { alert("Complete los campos obligatorios."); return; }
+      if (!notTitulo || !notDesc || !notAutor) { alert("Complete los campos obligatorios."); return false; }
       const data = { titulo: notTitulo, desc: notDesc, autor: notAutor };
-      editingItem ? await updateNoticia(editingItem.id, { ...editingItem, ...data }) : await addNoticia(data);
+      const result = editingItem
+        ? await updateNoticia(editingItem.id, { ...editingItem, ...data })
+        : await addNoticia(data);
+      if (!result?.success) { setFormError(result?.error || "No se pudo guardar el comunicado."); return false; }
+      return true;
 
     } else if (type === "evidencias") {
-      if (!eviTitulo || !eviDesc) { alert("Complete los campos obligatorios."); return; }
+      if (!eviTitulo || !eviDesc) { alert("Complete los campos obligatorios."); return false; }
 
       let data;
       if (eviSourceType === "drive") {
-        if (!eviDriveUrl) { alert("Pega el link de la carpeta de Google Drive."); return; }
+        if (!eviDriveUrl) { alert("Pega el link de la carpeta de Google Drive."); return false; }
         data = {
           titulo: eviTitulo,
           mes: eviMes,
@@ -327,7 +365,7 @@ export default function AdminModal({ isOpen, onClose, type, editingItem }) {
           driveFolderUrl: eviDriveUrl,
         };
       } else if (eviSourceType === "url") {
-        if (!eviUrl) { alert("Ingrese la URL de la evidencia."); return; }
+        if (!eviUrl) { alert("Ingrese la URL de la evidencia."); return false; }
         data = {
           titulo: eviTitulo,
           mes: eviMes,
@@ -340,10 +378,13 @@ export default function AdminModal({ isOpen, onClose, type, editingItem }) {
         };
       } else if (eviCollectionMode) {
         const nuevas = eviFiles.length > 0 ? await uploadFiles(eviFiles) : null;
-        if (eviFiles.length > 0 && nuevas === null) return;
+        if (eviFiles.length > 0 && nuevas === null) {
+          setFormError("La subida de archivos falló. Intenta de nuevo.");
+          return false;
+        }
         const uploaded = nuevas || [];
         const all = [...eviExistingImagenes, ...uploaded];
-        if (all.length === 0) { alert("Sube al menos una foto o conserva las existentes."); return; }
+        if (all.length === 0) { alert("Sube al menos una foto o conserva las existentes."); return false; }
         data = {
           titulo: eviTitulo,
           mes: eviMes,
@@ -358,12 +399,15 @@ export default function AdminModal({ isOpen, onClose, type, editingItem }) {
         let finalUrl;
         if (eviFile) {
           const uploaded = await uploadFile(eviFile);
-          if (!uploaded) return;
+          if (!uploaded) {
+            setFormError("La subida del archivo falló. Intenta de nuevo.");
+            return false;
+          }
           finalUrl = uploaded;
         } else if (editingItem?.url) {
           finalUrl = editingItem.url;
         } else {
-          alert("Seleccione un archivo."); return;
+          alert("Seleccione un archivo."); return false;
         }
         data = {
           titulo: eviTitulo,
@@ -382,10 +426,17 @@ export default function AdminModal({ isOpen, onClose, type, editingItem }) {
         };
       }
 
-      editingItem ? await updateEvidencia(editingItem.id, data) : await addEvidencia(data);
-    }
+      const result = editingItem
+        ? await updateEvidencia(editingItem.id, data)
+        : await addEvidencia(data);
 
-    onClose();
+      if (!result?.success) {
+        setFormError(result?.error || "No se pudo guardar la evidencia.");
+        return false;
+      }
+      return true;
+    }
+    return false;
   };
 
   if (!isOpen) return null;
@@ -396,10 +447,10 @@ export default function AdminModal({ isOpen, onClose, type, editingItem }) {
   const youtubePreviewId = type === "tutoriales" ? getYouTubeId(tutUrl) : null;
 
   return (
-    <div className="fixed inset-0 z-[300] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
-      <div className="bg-white dark:bg-dark-card border border-gray-200 dark:border-dark-border rounded-3xl w-full max-w-lg overflow-hidden shadow-2xl animate-in fade-in zoom-in-95 duration-200">
+    <div className="fixed inset-0 z-[300] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4" onClick={(e) => { if (e.target === e.currentTarget && !formSubmitting) onClose(); }}>
+      <div className="bg-white dark:bg-dark-card border border-gray-200 dark:border-dark-border rounded-3xl w-full max-w-lg overflow-hidden shadow-2xl animate-in fade-in zoom-in-95 duration-200 flex flex-col max-h-[95vh]">
         {/* Header */}
-        <div className="bg-gradient-to-r from-primary to-blue-800 dark:from-dark-border dark:to-dark-card px-6 py-4 flex items-center justify-between">
+        <div className="bg-gradient-to-r from-primary to-blue-800 dark:from-dark-border dark:to-dark-card px-6 py-4 flex items-center justify-between flex-shrink-0">
           <div className="flex items-center gap-2.5">
             <div className="w-8 h-8 rounded-xl bg-white/20 flex items-center justify-center">
               <i className={`${typeIcon} text-white text-sm`}></i>
@@ -415,14 +466,32 @@ export default function AdminModal({ isOpen, onClose, type, editingItem }) {
           </div>
           <button
             onClick={onClose}
-            className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/25 flex items-center justify-center text-white/70 hover:text-white transition-colors"
+            disabled={formSubmitting}
+            className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/25 flex items-center justify-center text-white/70 hover:text-white transition-colors disabled:opacity-50"
           >
             <i className="fas fa-times text-sm"></i>
           </button>
         </div>
 
         {/* Form */}
-        <form onSubmit={handleSubmit} className="p-6 space-y-4 max-h-[75vh] overflow-y-auto">
+        <form onSubmit={handleSubmit} className="flex-1 flex flex-col min-h-0">
+          <div className="p-6 space-y-4 overflow-y-auto flex-1">
+          {formError && (
+            <div className="flex items-start gap-2 px-3 py-2 rounded-xl bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-900/40 text-[11px] text-red-700 dark:text-red-400">
+              <i className="fas fa-exclamation-triangle mt-0.5"></i>
+              <div className="flex-1">
+                <strong className="font-black">Error:</strong> {formError}
+              </div>
+              <button
+                type="button"
+                onClick={() => setFormError("")}
+                className="text-red-400 hover:text-red-700 dark:hover:text-red-200"
+                aria-label="Cerrar"
+              >
+                <i className="fas fa-times"></i>
+              </button>
+            </div>
+          )}
 
           {/* ── RECURSO FIELDS ──────────────────────────── */}
           {type === "recursos" && (
@@ -799,13 +868,23 @@ export default function AdminModal({ isOpen, onClose, type, editingItem }) {
             </>
           )}
 
+          </div>
+
           {/* Actions */}
-          <div className="pt-4 border-t border-gray-150 dark:border-dark-border flex justify-end gap-2">
-            <button type="button" onClick={onClose} className="px-4 py-2 border border-gray-200 dark:border-dark-border hover:bg-gray-100 dark:hover:bg-dark-border text-gray-700 dark:text-gray-300 rounded-xl text-xs font-bold transition-all">
+          <div className="px-6 py-4 border-t border-gray-150 dark:border-dark-border flex justify-end gap-2 flex-shrink-0 bg-white dark:bg-dark-card">
+            <button type="button" onClick={onClose} disabled={formSubmitting} className="px-4 py-2 border border-gray-200 dark:border-dark-border hover:bg-gray-100 dark:hover:bg-dark-border text-gray-700 dark:text-gray-300 rounded-xl text-xs font-bold transition-all disabled:opacity-50">
               Cancelar
             </button>
-            <button type="submit" disabled={loadingFile} className="px-5 py-2 bg-primary dark:bg-dark-accent hover:bg-blue-800 dark:hover:bg-blue-600 text-white rounded-xl text-xs font-black uppercase tracking-wider transition-all shadow-md disabled:opacity-50 flex items-center gap-1.5">
-              <i className="fas fa-save"></i> Guardar Cambios
+            <button type="submit" disabled={loadingFile || formSubmitting} className="px-5 py-2 bg-primary dark:bg-dark-accent hover:bg-blue-800 dark:hover:bg-blue-600 text-white rounded-xl text-xs font-black uppercase tracking-wider transition-all shadow-md disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5">
+              {formSubmitting ? (
+                <>
+                  <i className="fas fa-spinner fa-spin"></i> Guardando...
+                </>
+              ) : (
+                <>
+                  <i className="fas fa-save"></i> Guardar Cambios
+                </>
+              )}
             </button>
           </div>
         </form>

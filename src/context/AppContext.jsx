@@ -194,14 +194,18 @@ export function AppContextProvider({ children }) {
         headers: getAuthHeaders(),
         body: JSON.stringify(item),
       });
-      if (await handleApiResponse(response)) {
-        if (response.ok) {
-          const newItem = await response.json();
-          setRecursos((prev) => [newItem, ...prev]);
-        }
+      if (!(await handleApiResponse(response))) return { success: false, error: "Sin autorización." };
+      if (!response.ok) {
+        let detail = `Error ${response.status}`;
+        try { const b = await response.json(); if (b?.error) detail = b.error; } catch { /* ignore */ }
+        return { success: false, error: detail };
       }
-    } catch (_err) {
-      console.error("Error al agregar recurso:", _err);
+      const newItem = await response.json();
+      setRecursos((prev) => [newItem, ...prev]);
+      return { success: true, data: newItem };
+    } catch (err) {
+      console.error("Error al agregar recurso:", err);
+      return { success: false, error: err?.message || "Error de red." };
     }
   };
 
@@ -212,15 +216,19 @@ export function AppContextProvider({ children }) {
         headers: getAuthHeaders(),
         body: JSON.stringify(updatedItem),
       });
-      if (await handleApiResponse(response)) {
-        if (response.ok) {
-          setRecursos((prev) =>
-            prev.map((item) => (String(item.id) === String(id) ? { ...updatedItem, id } : item))
-          );
-        }
+      if (!(await handleApiResponse(response))) return { success: false, error: "Sin autorización." };
+      if (!response.ok) {
+        let detail = `Error ${response.status}`;
+        try { const b = await response.json(); if (b?.error) detail = b.error; } catch { /* ignore */ }
+        return { success: false, error: detail };
       }
-    } catch (_err) {
-      console.error("Error al editar recurso:", _err);
+      setRecursos((prev) =>
+        prev.map((item) => (String(item.id) === String(id) ? { ...updatedItem, id } : item))
+      );
+      return { success: true };
+    } catch (err) {
+      console.error("Error al editar recurso:", err);
+      return { success: false, error: err?.message || "Error de red." };
     }
   };
 
@@ -234,10 +242,14 @@ export function AppContextProvider({ children }) {
         if (response.ok) {
           setRecursos((prev) => prev.filter((item) => String(item.id) !== String(id)));
           setFavoritos((prev) => prev.filter((favId) => String(favId) !== String(id)));
+          return { success: true };
         }
+        return { success: false, error: `Error ${response.status}` };
       }
-    } catch (_err) {
-      console.error("Error al eliminar recurso:", _err);
+      return { success: false, error: "Sin autorización." };
+    } catch (err) {
+      console.error("Error al eliminar recurso:", err);
+      return { success: false, error: err?.message || "Error de red." };
     }
   };
 
@@ -255,14 +267,18 @@ export function AppContextProvider({ children }) {
         headers: getAuthHeaders(),
         body: JSON.stringify(item),
       });
-      if (await handleApiResponse(response)) {
-        if (response.ok) {
-          const newItem = await response.json();
-          setTutoriales((prev) => [newItem, ...prev]);
-        }
+      if (!(await handleApiResponse(response))) return { success: false, error: "Sin autorización." };
+      if (!response.ok) {
+        let detail = `Error ${response.status}`;
+        try { const b = await response.json(); if (b?.error) detail = b.error; } catch { /* ignore */ }
+        return { success: false, error: detail };
       }
-    } catch (_err) {
-      console.error("Error al agregar tutorial:", _err);
+      const newItem = await response.json();
+      setTutoriales((prev) => [newItem, ...prev]);
+      return { success: true, data: newItem };
+    } catch (err) {
+      console.error("Error al agregar tutorial:", err);
+      return { success: false, error: err?.message || "Error de red." };
     }
   };
 
@@ -273,15 +289,19 @@ export function AppContextProvider({ children }) {
         headers: getAuthHeaders(),
         body: JSON.stringify(updatedItem),
       });
-      if (await handleApiResponse(response)) {
-        if (response.ok) {
-          setTutoriales((prev) =>
-            prev.map((item) => (String(item.id) === String(id) ? { ...updatedItem, id } : item))
-          );
-        }
+      if (!(await handleApiResponse(response))) return { success: false, error: "Sin autorización." };
+      if (!response.ok) {
+        let detail = `Error ${response.status}`;
+        try { const b = await response.json(); if (b?.error) detail = b.error; } catch { /* ignore */ }
+        return { success: false, error: detail };
       }
-    } catch (_err) {
-      console.error("Error al editar tutorial:", _err);
+      setTutoriales((prev) =>
+        prev.map((item) => (String(item.id) === String(id) ? { ...updatedItem, id } : item))
+      );
+      return { success: true };
+    } catch (err) {
+      console.error("Error al editar tutorial:", err);
+      return { success: false, error: err?.message || "Error de red." };
     }
   };
 
@@ -294,10 +314,14 @@ export function AppContextProvider({ children }) {
       if (await handleApiResponse(response)) {
         if (response.ok) {
           setTutoriales((prev) => prev.filter((item) => String(item.id) !== String(id)));
+          return { success: true };
         }
+        return { success: false, error: `Error ${response.status}` };
       }
-    } catch (_err) {
-      console.error("Error al eliminar tutorial:", _err);
+      return { success: false, error: "Sin autorización." };
+    } catch (err) {
+      console.error("Error al eliminar tutorial:", err);
+      return { success: false, error: err?.message || "Error de red." };
     }
   };
 
@@ -309,14 +333,18 @@ export function AppContextProvider({ children }) {
         headers: getAuthHeaders(),
         body: JSON.stringify(item),
       });
-      if (await handleApiResponse(response)) {
-        if (response.ok) {
-          const newItem = await response.json();
-          setNoticias((prev) => [newItem, ...prev]);
-        }
+      if (!(await handleApiResponse(response))) return { success: false, error: "Sin autorización." };
+      if (!response.ok) {
+        let detail = `Error ${response.status}`;
+        try { const b = await response.json(); if (b?.error) detail = b.error; } catch { /* ignore */ }
+        return { success: false, error: detail };
       }
-    } catch (_err) {
-      console.error("Error al publicar comunicado:", _err);
+      const newItem = await response.json();
+      setNoticias((prev) => [newItem, ...prev]);
+      return { success: true, data: newItem };
+    } catch (err) {
+      console.error("Error al publicar comunicado:", err);
+      return { success: false, error: err?.message || "Error de red." };
     }
   };
 
@@ -327,15 +355,19 @@ export function AppContextProvider({ children }) {
         headers: getAuthHeaders(),
         body: JSON.stringify(updatedItem),
       });
-      if (await handleApiResponse(response)) {
-        if (response.ok) {
-          setNoticias((prev) =>
-            prev.map((item) => (String(item.id) === String(id) ? { ...updatedItem, id } : item))
-          );
-        }
+      if (!(await handleApiResponse(response))) return { success: false, error: "Sin autorización." };
+      if (!response.ok) {
+        let detail = `Error ${response.status}`;
+        try { const b = await response.json(); if (b?.error) detail = b.error; } catch { /* ignore */ }
+        return { success: false, error: detail };
       }
-    } catch (_err) {
-      console.error("Error al editar comunicado:", _err);
+      setNoticias((prev) =>
+        prev.map((item) => (String(item.id) === String(id) ? { ...updatedItem, id } : item))
+      );
+      return { success: true };
+    } catch (err) {
+      console.error("Error al editar comunicado:", err);
+      return { success: false, error: err?.message || "Error de red." };
     }
   };
 
@@ -348,10 +380,14 @@ export function AppContextProvider({ children }) {
       if (await handleApiResponse(response)) {
         if (response.ok) {
           setNoticias((prev) => prev.filter((item) => String(item.id) !== String(id)));
+          return { success: true };
         }
+        return { success: false, error: `Error ${response.status}` };
       }
-    } catch (_err) {
-      console.error("Error al eliminar comunicado:", _err);
+      return { success: false, error: "Sin autorización." };
+    } catch (err) {
+      console.error("Error al eliminar comunicado:", err);
+      return { success: false, error: err?.message || "Error de red." };
     }
   };
 
@@ -363,14 +399,23 @@ export function AppContextProvider({ children }) {
         headers: getAuthHeaders(),
         body: JSON.stringify(item),
       });
-      if (await handleApiResponse(response)) {
-        if (response.ok) {
-          const newItem = await response.json();
-          setEvidencias((prev) => [newItem, ...prev]);
-        }
+      if (!(await handleApiResponse(response))) {
+        return { success: false, error: "Sin autorización para crear la evidencia." };
       }
-    } catch (_err) {
-      console.error("Error al agregar evidencia:", _err);
+      if (!response.ok) {
+        let detail = `Error ${response.status}`;
+        try {
+          const body = await response.json();
+          if (body?.error) detail = body.error;
+        } catch { /* ignore */ }
+        return { success: false, error: detail };
+      }
+      const newItem = await response.json();
+      setEvidencias((prev) => [newItem, ...prev]);
+      return { success: true, data: newItem };
+    } catch (err) {
+      console.error("Error al agregar evidencia:", err);
+      return { success: false, error: err?.message || "Error de red al guardar." };
     }
   };
 
@@ -381,15 +426,24 @@ export function AppContextProvider({ children }) {
         headers: getAuthHeaders(),
         body: JSON.stringify(updatedItem),
       });
-      if (await handleApiResponse(response)) {
-        if (response.ok) {
-          setEvidencias((prev) =>
-            prev.map((item) => (String(item.id) === String(id) ? { ...updatedItem, id } : item))
-          );
-        }
+      if (!(await handleApiResponse(response))) {
+        return { success: false, error: "Sin autorización para editar la evidencia." };
       }
-    } catch (_err) {
-      console.error("Error al editar evidencia:", _err);
+      if (!response.ok) {
+        let detail = `Error ${response.status}`;
+        try {
+          const body = await response.json();
+          if (body?.error) detail = body.error;
+        } catch { /* ignore */ }
+        return { success: false, error: detail };
+      }
+      setEvidencias((prev) =>
+        prev.map((item) => (String(item.id) === String(id) ? { ...updatedItem, id } : item))
+      );
+      return { success: true };
+    } catch (err) {
+      console.error("Error al editar evidencia:", err);
+      return { success: false, error: err?.message || "Error de red al guardar." };
     }
   };
 
@@ -402,10 +456,14 @@ export function AppContextProvider({ children }) {
       if (await handleApiResponse(response)) {
         if (response.ok) {
           setEvidencias((prev) => prev.filter((item) => String(item.id) !== String(id)));
+          return { success: true };
         }
+        return { success: false, error: `Error ${response.status}` };
       }
-    } catch (_err) {
-      console.error("Error al eliminar evidencia:", _err);
+      return { success: false, error: "Sin autorización." };
+    } catch (err) {
+      console.error("Error al eliminar evidencia:", err);
+      return { success: false, error: err?.message || "Error de red." };
     }
   };
 

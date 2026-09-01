@@ -78,7 +78,7 @@ export const evidenciaSchema = z.object({
   desc: z.string().min(1, "La descripción es obligatoria").max(3000),
   url: z.string().min(1).max(1000).optional(),
   imagenes: z.array(imagenEvidenciaSchema).max(30, "Máximo 30 archivos por evidencia").optional(),
-  driveFolderUrl: z.string().url("URL de Drive no válida").max(1000).optional().or(z.literal("")),
+  driveFolderUrl: z.string().min(1).max(1000).optional().or(z.literal("")).or(z.null()),
   fecha: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Fecha no válida (YYYY-MM-DD)").optional(),
 }).refine(
   (data) =>
