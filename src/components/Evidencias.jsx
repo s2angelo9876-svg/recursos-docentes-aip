@@ -212,25 +212,23 @@ function EvidenciaCard({ ev, onOpenGaleria, isAdminMode, onEditClick, onDeleteCl
             Ver en YouTube
           </a>
         ) : isVideoOnly ? (
-          <a
-            href={imgs[0].url}
-            target="_blank"
-            rel="noopener noreferrer"
+          <button
+            type="button"
+            onClick={() => onOpenGaleria(ev)}
             className="mt-4 w-full py-2 bg-red-50 dark:bg-red-950/20 hover:bg-red-600 hover:text-white text-red-700 dark:text-red-400 transition-colors rounded-xl border border-red-200 dark:border-red-900/50 text-[10px] font-black uppercase tracking-wider flex items-center justify-center gap-1.5 active:scale-95"
           >
             <i className="fas fa-play text-[10px]"></i>
             Ver Video
-          </a>
+          </button>
         ) : (
-          <a
-            href={imgs[0]?.url || "#"}
-            target="_blank"
-            rel="noopener noreferrer"
+          <button
+            type="button"
+            onClick={() => onOpenGaleria(ev)}
             className="mt-4 w-full py-2 bg-gray-50 dark:bg-dark-border hover:bg-primary dark:hover:bg-dark-accent hover:text-white text-gray-700 dark:text-gray-300 transition-colors rounded-xl border border-gray-150 dark:border-dark-border text-[10px] font-black uppercase tracking-wider flex items-center justify-center gap-1.5 active:scale-95"
           >
             <i className="fas fa-image text-[10px]"></i>
             Ver Foto
-          </a>
+          </button>
         )}
 
         {isAdminMode && (
