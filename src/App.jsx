@@ -83,7 +83,7 @@ function AppContent() {
   };
 
   return (
-    <div className="min-h-screen bg-[#F8F9FA] dark:bg-dark-bg text-gray-900 dark:text-gray-100 antialiased flex flex-col justify-between transition-colors duration-300">
+    <div className="min-h-screen bg-surface-alt dark:bg-dark-bg text-ink dark:text-white antialiased flex flex-col justify-between transition-colors duration-300">
 
       {/* Navigation Header */}
       <Header activeTab={tab} setActiveTab={setActiveTab} />

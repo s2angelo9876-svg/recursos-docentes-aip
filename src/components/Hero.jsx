@@ -264,9 +264,7 @@ export default function Hero({ setActiveTab }) {
               viewport={{ once: true, margin: "-60px" }}
               transition={{ duration: 0.45, delay: i * 0.08, ease: easeOut }}
               onClick={() => setActiveTab(f.key)}
-              className={`group relative text-left rounded-cardLg bg-white dark:bg-dark-card border border-line dark:border-dark-border p-6 transition-all duration-300 hover:-translate-y-1 hover:shadow-card-hover hover:border-primary-200 dark:hover:border-primary-500/40 ${
-                i === 0 ? "md:row-span-1" : ""
-              }`}
+              className="group relative flex flex-col text-left rounded-cardLg bg-white dark:bg-dark-card border border-line dark:border-dark-border p-6 transition-all duration-300 hover:-translate-y-1 hover:shadow-card-hover hover:border-primary-200 dark:hover:border-primary-500/40 min-h-[220px]"
             >
               <span
                 className={`inline-flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br ${f.accent} text-white shadow-sm`}
@@ -274,17 +272,17 @@ export default function Hero({ setActiveTab }) {
                 <i className={`fas ${f.icon} text-base`} />
               </span>
               <span
-                className={`mt-4 inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-semibold ${f.chipBg}`}
+                className={`mt-4 self-start inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-semibold ${f.chipBg}`}
               >
                 Explorar
               </span>
               <h3 className="mt-3 text-[17px] font-semibold tracking-tight text-ink dark:text-white">
                 {f.title}
               </h3>
-              <p className="mt-1.5 text-[13px] text-ink-subtle leading-relaxed">
+              <p className="mt-1.5 text-[13px] text-ink-subtle dark:text-ink-meta leading-relaxed">
                 {f.desc}
               </p>
-              <span className="mt-5 inline-flex items-center gap-1.5 text-[12px] font-semibold text-primary-600 dark:text-primary-300 group-hover:gap-2.5 transition-all">
+              <span className="mt-auto pt-5 inline-flex items-center gap-1.5 text-[12px] font-semibold text-primary-600 dark:text-primary-300 group-hover:gap-2.5 transition-all">
                 Ir a la sección
                 <i className="fas fa-arrow-right text-[10px]" />
               </span>

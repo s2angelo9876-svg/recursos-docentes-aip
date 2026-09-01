@@ -38,8 +38,8 @@ export default function Header({ activeTab, setActiveTab }) {
       <div
         className={`border-b backdrop-blur-xl ${
           darkMode
-            ? "bg-[#020617]/80 border-white/10"
-            : "bg-primary/[0.97] border-white/10"
+            ? "bg-dark-surface/90 border-white/10 shadow-[0_1px_0_0_rgba(255,255,255,0.04)]"
+            : "bg-primary-800/95 border-white/10 shadow-[0_1px_0_0_rgba(255,255,255,0.06)]"
         }`}
       >
         <div className="max-w-7xl mx-auto px-4 sm:px-6 h-16 flex items-center gap-3 sm:gap-6">

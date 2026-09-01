@@ -4,26 +4,73 @@
 @custom-variant dark (&:where(.dark, .dark *));
 
 @theme {
-  --color-primary: #003087;
+  /* Primary (azul institucional) */
+  --color-primary-50:  #EEF2FB;
+  --color-primary-100: #D4DDF3;
+  --color-primary-200: #A8BBE7;
+  --color-primary-300: #7D99DB;
+  --color-primary-400: #5177CF;
+  --color-primary-500: #2655C3;
+  --color-primary-600: #003087;
+  --color-primary-700: #002670;
+  --color-primary-800: #001D52;
+  --color-primary-900: #001333;
+  --color-primary-950: #000A1A;
+  --color-primary:     #003087;
   --color-primary-dark: #001D52;
-  --color-accent: #DC2626;
+
+  /* Accent (rojo) */
+  --color-accent-50:  #FEF2F2;
+  --color-accent-100: #FEE2E2;
+  --color-accent-200: #FECACA;
+  --color-accent-300: #FCA5A5;
+  --color-accent-400: #F87171;
+  --color-accent-500: #DC2626;
+  --color-accent-600: #B91C1C;
+  --color-accent-700: #991B1B;
+  --color-accent-800: #7F1D1D;
+  --color-accent-900: #5B1212;
+  --color-accent:      #DC2626;
   --color-accent-light: #FEF2F2;
-  --color-surface: #F8FAFC;
-  --color-border: #E2E8F0;
 
-  --color-dark-bg: #020617;
-  --color-dark-card: #0f172a;
-  --color-dark-border: #1e293b;
-  --color-dark-hover: #1e293b;
-  --color-dark-input: #0f172a;
-  --color-dark-accent: #3b82f6;
-  --color-dark-accent-text: #60a5fa;
+  /* Ink (texto) */
+  --color-ink:        #0F172A;
+  --color-ink-muted:  #334155;
+  --color-ink-subtle: #64748B;
+  --color-ink-meta:   #94A3B8;
 
-  --shadow-card: 0 1px 2px rgba(15, 23, 42, 0.04), 0 4px 16px rgba(15, 23, 42, 0.06);
-  --shadow-card-hover: 0 8px 24px rgba(15, 23, 42, 0.08), 0 24px 56px rgba(0, 48, 135, 0.12);
-  --radius-card: 1rem;
-  --radius-btn: 0.75rem;
-  --transition-smooth: all 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+  /* Line (bordes) */
+  --color-line:        #E2E8F0;
+  --color-line-subtle: #F1F5F9;
+  --color-line-strong: #CBD5E1;
+
+  /* Surface (fondos) */
+  --color-surface:      #FFFFFF;
+  --color-surface-alt:  #F8FAFC;
+  --color-surface-sunk: #F1F5F9;
+
+  /* Dark (modo oscuro) */
+  --color-dark-bg:           #020617;
+  --color-dark-surface:      #0B1220;
+  --color-dark-card:         #0F172A;
+  --color-dark-elev:         #131C30;
+  --color-dark-border:       #1E293B;
+  --color-dark-hover:        #1E293B;
+  --color-dark-input:        #0F172A;
+  --color-dark-accent:       #3B82F6;
+  --color-dark-accent-text:  #60A5FA;
+
+  /* Semánticas */
+  --color-success: #16A34A;
+  --color-warn:    #F59E0B;
+  --color-info:    #0891B2;
+
+  /* Sombras / radios / transiciones */
+  --shadow-card:        0 1px 2px rgba(15, 23, 42, 0.04), 0 4px 16px rgba(15, 23, 42, 0.06);
+  --shadow-card-hover:  0 8px 24px rgba(15, 23, 42, 0.08), 0 24px 56px rgba(0, 48, 135, 0.12);
+  --radius-card:        1rem;
+  --radius-btn:         0.75rem;
+  --transition-smooth:  all 0.35s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 *,
