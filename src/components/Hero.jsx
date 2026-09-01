@@ -38,7 +38,7 @@ const features = [
 ];
 
 export default function Hero({ setActiveTab }) {
-  const { currentUser, recursos, tutoriales, evidencias } = useApp();
+  const { currentUser, recursos, tutoriales, evidencias, noticias } = useApp();
   const isAdmin = currentUser?.rol === "Administrador";
   const isDocente = currentUser?.rol === "Docente";
 
@@ -155,64 +155,77 @@ export default function Hero({ setActiveTab }) {
             className="relative hidden lg:block"
             aria-hidden
           >
-            <div className="absolute inset-0 rounded-cardXl bg-white/[0.04] ring-1 ring-white/10 backdrop-blur-sm" />
-            <div className="relative h-full p-6 flex flex-col gap-4">
+            <div className="relative h-full grid grid-cols-2 grid-rows-2 gap-3">
+              {/* Brand pill (top, full width) */}
               <motion.div
-                animate={{ y: [0, -6, 0] }}
+                animate={{ y: [0, -4, 0] }}
                 transition={{ duration: 6, repeat: Infinity, ease: "easeInOut" }}
-                className="relative self-end w-44 rounded-2xl bg-gradient-to-br from-amber-300 to-rose-400 p-4 shadow-glow"
+                className="col-span-2 flex items-center gap-3 rounded-2xl bg-gradient-to-r from-amber-300/90 to-rose-300/90 px-4 py-3 shadow-glow"
               >
-                <div className="flex items-center gap-2 text-primary-900">
-                  <i className="fas fa-graduation-cap text-base" />
-                  <span className="text-[12px] font-bold">Aula AIP</span>
+                <span className="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-primary-900/15 text-primary-900">
+                  <i className="fas fa-graduation-cap text-sm" />
+                </span>
+                <div className="flex-1 min-w-0">
+                  <p className="text-[13px] font-bold text-primary-900">Aula de Innovación Pedagógica</p>
+                  <p className="text-[11px] text-primary-900/70">I.E. Bandera del Perú · Pisco</p>
                 </div>
-                <p className="mt-2 text-[11px] text-primary-900/80 leading-snug">
-                  {recursos?.length || 0} recursos · {tutoriales?.length || 0} tutoriales
-                </p>
+                <span className="inline-flex h-6 items-center gap-1 rounded-full bg-primary-900/10 px-2 text-[10px] font-bold text-primary-900">
+                  <span className="h-1.5 w-1.5 rounded-full bg-primary-900 animate-soft-pulse" />
+                  Activa
+                </span>
               </motion.div>
 
+              {/* Cobertura (bento left, más grande con visual) */}
               <motion.div
-                animate={{ y: [0, 8, 0] }}
+                animate={{ y: [0, 5, 0] }}
                 transition={{ duration: 7, repeat: Infinity, ease: "easeInOut" }}
-                className="relative w-52 rounded-2xl bg-white/[0.08] ring-1 ring-white/20 backdrop-blur-md p-4"
+                className="row-span-2 rounded-2xl bg-white/[0.08] ring-1 ring-white/15 backdrop-blur-md p-5 flex flex-col"
               >
                 <div className="flex items-center justify-between text-white/85">
-                  <span className="text-[10px] uppercase tracking-widest font-semibold">
+                  <span className="text-[10px] uppercase tracking-[0.12em] font-semibold">
                     Cobertura
                   </span>
                   <i className="fas fa-chart-line text-amber-300" />
                 </div>
-                <p className="mt-3 text-[22px] font-bold tabular-nums">96%</p>
-                <div className="mt-2 h-1.5 rounded-full bg-white/10 overflow-hidden">
+                <p className="mt-2 text-3xl font-bold tabular-nums text-white">96%</p>
+                <p className="mt-1 text-[11px] text-white/60">Áreas curriculares cubiertas</p>
+                <div className="mt-4 h-2 rounded-full bg-white/10 overflow-hidden">
                   <div className="h-full w-[96%] bg-gradient-to-r from-amber-300 to-rose-300" />
                 </div>
-                <p className="mt-2 text-[10px] text-white/60">Áreas curriculares cubiertas</p>
+                <div className="mt-auto pt-4 grid grid-cols-3 gap-2 text-center">
+                  {[
+                    { v: recursos?.length || 0, l: "Recursos" },
+                    { v: tutoriales?.length || 0, l: "Tuto." },
+                    { v: evidencias?.length || 0, l: "Evid." },
+                  ].map((m) => (
+                    <div key={m.l} className="rounded-xl bg-white/5 py-2">
+                      <p className="text-[15px] font-bold text-white tabular-nums">{m.v}</p>
+                      <p className="text-[9px] text-white/55 uppercase tracking-wider mt-0.5">{m.l}</p>
+                    </div>
+                  ))}
+                </div>
               </motion.div>
 
+              {/* Actividad reciente (bento right, más compacto) */}
               <motion.div
-                animate={{ y: [0, -4, 0] }}
+                animate={{ y: [0, -3, 0] }}
                 transition={{ duration: 5, repeat: Infinity, ease: "easeInOut" }}
-                className="relative self-start w-48 rounded-2xl bg-gradient-to-br from-primary-500 to-primary-700 ring-1 ring-white/20 p-4 shadow-glow"
+                className="rounded-2xl bg-gradient-to-br from-primary-500/40 to-primary-700/40 ring-1 ring-white/20 p-4 flex flex-col"
               >
-                <div className="flex items-center gap-2 text-amber-300">
-                  <i className="fas fa-camera-retro text-base" />
-                  <span className="text-[12px] font-bold text-white">Evidencias</span>
-                </div>
-                <p className="mt-2 text-[11px] text-white/80 leading-snug">
-                  {evidencias?.length || 0} registros fotográficos del aula
-                </p>
-                <div className="mt-3 flex -space-x-2">
-                  {[0, 1, 2].map((i) => (
-                    <span
-                      key={i}
-                      className="h-7 w-7 rounded-full bg-white/15 ring-2 ring-primary-700 flex items-center justify-center text-[10px] font-bold"
-                    >
-                      {String.fromCharCode(65 + i)}
-                    </span>
-                  ))}
-                  <span className="h-7 px-2 rounded-full bg-white/15 ring-2 ring-primary-700 flex items-center text-[10px] font-bold">
-                    +{evidencias?.length || 0}
+                <div className="flex items-center gap-2 text-amber-300 mb-2">
+                  <i className="fas fa-bolt text-xs" />
+                  <span className="text-[10px] uppercase tracking-[0.12em] font-semibold">
+                    Actividad
                   </span>
+                </div>
+                <p className="text-[11px] text-white/85 leading-relaxed">
+                  {noticias?.[0]?.titulo
+                    ? `Último: "${noticias[0].titulo.slice(0, 32)}${noticias[0].titulo.length > 32 ? "…" : ""}"`
+                    : "Sin comunicados recientes aún"}
+                </p>
+                <div className="mt-auto pt-3 flex items-center gap-1.5 text-[10px] text-white/60">
+                  <span className="inline-block h-1.5 w-1.5 rounded-full bg-emerald-400 animate-soft-pulse" />
+                  En vivo
                 </div>
               </motion.div>
             </div>
