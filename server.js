@@ -240,7 +240,7 @@ const storage = multer.memoryStorage();
 
 const upload = multer({
   storage,
-  limits: { fileSize: 10 * 1024 * 1024 },
+  limits: { fileSize: 100 * 1024 * 1024 },
   fileFilter: (req, file, cb) => {
     if (ALLOWED_MIME_TYPES.includes(file.mimetype)) {
       cb(null, true);
@@ -1045,7 +1045,7 @@ app.post("/api/upload", authenticateToken, requireRole(["Administrador", "Docent
     if (err) {
       if (err instanceof multer.MulterError) {
         if (err.code === "LIMIT_FILE_SIZE") {
-          return res.status(400).json({ error: "El archivo excede el límite de 10 MB." });
+          return res.status(400).json({ error: "El archivo excede el límite de 100 MB." });
         }
         return res.status(400).json({ error: err.message });
       }
@@ -1077,7 +1077,7 @@ app.post("/api/uploads", authenticateToken, requireRole(["Administrador", "Docen
     if (err) {
       if (err instanceof multer.MulterError) {
         if (err.code === "LIMIT_FILE_SIZE") {
-          return res.status(400).json({ error: "Uno o más archivos exceden el límite de 10 MB." });
+          return res.status(400).json({ error: "Uno o más archivos exceden el límite de 100 MB." });
         }
         if (err.code === "LIMIT_UNEXPECTED_FILE") {
           return res.status(400).json({ error: "Demasiados archivos (máximo 30)." });

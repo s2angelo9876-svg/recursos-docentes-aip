@@ -209,8 +209,8 @@ export default function AdminModal({ isOpen, onClose, type, editingItem }) {
     setRecGrados(prev => prev.includes(grado) ? prev.filter(g => g !== grado) : [...prev, grado]);
 
   const uploadFile = async (file) => {
-    if (file.size > 10 * 1024 * 1024) {
-      alert("El archivo excede el límite permitido de 10 MB.");
+    if (file.size > 100 * 1024 * 1024) {
+      alert("El archivo excede el límite permitido de 100 MB.");
       return null;
     }
     try {
@@ -246,9 +246,9 @@ export default function AdminModal({ isOpen, onClose, type, editingItem }) {
 
   const uploadFiles = async (files) => {
     if (!files || files.length === 0) return [];
-    const oversized = files.find(f => f.size > 10 * 1024 * 1024);
+    const oversized = files.find(f => f.size > 100 * 1024 * 1024);
     if (oversized) {
-      alert(`"${oversized.name}" excede el límite de 10 MB.`);
+      alert(`"${oversized.name}" excede el límite de 100 MB.`);
       return null;
     }
     try {
@@ -893,7 +893,7 @@ export default function AdminModal({ isOpen, onClose, type, editingItem }) {
 
                         <p className="text-[10px] text-gray-500 dark:text-gray-400 italic text-center">
                           {eviFiles.length === 0 && eviExistingImagenes.length === 0
-                            ? "Selecciona varias fotos a la vez (máx. 30, 10MB c/u)"
+                            ? "Selecciona varias fotos a la vez (máx. 30, 100MB c/u)"
                             : `Total: ${eviExistingImagenes.length + eviFiles.length} foto(s)`}
                         </p>
                       </div>
