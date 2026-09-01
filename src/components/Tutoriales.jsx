@@ -203,9 +203,38 @@ export default function Tutoriales({ isAdminMode = false, onEditClick = null, on
     });
   }, [tutoriales, busqueda, accessType, isAdminMode, areaSel]);
 
+  const stats = useMemo(() => {
+    const list = tutoriales || [];
+    let docente = 0;
+    let estudiante = 0;
+    let ambos = 0;
+    const areas = new Set();
+    for (const t of list) {
+      if (t.audiencia === "docente") docente += 1;
+      else if (t.audiencia === "estudiante") estudiante += 1;
+      else if (t.audiencia === "ambos") ambos += 1;
+      if (t.area && t.area !== AREA_TODAS) areas.add(t.area);
+    }
+    return { total: list.length, docente, estudiante, ambos, areas: areas.size };
+  }, [tutoriales]);
+
+  const countsByArea = useMemo(() => {
+    const map = new Map();
+    for (const t of tutoriales || []) {
+      if (t.area) map.set(t.area, (map.get(t.area) || 0) + 1);
+    }
+    return map;
+  }, [tutoriales]);
+
   if (!accessType && !isAdminMode) {
     return <AccessSelector onSelect={setAccessType} />;
   }
+
+  const hasActiveFilters = !!busqueda || areaSel !== AREA_TODAS;
+  const clearFilters = () => {
+    setBusqueda("");
+    setAreaSel(AREA_TODAS);
+  };
 
   return (
     <div className="space-y-6">
@@ -235,49 +264,87 @@ export default function Tutoriales({ isAdminMode = false, onEditClick = null, on
         </div>
       )}
 
-      <div className="rounded-cardLg border border-line dark:border-dark-border bg-white dark:bg-dark-card shadow-card">
-        <div className="p-5 flex flex-col gap-3">
-          <div className="flex flex-col md:flex-row gap-3">
-            <div className="relative flex-1">
-              <i className="fas fa-magnifying-glass absolute left-3.5 top-1/2 -translate-y-1/2 text-ink-meta text-sm pointer-events-none" />
-              <input
-                type="text"
-                className="w-full pl-10 pr-4 h-11 rounded-btn border border-line dark:border-dark-border bg-white dark:bg-dark-input text-[13.5px] text-ink dark:text-white placeholder:text-ink-meta focus:outline-none focus:ring-2 focus:ring-primary-500/30 focus:border-primary-500 transition-all"
-                placeholder="Buscar por título, área o descripción…"
-                value={busqueda}
-                onChange={(e) => setBusqueda(e.target.value)}
-                aria-label="Buscar tutoriales"
-              />
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        {[
+          { icon: "fa-circle-play", value: stats.total, label: "Tutoriales", accent: "from-accent-500/20 to-accent-600/5 text-accent-300" },
+          { icon: "fa-chalkboard-teacher", value: stats.docente, label: "Para docentes", accent: "from-primary-500/20 to-primary-600/5 text-primary-300" },
+          { icon: "fa-user-graduate", value: stats.estudiante, label: "Para estudiantes", accent: "from-emerald-500/20 to-emerald-600/5 text-emerald-300" },
+          { icon: "fa-graduation-cap", value: stats.areas, label: "Áreas", accent: "from-violet-500/20 to-violet-600/5 text-violet-300" },
+        ].map((s) => (
+          <div
+            key={s.label}
+            className="relative overflow-hidden rounded-cardLg border border-line dark:border-dark-border bg-white dark:bg-dark-card p-4"
+          >
+            <div className={`absolute -top-12 -right-12 w-32 h-32 rounded-full bg-gradient-to-br ${s.accent} blur-2xl opacity-50 pointer-events-none`} />
+            <div className="relative flex items-start justify-between gap-3">
+              <div>
+                <p className="text-[10.5px] font-semibold text-ink-subtle uppercase tracking-wider">
+                  {s.label}
+                </p>
+                <p className="mt-1 text-2xl font-bold tabular-nums text-ink dark:text-white">
+                  {s.value}
+                </p>
+              </div>
+              <span className="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-surface-sunk dark:bg-dark-elev text-ink-subtle">
+                <i className={`fas ${s.icon} text-sm`} />
+              </span>
             </div>
-            <div className="relative">
-              <select
-                className="appearance-none h-11 pl-4 pr-10 rounded-btn border border-line dark:border-dark-border bg-white dark:bg-dark-input text-[13px] text-ink dark:text-white focus:outline-none focus:ring-2 focus:ring-primary-500/30 focus:border-primary-500 transition-all cursor-pointer"
-                value={areaSel}
-                onChange={(e) => setAreaSel(e.target.value)}
-                aria-label="Filtrar por área"
+          </div>
+        ))}
+      </div>
+
+      <div className="rounded-cardLg border border-line dark:border-dark-border bg-white dark:bg-dark-card shadow-card overflow-hidden">
+        <div className="p-5 space-y-4">
+          <div className="relative">
+            <i className="fas fa-magnifying-glass absolute left-3.5 top-1/2 -translate-y-1/2 text-ink-meta text-sm pointer-events-none" />
+            <input
+              type="text"
+              className="w-full pl-10 pr-4 h-11 rounded-btn border border-line dark:border-dark-border bg-white dark:bg-dark-input text-[13.5px] text-ink dark:text-white placeholder:text-ink-meta focus:outline-none focus:ring-2 focus:ring-primary-500/30 focus:border-primary-500 transition-all"
+              placeholder="Buscar por título, área o descripción…"
+              value={busqueda}
+              onChange={(e) => setBusqueda(e.target.value)}
+              aria-label="Buscar tutoriales"
+            />
+          </div>
+
+          <div className="flex items-start gap-2">
+            <span className="text-[10px] font-semibold text-ink-meta uppercase tracking-wider w-20 flex-shrink-0 pt-2">
+              Área
+            </span>
+            <div className="flex flex-wrap items-center gap-1.5">
+              <FilterChip
+                active={areaSel === AREA_TODAS}
+                onClick={() => setAreaSel(AREA_TODAS)}
+                count={stats.total}
               >
-                <option value={AREA_TODAS}>Todas las áreas</option>
-                {AREAS_CNEB.map((a) => (
-                  <option key={a} value={a}>{a}</option>
-                ))}
-              </select>
-              <i className="fas fa-chevron-down absolute right-3 top-1/2 -translate-y-1/2 text-ink-meta text-[10px] pointer-events-none" />
+                Todas
+              </FilterChip>
+              {AREAS_CNEB.map((a) => (
+                <FilterChip
+                  key={a}
+                  active={areaSel === a}
+                  onClick={() => setAreaSel(a)}
+                  count={countsByArea.get(a) || 0}
+                >
+                  {a}
+                </FilterChip>
+              ))}
             </div>
           </div>
         </div>
-        <div className="px-5 pb-4 flex items-center justify-between text-[12px] text-ink-subtle">
+        <div className="px-5 py-3 bg-surface-alt/60 dark:bg-dark-elev/40 border-t border-line dark:border-dark-border flex items-center justify-between text-[12px] text-ink-subtle">
           <span>
+            Mostrando{" "}
             <span className="font-semibold text-ink dark:text-white tabular-nums">
               {tutorialesFiltrados.length}
             </span>{" "}
-            {tutorialesFiltrados.length === 1 ? "tutorial disponible" : "tutoriales disponibles"}
+            de{" "}
+            <span className="font-semibold tabular-nums">{stats.total}</span>{" "}
+            {stats.total === 1 ? "tutorial" : "tutoriales"}
           </span>
-          {(busqueda || areaSel !== AREA_TODAS) && (
+          {hasActiveFilters && (
             <button
-              onClick={() => {
-                setBusqueda("");
-                setAreaSel(AREA_TODAS);
-              }}
+              onClick={clearFilters}
               className="text-primary-600 dark:text-primary-300 hover:underline font-medium"
             >
               Limpiar filtros
@@ -349,20 +416,55 @@ export default function Tutoriales({ isAdminMode = false, onEditClick = null, on
           </AnimatePresence>
         </div>
       ) : (
-        <div className="rounded-cardLg border border-dashed border-line dark:border-dark-border bg-surface-alt/50 dark:bg-dark-card/40 py-16 px-6 text-center">
-          <span className="inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-surface-sunk dark:bg-dark-elev text-ink-meta mb-4">
-            <i className="fab fa-youtube text-2xl" />
-          </span>
-          <h3 className="text-[15px] font-semibold text-ink dark:text-white">
-            Sin tutoriales que coincidan
+        <div className="rounded-cardLg border border-dashed border-line dark:border-dark-border bg-surface-alt/50 dark:bg-dark-card/40 py-20 px-6 text-center">
+          <div className="relative inline-flex h-20 w-20 items-center justify-center rounded-2xl bg-gradient-to-br from-accent-50 to-accent-100 dark:from-accent-700/15 dark:to-accent-700/5 text-accent-500 mb-5">
+            <i className="fab fa-youtube text-3xl" />
+            <span className="absolute -top-1 -right-1 inline-flex h-5 w-5 items-center justify-center rounded-full bg-amber-400 text-white text-[10px] font-bold">!</span>
+          </div>
+          <h3 className="text-[16px] font-semibold text-ink dark:text-white">
+            {stats.total === 0 ? "Aún no hay tutoriales publicados" : "Sin tutoriales que coincidan"}
           </h3>
           <p className="mt-1.5 text-[13px] text-ink-subtle max-w-sm mx-auto">
             {isAdminMode
-              ? 'Agrega el primer tutorial usando el botón "Nuevo".'
-              : "Prueba con otro término o cambia el área curricular."}
+              ? 'Agrega el primer tutorial usando el botón + Nuevo.'
+              : stats.total === 0
+                ? "Cuando el equipo AIP publique un tutorial aparecerá aquí."
+                : "Prueba con otro término o cambia el área curricular."}
           </p>
+          {hasActiveFilters && stats.total > 0 && (
+            <button
+              onClick={clearFilters}
+              className="mt-5 h-9 px-4 rounded-btn bg-primary-600 hover:bg-primary-700 text-white text-[12px] font-semibold transition-colors inline-flex items-center gap-1.5"
+            >
+              <i className="fas fa-arrow-rotate-left text-[10px]" />
+              Limpiar filtros
+            </button>
+          )}
         </div>
       )}
     </div>
+  );
+}
+
+function FilterChip({ active, onClick, children, count }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`inline-flex items-center gap-1.5 h-8 px-3 rounded-full text-[11.5px] font-medium transition-all duration-200 ${
+        active
+          ? "bg-primary-600 text-white shadow-sm"
+          : "bg-surface-sunk dark:bg-dark-elev text-ink-subtle hover:text-ink dark:hover:text-white hover:bg-line dark:hover:bg-dark-border"
+      }`}
+    >
+      {children}
+      {count !== undefined && (
+        <span className={`text-[9px] tabular-nums px-1.5 py-0.5 rounded-full ${
+          active ? "bg-white/20 text-white" : "bg-white dark:bg-dark-card text-ink-subtle"
+        }`}>
+          {count}
+        </span>
+      )}
+    </button>
   );
 }
