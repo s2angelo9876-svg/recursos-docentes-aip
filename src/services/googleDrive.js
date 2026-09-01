@@ -86,11 +86,11 @@ export async function listDriveImages({ folderId: input, forceRefresh = false } 
     if (cached) return cached;
   }
 
-  const q = `'${folderId}' in parents and mimeType contains 'image/' and trashed = false`;
+  const q = `'${folderId}' in parents and (mimeType contains 'image/' or mimeType contains 'video/') and trashed = false`;
   const params = new URLSearchParams({
     q,
     key: API_KEY,
-    fields: "files(id,name,thumbnailLink,createdTime)",
+    fields: "files(id,name,mimeType,thumbnailLink,createdTime,size)",
     pageSize: "100",
     orderBy: "createdTime desc",
   });
@@ -127,6 +127,8 @@ export async function listDriveImages({ folderId: input, forceRefresh = false } 
     url: `https://lh3.googleusercontent.com/d/${f.id}=w2000`,
     thumb: f.thumbnailLink,
     created: f.createdTime,
+    mimetype: f.mimeType || null,
+    size: f.size ? Number(f.size) : null,
   }));
 
   writeCache(folderId, data);

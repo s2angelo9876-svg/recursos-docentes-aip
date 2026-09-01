@@ -322,7 +322,8 @@ export default function Evidencias({ isAdminMode = false, onEditClick = null, on
           name: img.name,
           url: img.url,
           thumb: img.thumb,
-          mimetype: "image/jpeg",
+          mimetype: img.mimetype || null,
+          size: img.size || null,
         }));
         setGaleria((g) => ({
           ...g,
