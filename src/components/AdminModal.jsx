@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useApp } from "../context/AppContext";
 import { API_BASE } from "../utils/api.js";
 import { getYouTubeId, getYouTubeThumbnail, isValidYouTubeUrl } from "../utils/youtube";
@@ -16,6 +16,35 @@ const TIPOS_RECURSO = ["Video", "Web / App", "PDF", "Simulación", "Juego", "Col
 const MESES = ["Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
 const CATEGORIAS_EVIDENCIA = ["Gestión", "Robótica", "Taller", "Feria", "Concurso", "Capacitación", "Proyecto", "Celebración", "Otro"];
 const TIPOS_EVIDENCIA = ["Foto", "Video", "Ambos"];
+
+// Tope de archivos permitidos en una colección de evidencias
+const MAX_EVIDENCE_FILES = 30;
+
+// Fusiona archivos nuevos con los existentes, descartando duplicados (mismo nombre + tamaño)
+// y respetando el tope máximo. Devuelve { next, dropped, capped } para que la UI pueda avisar.
+const mergeEvidenceFiles = (prev, incoming) => {
+  if (!incoming || incoming.length === 0) {
+    return { next: prev, dropped: [], capped: 0 };
+  }
+  const seen = new Set(prev.map((f) => `${f.name}::${f.size}::${f.lastModified || 0}`));
+  const dropped = [];
+  const accepted = [];
+  for (const f of incoming) {
+    const key = `${f.name}::${f.size}::${f.lastModified || 0}`;
+    if (seen.has(key)) {
+      dropped.push(f.name);
+      continue;
+    }
+    if (prev.length + accepted.length >= MAX_EVIDENCE_FILES) {
+      dropped.push(f.name);
+      continue;
+    }
+    seen.add(key);
+    accepted.push(f);
+  }
+  const capped = Math.max(0, prev.length + accepted.length - MAX_EVIDENCE_FILES);
+  return { next: [...prev, ...accepted], dropped, capped };
+};
 
 /**
  * AdminModal — Modal CMS reutilizable para agregar/editar recursos, tutoriales y noticias.
@@ -85,6 +114,17 @@ export default function AdminModal({ isOpen, onClose, type, editingItem }) {
   // ── Form-level error banner ───────────────────────────────
   const [formError, setFormError] = useState("");
   const [formSubmitting, setFormSubmitting] = useState(false);
+
+  // ── Object URLs para preview de los archivos de colección ──
+  // Pre-computamos aquí (no en render) y revocamos al desmontar o cuando cambian.
+  const eviFilePreviews = useMemo(() => {
+    return eviFiles.map((f) => URL.createObjectURL(f));
+  }, [eviFiles]);
+  useEffect(() => {
+    return () => {
+      for (const u of eviFilePreviews) URL.revokeObjectURL(u);
+    };
+  }, [eviFilePreviews]);
 
   useEffect(() => {
     if (isOpen) {
@@ -283,6 +323,40 @@ export default function AdminModal({ isOpen, onClose, type, editingItem }) {
 
   const removeEviFile = (idx) => {
     setEviFiles(prev => prev.filter((_, i) => i !== idx));
+  };
+
+  // Maneja la selección de archivos en el modo colección: ACUMULA, descarta duplicados
+  // y respeta el máximo de MAX_EVIDENCE_FILES. Resetea el input para permitir
+  // volver a elegir los mismos archivos.
+  const handleEviCollectionPick = (e) => {
+    const incoming = Array.from(e.target.files || []);
+    if (incoming.length === 0) {
+      e.target.value = "";
+      return;
+    }
+    setEviFiles((prev) => {
+      const { next, dropped, capped } = mergeEvidenceFiles(prev, incoming);
+      if (dropped.length > 0) {
+        const reason = capped > 0
+          ? `Se omitieron ${dropped.length} archivo(s) (máx. ${MAX_EVIDENCE_FILES}).`
+          : `Se omitieron ${dropped.length} archivo(s) duplicado(s).`;
+        setUploadProgressMsg(reason);
+        setTimeout(() => setUploadProgressMsg(""), 3500);
+      } else {
+        setUploadProgressMsg(`+${incoming.length} archivo(s) añadido(s)`);
+        setTimeout(() => setUploadProgressMsg(""), 2000);
+      }
+      return next;
+    });
+    e.target.value = "";
+  };
+
+  // Wrapper para el input del modo individual. Resetea el input para permitir
+  // re-seleccionar el mismo archivo y notifica si el usuario quiere cambiar.
+  const handleEviSinglePick = (e) => {
+    const file = e.target.files?.[0] || null;
+    setEviFile(file);
+    e.target.value = "";
   };
 
   const removeEviExisting = (idx) => {
@@ -820,7 +894,7 @@ export default function AdminModal({ isOpen, onClose, type, editingItem }) {
                           <input
                             type="file"
                             accept={eviTipo === "Video" ? "video/*" : eviTipo === "Ambos" ? "image/*,video/*" : "image/*"}
-                            onChange={(e) => setEviFile(e.target.files[0])}
+                            onChange={handleEviSinglePick}
                             className="hidden"
                           />
                         </label>
@@ -841,7 +915,7 @@ export default function AdminModal({ isOpen, onClose, type, editingItem }) {
                             type="file"
                             accept={eviTipo === "Video" ? "video/*" : eviTipo === "Ambos" ? "image/*,video/*" : "image/*"}
                             multiple
-                            onChange={(e) => setEviFiles(Array.from(e.target.files || []))}
+                            onChange={handleEviCollectionPick}
                             className="hidden"
                           />
                         </label>
@@ -873,7 +947,7 @@ export default function AdminModal({ isOpen, onClose, type, editingItem }) {
                             <div className="grid grid-cols-4 gap-2">
                               {eviFiles.map((f, i) => (
                                 <div key={i} className="relative aspect-square rounded-lg overflow-hidden border border-indigo-200 dark:border-indigo-900/50 group/preview">
-                                  <img src={URL.createObjectURL(f)} alt="" className="w-full h-full object-cover" />
+                                  <img src={eviFilePreviews[i]} alt="" className="w-full h-full object-cover" />
                                   <button
                                     type="button"
                                     onClick={() => removeEviFile(i)}
@@ -893,8 +967,8 @@ export default function AdminModal({ isOpen, onClose, type, editingItem }) {
 
                         <p className="text-[10px] text-gray-500 dark:text-gray-400 italic text-center">
                           {eviFiles.length === 0 && eviExistingImagenes.length === 0
-                            ? "Selecciona varias fotos a la vez (máx. 30, 100MB c/u)"
-                            : `Total: ${eviExistingImagenes.length + eviFiles.length} foto(s)`}
+                            ? `Puedes agregar más fotos en varias selecciones (máx. ${MAX_EVIDENCE_FILES}, 100MB c/u)`
+                            : `Total: ${eviExistingImagenes.length + eviFiles.length}/${MAX_EVIDENCE_FILES} foto(s) · puedes seguir agregando`}
                         </p>
                       </div>
                     )}
