@@ -9,7 +9,6 @@ const MESES = [
   "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto",
   "Septiembre", "Octubre", "Noviembre", "Diciembre",
 ];
-
 const MES_TODOS = "Todas";
 
 const CATEGORIAS = [
@@ -20,23 +19,23 @@ const CATEGORIAS = [
 const mesActual = new Date().getMonth();
 const MES_INICIAL = mesActual >= 2 ? MESES[mesActual - 2] : "Marzo";
 
-const CATEGORIA_COLORS = {
-  "Gestión":       "bg-primary-50 text-primary-700 dark:bg-primary-600/15 dark:text-primary-300 border-primary-100 dark:border-primary-500/30",
-  "Robótica":      "bg-emerald-50 text-emerald-700 dark:bg-emerald-600/15 dark:text-emerald-300 border-emerald-100 dark:border-emerald-500/30",
-  "Taller":        "bg-violet-50 text-violet-700 dark:bg-violet-600/15 dark:text-violet-300 border-violet-100 dark:border-violet-500/30",
-  "Feria":         "bg-amber-50 text-amber-700 dark:bg-amber-500/15 dark:text-amber-300 border-amber-100 dark:border-amber-500/30",
-  "Concurso":      "bg-accent-50 text-accent-700 dark:bg-accent-700/15 dark:text-accent-300 border-accent-100 dark:border-accent-700/30",
-  "Capacitación":  "bg-cyan-50 text-cyan-700 dark:bg-cyan-600/15 dark:text-cyan-300 border-cyan-100 dark:border-cyan-500/30",
-  "Proyecto":      "bg-emerald-50 text-emerald-700 dark:bg-emerald-600/15 dark:text-emerald-300 border-emerald-100 dark:border-emerald-500/30",
-  "Celebración":   "bg-pink-50 text-pink-700 dark:bg-pink-600/15 dark:text-pink-300 border-pink-100 dark:border-pink-500/30",
-  "Galería":       "bg-indigo-50 text-indigo-700 dark:bg-indigo-600/15 dark:text-indigo-300 border-indigo-100 dark:border-indigo-500/30",
-  "Otro":          "bg-slate-50 text-slate-700 dark:bg-slate-600/15 dark:text-slate-300 border-slate-200 dark:border-slate-500/30",
+const CATEGORIA_META = {
+  "Gestión":      { cls: "bg-primary-50 text-primary-700 dark:bg-primary-600/15 dark:text-primary-300 border-primary-100 dark:border-primary-500/30", icon: "fa-briefcase" },
+  "Robótica":     { cls: "bg-emerald-50 text-emerald-700 dark:bg-emerald-600/15 dark:text-emerald-300 border-emerald-100 dark:border-emerald-500/30", icon: "fa-robot" },
+  "Taller":       { cls: "bg-violet-50 text-violet-700 dark:bg-violet-600/15 dark:text-violet-300 border-violet-100 dark:border-violet-500/30", icon: "fa-screwdriver-wrench" },
+  "Feria":        { cls: "bg-amber-50 text-amber-700 dark:bg-amber-500/15 dark:text-amber-300 border-amber-100 dark:border-amber-500/30", icon: "fa-star" },
+  "Concurso":     { cls: "bg-accent-50 text-accent-700 dark:bg-accent-700/15 dark:text-accent-300 border-accent-100 dark:border-accent-700/30", icon: "fa-trophy" },
+  "Capacitación": { cls: "bg-cyan-50 text-cyan-700 dark:bg-cyan-600/15 dark:text-cyan-300 border-cyan-100 dark:border-cyan-500/30", icon: "fa-chalkboard-teacher" },
+  "Proyecto":     { cls: "bg-emerald-50 text-emerald-700 dark:bg-emerald-600/15 dark:text-emerald-300 border-emerald-100 dark:border-emerald-500/30", icon: "fa-diagram-project" },
+  "Celebración":  { cls: "bg-pink-50 text-pink-700 dark:bg-pink-600/15 dark:text-pink-300 border-pink-100 dark:border-pink-500/30", icon: "fa-party-horn" },
+  "Galería":      { cls: "bg-indigo-50 text-indigo-700 dark:bg-indigo-600/15 dark:text-indigo-300 border-indigo-100 dark:border-indigo-500/30", icon: "fa-images" },
+  "Otro":         { cls: "bg-slate-50 text-slate-700 dark:bg-slate-600/15 dark:text-slate-300 border-slate-200 dark:border-slate-500/30", icon: "fa-tag" },
 };
 
 const TIPO_META = {
-  Foto:   { icon: "fa-image",          cls: "bg-primary-500" },
-  Video:  { icon: "fa-video",          cls: "bg-accent-500" },
-  Ambos:  { icon: "fa-photo-film",     cls: "bg-violet-500" },
+  Foto:  { icon: "fa-image",      cls: "bg-primary-500",  label: "Foto" },
+  Video: { icon: "fa-video",      cls: "bg-accent-500",   label: "Video" },
+  Ambos: { icon: "fa-photo-film", cls: "bg-violet-500",   label: "Mixto" },
 };
 
 const easeOut = [0.16, 1, 0.3, 1];
@@ -58,7 +57,41 @@ function normalizeImgs(ev) {
   return [];
 }
 
-function EvidenciaMedia({ evidencia }) {
+function StatsHeader({ total, totalFotos, totalVideos, categoriasCount }) {
+  const stats = [
+    { icon: "fa-calendar-check", value: total, label: "Actividades", accent: "from-primary-500/20 to-primary-600/5 text-primary-300" },
+    { icon: "fa-image",           value: totalFotos, label: "Fotografías", accent: "from-cyan-500/20 to-cyan-600/5 text-cyan-300" },
+    { icon: "fa-video",           value: totalVideos, label: "Videos",     accent: "from-accent-500/20 to-accent-600/5 text-accent-300" },
+    { icon: "fa-tags",            value: categoriasCount, label: "Categorías", accent: "from-emerald-500/20 to-emerald-600/5 text-emerald-300" },
+  ];
+  return (
+    <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+      {stats.map((s) => (
+        <div
+          key={s.label}
+          className="relative overflow-hidden rounded-cardLg border border-line dark:border-dark-border bg-white dark:bg-dark-card p-4"
+        >
+          <div className={`absolute -top-12 -right-12 w-32 h-32 rounded-full bg-gradient-to-br ${s.accent} blur-2xl opacity-50 pointer-events-none`} />
+          <div className="relative flex items-start justify-between gap-3">
+            <div>
+              <p className="text-[10.5px] font-semibold text-ink-subtle uppercase tracking-wider">
+                {s.label}
+              </p>
+              <p className="mt-1 text-2xl font-bold tabular-nums text-ink dark:text-white">
+                {s.value}
+              </p>
+            </div>
+            <span className="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-surface-sunk dark:bg-dark-elev text-ink-subtle">
+              <i className={`fas ${s.icon} text-sm`} />
+            </span>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function EvidenciaMedia({ evidencia, onOpen }) {
   const imgs = normalizeImgs(evidencia);
   const ytId = evidencia.tipo === "Video" && imgs.length === 1
     ? getYouTubeId(imgs[0]?.url)
@@ -87,19 +120,25 @@ function EvidenciaMedia({ evidencia }) {
         src={firstItem?.url || ""}
         alt={evidencia.titulo}
         loading="lazy"
-        className="w-full h-full object-cover transition-transform duration-500 group-hover/media:scale-105"
+        className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
         onError={(e) => { e.currentTarget.style.display = "none"; }}
       />
     );
   };
 
   return (
-    <div className="relative overflow-hidden rounded-t-cardLg border-b border-line dark:border-dark-border bg-surface-sunk dark:bg-dark-elev aspect-video group/media">
+    <button
+      type="button"
+      onClick={onOpen}
+      className="relative block w-full overflow-hidden rounded-t-cardLg aspect-video bg-gradient-to-br from-surface-sunk to-surface-alt dark:from-dark-elev dark:to-dark-card group"
+    >
       {renderCover()}
 
+      <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+
       {(isFirstVideo || ytId) && (
-        <div className="absolute inset-0 flex items-center justify-center bg-black/30 pointer-events-none">
-          <span className="inline-flex h-12 w-12 items-center justify-center rounded-full bg-accent-600 text-white shadow-glow">
+        <div className="absolute inset-0 flex items-center justify-center bg-black/15 pointer-events-none">
+          <span className="inline-flex h-12 w-12 items-center justify-center rounded-full bg-accent-600 text-white shadow-glow transition-transform group-hover:scale-110">
             <i className="fas fa-play text-sm ml-0.5" />
           </span>
         </div>
@@ -118,7 +157,7 @@ function EvidenciaMedia({ evidencia }) {
                 return (
                   <div
                     key={i}
-                    className="w-7 h-7 rounded-md overflow-hidden border-2 border-white/80 shadow-md rotate-3 relative"
+                    className="w-7 h-7 rounded-md overflow-hidden border-2 border-white/80 shadow-md -rotate-3"
                   >
                     {isVid ? (
                       <div className="w-full h-full bg-slate-700 flex items-center justify-center text-white">
@@ -139,31 +178,29 @@ function EvidenciaMedia({ evidencia }) {
           )}
         </>
       )}
-    </div>
+    </button>
   );
 }
 
-function EvidenciaCard({ ev, onOpenGaleria, isAdminMode, onEditClick, onDeleteClick }) {
+function EvidenciaCard({ ev, onOpen, isAdmin, onEdit, onDelete }) {
   const imgs = normalizeImgs(ev);
-  const ytId = ev.tipo === "Video" && imgs.length === 1
-    ? getYouTubeId(imgs[0]?.url)
-    : null;
+  const ytId = ev.tipo === "Video" && imgs.length === 1 ? getYouTubeId(imgs[0]?.url) : null;
   const isVideoOnly = ev.tipo === "Video" && imgs.length === 1 && !ytId && isVideoItem(imgs[0]);
   const isCollection = imgs.length > 1;
   const isDriveFolder = Boolean(ev.driveFolderUrl);
+  const catMeta = CATEGORIA_META[ev.categoria] || CATEGORIA_META["Otro"];
   const tipoMeta = TIPO_META[ev.tipo] || TIPO_META.Foto;
-  const catCls = CATEGORIA_COLORS[ev.categoria] || CATEGORIA_COLORS["Otro"];
 
   return (
     <motion.article
       layout
       initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, scale: 0.96 }}
+      exit={{ opacity: 0, scale: 0.95 }}
       transition={{ duration: 0.35, ease: easeOut }}
-      className="group flex flex-col rounded-cardLg bg-white dark:bg-dark-card border border-line dark:border-dark-border shadow-card hover:shadow-card-hover hover:-translate-y-0.5 hover:border-primary-200 dark:hover:border-primary-500/40 transition-all duration-300 overflow-hidden"
+      className="group relative flex flex-col rounded-cardLg bg-white dark:bg-dark-card border border-line dark:border-dark-border shadow-card hover:shadow-card-hover hover:-translate-y-1 hover:border-primary-200 dark:hover:border-primary-500/40 transition-all duration-300 overflow-hidden"
     >
-      <EvidenciaMedia evidencia={ev} />
+      <EvidenciaMedia evidencia={ev} onOpen={onOpen} />
 
       <div className="p-5 flex flex-col flex-1">
         <div className="flex flex-wrap items-center gap-1.5 mb-3">
@@ -171,12 +208,13 @@ function EvidenciaCard({ ev, onOpenGaleria, isAdminMode, onEditClick, onDeleteCl
             <i className="far fa-calendar text-[9px]" />
             {ev.mes}
           </span>
-          <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-semibold border ${catCls}`}>
+          <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-semibold border ${catMeta.cls}`}>
+            <i className={`fas ${catMeta.icon} text-[9px]`} />
             {ev.categoria}
           </span>
           <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-semibold text-white ${tipoMeta.cls}`}>
             <i className={`fas ${tipoMeta.icon} text-[9px]`} />
-            {ev.tipo}
+            {tipoMeta.label}
           </span>
           {isDriveFolder && (
             <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-semibold bg-indigo-50 text-indigo-700 dark:bg-indigo-600/15 dark:text-indigo-300 border border-indigo-100 dark:border-indigo-500/30">
@@ -197,8 +235,8 @@ function EvidenciaCard({ ev, onOpenGaleria, isAdminMode, onEditClick, onDeleteCl
           {isCollection || isDriveFolder ? (
             <button
               type="button"
-              onClick={() => onOpenGaleria(ev)}
-              className="w-full h-9 inline-flex items-center justify-center gap-2 rounded-btn bg-indigo-50 hover:bg-indigo-600 hover:text-white text-indigo-700 dark:bg-indigo-600/15 dark:text-indigo-300 dark:hover:bg-indigo-500 dark:hover:text-white text-[12px] font-semibold transition-colors border border-indigo-100 dark:border-indigo-500/30"
+              onClick={onOpen}
+              className="w-full h-9 inline-flex items-center justify-center gap-2 rounded-btn bg-indigo-600 hover:bg-indigo-700 text-white text-[12px] font-semibold transition-colors"
             >
               <i className={`${isDriveFolder ? "fab fa-google-drive" : "fas fa-images"} text-[11px]`} />
               {isDriveFolder ? "Abrir carpeta" : `Ver galería (${imgs.length})`}
@@ -216,7 +254,7 @@ function EvidenciaCard({ ev, onOpenGaleria, isAdminMode, onEditClick, onDeleteCl
           ) : isVideoOnly ? (
             <button
               type="button"
-              onClick={() => onOpenGaleria(ev)}
+              onClick={onOpen}
               className="w-full h-9 inline-flex items-center justify-center gap-2 rounded-btn bg-accent-600 hover:bg-accent-700 text-white text-[12px] font-semibold transition-colors"
             >
               <i className="fas fa-play text-[10px]" />
@@ -225,7 +263,7 @@ function EvidenciaCard({ ev, onOpenGaleria, isAdminMode, onEditClick, onDeleteCl
           ) : (
             <button
               type="button"
-              onClick={() => onOpenGaleria(ev)}
+              onClick={onOpen}
               className="w-full h-9 inline-flex items-center justify-center gap-2 rounded-btn bg-primary-600 hover:bg-primary-700 text-white text-[12px] font-semibold transition-colors"
             >
               <i className="fas fa-expand text-[10px]" />
@@ -233,16 +271,16 @@ function EvidenciaCard({ ev, onOpenGaleria, isAdminMode, onEditClick, onDeleteCl
             </button>
           )}
 
-          {isAdminMode && (
+          {isAdmin && (
             <div className="flex gap-2">
               <button
-                onClick={() => onEditClick && onEditClick(ev)}
+                onClick={onEdit}
                 className="flex-1 h-8 rounded-btn bg-amber-50 hover:bg-amber-500 hover:text-white text-amber-700 dark:bg-amber-500/15 dark:text-amber-300 dark:hover:bg-amber-500 dark:hover:text-white text-[11px] font-semibold transition-colors inline-flex items-center justify-center gap-1.5"
               >
                 <i className="fas fa-pen text-[9px]" /> Editar
               </button>
               <button
-                onClick={() => onDeleteClick && onDeleteClick(ev)}
+                onClick={onDelete}
                 className="flex-1 h-8 rounded-btn bg-accent-50 hover:bg-accent-500 hover:text-white text-accent-600 dark:bg-accent-700/15 dark:text-accent-300 dark:hover:bg-accent-500 dark:hover:text-white text-[11px] font-semibold transition-colors inline-flex items-center justify-center gap-1.5"
               >
                 <i className="fas fa-trash text-[9px]" /> Eliminar
@@ -255,13 +293,34 @@ function EvidenciaCard({ ev, onOpenGaleria, isAdminMode, onEditClick, onDeleteCl
   );
 }
 
+function FilterChip({ active, onClick, children, count }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`inline-flex items-center gap-1.5 h-8 px-3 rounded-full text-[11.5px] font-medium transition-all duration-200 ${
+        active
+          ? "bg-primary-600 text-white shadow-sm"
+          : "bg-surface-sunk dark:bg-dark-elev text-ink-subtle hover:text-ink dark:hover:text-white hover:bg-line dark:hover:bg-dark-border"
+      }`}
+    >
+      {children}
+      {count !== undefined && (
+        <span className={`text-[9px] tabular-nums px-1.5 py-0.5 rounded-full ${
+          active ? "bg-white/20 text-white" : "bg-white dark:bg-dark-card text-ink-subtle"
+        }`}>
+          {count}
+        </span>
+      )}
+    </button>
+  );
+}
+
 export default function Evidencias({ isAdminMode = false, onEditClick = null, onDeleteClick = null }) {
   const { evidencias } = useApp();
-
   const [mesSel, setMesSel] = useState(MES_INICIAL);
   const [busqueda, setBusqueda] = useState("");
   const [categoriaSel, setCategoriaSel] = useState("Todas");
-
   const [galeria, setGaleria] = useState({
     open: false,
     images: [],
@@ -270,6 +329,38 @@ export default function Evidencias({ isAdminMode = false, onEditClick = null, on
     loading: false,
     error: null,
   });
+
+  const stats = useMemo(() => {
+    const list = evidencias || [];
+    let fotos = 0;
+    let videos = 0;
+    const cats = new Set();
+    for (const e of list) {
+      if (e.categoria) cats.add(e.categoria);
+      const imgs = normalizeImgs(e);
+      for (const img of imgs) {
+        if (isVideoItem(img)) videos += 1;
+        else fotos += 1;
+      }
+    }
+    return { total: list.length, totalFotos: fotos, totalVideos: videos, categoriasCount: cats.size };
+  }, [evidencias]);
+
+  const countsByMonth = useMemo(() => {
+    const map = new Map();
+    for (const e of evidencias || []) {
+      if (e.mes) map.set(e.mes, (map.get(e.mes) || 0) + 1);
+    }
+    return map;
+  }, [evidencias]);
+
+  const countsByCategoria = useMemo(() => {
+    const map = new Map();
+    for (const e of evidencias || []) {
+      if (e.categoria) map.set(e.categoria, (map.get(e.categoria) || 0) + 1);
+    }
+    return map;
+  }, [evidencias]);
 
   const filtradas = useMemo(() => {
     const base = evidencias || [];
@@ -303,6 +394,8 @@ export default function Evidencias({ isAdminMode = false, onEditClick = null, on
     }
     return map;
   }, [filtradas, mesSel]);
+
+  const hasActiveFilters = busqueda || categoriaSel !== "Todas" || mesSel !== MES_INICIAL;
 
   const openEvidenciaGaleria = async (ev) => {
     if (ev.driveFolderUrl) {
@@ -357,16 +450,11 @@ export default function Evidencias({ isAdminMode = false, onEditClick = null, on
   };
 
   const closeGaleria = () => setGaleria((g) => ({ ...g, open: false }));
-
-  const handleFilterChange = (setter) => (value) => setter(value);
-
   const clearFilters = () => {
     setMesSel(MES_INICIAL);
     setCategoriaSel("Todas");
     setBusqueda("");
   };
-
-  const hasActiveFilters = busqueda || categoriaSel !== "Todas" || mesSel !== MES_INICIAL;
 
   const renderFlat = () => (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
@@ -375,10 +463,10 @@ export default function Evidencias({ isAdminMode = false, onEditClick = null, on
           <EvidenciaCard
             key={e.id}
             ev={e}
-            onOpenGaleria={openEvidenciaGaleria}
-            isAdminMode={isAdminMode}
-            onEditClick={onEditClick}
-            onDeleteClick={onDeleteClick}
+            onOpen={() => openEvidenciaGaleria(e)}
+            isAdmin={isAdminMode}
+            onEdit={() => onEditClick && onEditClick(e)}
+            onDelete={() => onDeleteClick && onDeleteClick(e)}
           />
         ))}
       </AnimatePresence>
@@ -419,10 +507,10 @@ export default function Evidencias({ isAdminMode = false, onEditClick = null, on
                           <EvidenciaCard
                             key={e.id}
                             ev={e}
-                            onOpenGaleria={openEvidenciaGaleria}
-                            isAdminMode={isAdminMode}
-                            onEditClick={onEditClick}
-                            onDeleteClick={onDeleteClick}
+                            onOpen={() => openEvidenciaGaleria(e)}
+                            isAdmin={isAdminMode}
+                            onEdit={() => onEditClick && onEditClick(e)}
+                            onDelete={() => onDeleteClick && onDeleteClick(e)}
                           />
                         ))}
                       </AnimatePresence>
@@ -438,23 +526,25 @@ export default function Evidencias({ isAdminMode = false, onEditClick = null, on
   };
 
   const renderEmpty = () => (
-    <div className="rounded-cardLg border border-dashed border-line dark:border-dark-border bg-surface-alt/50 dark:bg-dark-card/40 py-16 px-6 text-center">
-      <span className="inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-surface-sunk dark:bg-dark-elev text-ink-meta mb-4">
-        <i className="far fa-image text-2xl" />
-      </span>
-      <h3 className="text-[15px] font-semibold text-ink dark:text-white">
-        Sin evidencias para mostrar
+    <div className="rounded-cardLg border border-dashed border-line dark:border-dark-border bg-surface-alt/50 dark:bg-dark-card/40 py-20 px-6 text-center">
+      <div className="relative inline-flex h-20 w-20 items-center justify-center rounded-2xl bg-gradient-to-br from-primary-50 to-primary-100 dark:from-primary-600/15 dark:to-primary-700/10 text-primary-500 mb-5">
+        <i className="far fa-image text-3xl" />
+        <span className="absolute -top-1 -right-1 inline-flex h-5 w-5 items-center justify-center rounded-full bg-amber-400 text-white text-[10px] font-bold">!</span>
+      </div>
+      <h3 className="text-[16px] font-semibold text-ink dark:text-white">
+        {stats.total === 0 ? "Aún no hay evidencias registradas" : "Sin coincidencias"}
       </h3>
       <p className="mt-1.5 text-[13px] text-ink-subtle max-w-sm mx-auto">
-        {mesSel === MES_TODOS
-          ? "Aún no hay evidencias registradas en la plataforma."
-          : "Prueba con otro mes, categoría o limpia los filtros."}
+        {stats.total === 0
+          ? "Sube la primera actividad usando el botón + Nuevo en la cabecera."
+          : "Prueba con otro mes, categoría o limpia los filtros para ver más resultados."}
       </p>
       {hasActiveFilters && (
         <button
           onClick={clearFilters}
-          className="mt-4 h-9 px-4 rounded-btn bg-primary-600 hover:bg-primary-700 text-white text-[12px] font-semibold transition-colors"
+          className="mt-5 h-9 px-4 rounded-btn bg-primary-600 hover:bg-primary-700 text-white text-[12px] font-semibold transition-colors inline-flex items-center gap-1.5"
         >
+          <i className="fas fa-arrow-rotate-left text-[10px]" />
           Limpiar filtros
         </button>
       )}
@@ -463,58 +553,90 @@ export default function Evidencias({ isAdminMode = false, onEditClick = null, on
 
   return (
     <div className="space-y-6">
-      <div className="rounded-cardLg border border-line dark:border-dark-border bg-white dark:bg-dark-card shadow-card">
-        <div className="p-5 flex flex-col gap-4">
+      <StatsHeader
+        total={stats.total}
+        totalFotos={stats.totalFotos}
+        totalVideos={stats.totalVideos}
+        categoriasCount={stats.categoriasCount}
+      />
+
+      <div className="rounded-cardLg border border-line dark:border-dark-border bg-white dark:bg-dark-card shadow-card overflow-hidden">
+        <div className="p-5 space-y-4">
           <div className="flex flex-col md:flex-row gap-3">
             <div className="relative flex-1">
               <i className="fas fa-magnifying-glass absolute left-3.5 top-1/2 -translate-y-1/2 text-ink-meta text-sm pointer-events-none" />
               <input
                 type="text"
                 className="w-full pl-10 pr-4 h-11 rounded-btn border border-line dark:border-dark-border bg-white dark:bg-dark-input text-[13.5px] text-ink dark:text-white placeholder:text-ink-meta focus:outline-none focus:ring-2 focus:ring-primary-500/30 focus:border-primary-500 transition-all"
-                placeholder="Buscar actividad por título o descripción…"
+                placeholder="Buscar por título o descripción…"
                 value={busqueda}
-                onChange={(e) => handleFilterChange(setBusqueda)(e.target.value)}
+                onChange={(e) => setBusqueda(e.target.value)}
                 aria-label="Buscar evidencias"
               />
             </div>
-
-            <div className="relative">
-              <select
-                className="appearance-none h-11 pl-4 pr-10 rounded-btn border border-line dark:border-dark-border bg-white dark:bg-dark-input text-[13px] text-ink dark:text-white focus:outline-none focus:ring-2 focus:ring-primary-500/30 focus:border-primary-500 transition-all cursor-pointer"
-                value={categoriaSel}
-                onChange={(e) => handleFilterChange(setCategoriaSel)(e.target.value)}
-                aria-label="Filtrar por categoría"
-              >
-                <option value="Todas">Todas las categorías</option>
-                {CATEGORIAS.map((c) => (
-                  <option key={c} value={c}>{c}</option>
-                ))}
-              </select>
-              <i className="fas fa-chevron-down absolute right-3 top-1/2 -translate-y-1/2 text-ink-meta text-[10px] pointer-events-none" />
-            </div>
           </div>
 
-          <div className="flex flex-wrap items-center gap-1.5 pt-3 border-t border-line-subtle dark:border-dark-border">
-            <span className="text-[10px] font-semibold text-ink-meta uppercase tracking-wider mr-1">
-              Mes
-            </span>
-            <FilterPill active={mesSel === MES_TODOS} onClick={() => setMesSel(MES_TODOS)}>
-              <i className="fas fa-layer-group text-[9px]" /> Todas
-            </FilterPill>
-            {MESES.map((m) => (
-              <FilterPill key={m} active={mesSel === m} onClick={() => setMesSel(m)}>
-                {m}
-              </FilterPill>
-            ))}
+          <div className="space-y-3">
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] font-semibold text-ink-meta uppercase tracking-wider w-20 flex-shrink-0">
+                Mes
+              </span>
+              <div className="flex flex-wrap items-center gap-1.5">
+                <FilterChip
+                  active={mesSel === MES_TODOS}
+                  onClick={() => setMesSel(MES_TODOS)}
+                  count={stats.total}
+                >
+                  Todas
+                </FilterChip>
+                {MESES.map((m) => (
+                  <FilterChip
+                    key={m}
+                    active={mesSel === m}
+                    onClick={() => setMesSel(m)}
+                    count={countsByMonth.get(m) || 0}
+                  >
+                    {m}
+                  </FilterChip>
+                ))}
+              </div>
+            </div>
+
+            <div className="flex items-start gap-2">
+              <span className="text-[10px] font-semibold text-ink-meta uppercase tracking-wider w-20 flex-shrink-0 pt-2">
+                Categoría
+              </span>
+              <div className="flex flex-wrap items-center gap-1.5">
+                <FilterChip
+                  active={categoriaSel === "Todas"}
+                  onClick={() => setCategoriaSel("Todas")}
+                >
+                  Todas
+                </FilterChip>
+                {CATEGORIAS.map((c) => (
+                  <FilterChip
+                    key={c}
+                    active={categoriaSel === c}
+                    onClick={() => setCategoriaSel(c)}
+                    count={countsByCategoria.get(c) || 0}
+                  >
+                    {c}
+                  </FilterChip>
+                ))}
+              </div>
+            </div>
           </div>
         </div>
 
-        <div className="px-5 pb-4 flex items-center justify-between text-[12px] text-ink-subtle">
+        <div className="px-5 py-3 bg-surface-alt/60 dark:bg-dark-elev/40 border-t border-line dark:border-dark-border flex items-center justify-between text-[12px] text-ink-subtle">
           <span>
+            Mostrando{" "}
             <span className="font-semibold text-ink dark:text-white tabular-nums">
               {filtradas.length}
             </span>{" "}
-            {filtradas.length === 1 ? "evidencia" : "evidencias"}
+            de{" "}
+            <span className="font-semibold tabular-nums">{stats.total}</span>{" "}
+            {stats.total === 1 ? "evidencia" : "evidencias"}
           </span>
           {hasActiveFilters && (
             <button
@@ -541,21 +663,5 @@ export default function Evidencias({ isAdminMode = false, onEditClick = null, on
         title={galeria.title}
       />
     </div>
-  );
-}
-
-function FilterPill({ active, onClick, children }) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-[11px] font-medium transition-all duration-200 ${
-        active
-          ? "bg-primary-600 text-white shadow-sm"
-          : "bg-surface-sunk dark:bg-dark-elev text-ink-subtle hover:text-ink dark:hover:text-white hover:bg-line dark:hover:bg-dark-border"
-      }`}
-    >
-      {children}
-    </button>
   );
 }
