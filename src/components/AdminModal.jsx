@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useApp } from "../context/AppContext";
 import { API_BASE } from "../utils/api.js";
 import { getYouTubeId, getYouTubeThumbnail, isValidYouTubeUrl } from "../utils/youtube";
+import { listDriveImages } from "../services/googleDrive";
 
 const AREAS_CNEB = [
   "Matemática", "Comunicación", "Inglés", "Arte y Cultura",
@@ -78,6 +79,8 @@ export default function AdminModal({ isOpen, onClose, type, editingItem }) {
   const [eviCollectionMode, setEviCollectionMode] = useState(false);
   const [eviExistingImagenes, setEviExistingImagenes] = useState([]);
   const [eviDriveUrl, setEviDriveUrl] = useState("");
+  const [eviDriveCover, setEviDriveCover] = useState(null);
+  const [eviDriveCoverLoading, setEviDriveCoverLoading] = useState(false);
 
   // ── Form-level error banner ───────────────────────────────
   const [formError, setFormError] = useState("");
@@ -89,6 +92,30 @@ export default function AdminModal({ isOpen, onClose, type, editingItem }) {
       setFormSubmitting(false);
     }
   }, [isOpen, editingItem]);
+
+  // ── Drive cover preview: cuando el usuario pega una URL de Drive ──
+  useEffect(() => {
+    if (eviSourceType !== "drive" || !eviDriveUrl || !eviDriveUrl.includes("/folders/")) {
+      setEviDriveCover(null);
+      return;
+    }
+    let cancelled = false;
+    setEviDriveCoverLoading(true);
+    listDriveImages({ folderId: eviDriveUrl })
+      .then((list) => {
+        if (cancelled) return;
+        setEviDriveCover(list[0]?.url || null);
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setEviDriveCover(null);
+      })
+      .finally(() => {
+        if (cancelled) return;
+        setEviDriveCoverLoading(false);
+      });
+    return () => { cancelled = true; };
+  }, [eviDriveUrl, eviSourceType]);
 
   // ── Populate form when editing ────────────────────────────
   useEffect(() => {
@@ -133,6 +160,8 @@ export default function AdminModal({ isOpen, onClose, type, editingItem }) {
         setEviDesc(editingItem.desc || "");
         const existingImgs = Array.isArray(editingItem.imagenes) ? editingItem.imagenes : [];
         setEviExistingImagenes(existingImgs);
+        setEviDriveCover(null);
+        setEviDriveCoverLoading(false);
         if (editingItem.driveFolderUrl) {
           setEviSourceType("drive");
           setEviDriveUrl(editingItem.driveFolderUrl);
@@ -140,6 +169,7 @@ export default function AdminModal({ isOpen, onClose, type, editingItem }) {
           setEviUrl("");
           setEviFile(null);
           setEviFiles([]);
+          setEviDriveCover(editingItem.url || null);
         } else if (existingImgs.length > 1) {
           setEviSourceType("archivo");
           setEviCollectionMode(true);
@@ -170,7 +200,7 @@ export default function AdminModal({ isOpen, onClose, type, editingItem }) {
       setEviTipo(TIPOS_EVIDENCIA[0]); setEviDesc("");
       setEviSourceType("url"); setEviUrl(""); setEviFile(null);
       setEviFiles([]); setEviCollectionMode(false); setEviExistingImagenes([]);
-      setEviDriveUrl("");
+      setEviDriveUrl(""); setEviDriveCover(null); setEviDriveCoverLoading(false);
     }
   }, [isOpen, editingItem, type]);
 
@@ -354,13 +384,17 @@ export default function AdminModal({ isOpen, onClose, type, editingItem }) {
       let data;
       if (eviSourceType === "drive") {
         if (!eviDriveUrl) { alert("Pega el link de la carpeta de Google Drive."); return false; }
+        if (eviDriveCoverLoading) {
+          setFormError("Espera a que cargue la vista previa de la carpeta.");
+          return false;
+        }
         data = {
           titulo: eviTitulo,
           mes: eviMes,
           categoria: eviCategoria,
           tipo: eviTipo,
           desc: eviDesc,
-          url: null,
+          url: eviDriveCover || null,
           imagenes: null,
           driveFolderUrl: eviDriveUrl,
         };
@@ -739,6 +773,33 @@ export default function AdminModal({ isOpen, onClose, type, editingItem }) {
                       <i className="fas fa-info-circle mr-1"></i>
                       Pega el link de una carpeta de Drive que tenga habilitada la opción "Cualquier persona con el enlace puede ver".
                     </p>
+                    {eviDriveCoverLoading && (
+                      <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-indigo-50 dark:bg-indigo-950/20 border border-indigo-200 dark:border-indigo-900/40 text-[11px] text-indigo-700 dark:text-indigo-400">
+                        <div className="w-3 h-3 border-2 border-indigo-300 border-t-indigo-600 rounded-full animate-spin" />
+                        <span>Cargando vista previa de la carpeta...</span>
+                      </div>
+                    )}
+                    {!eviDriveCoverLoading && eviDriveCover && (
+                      <div className="relative aspect-video rounded-xl overflow-hidden border border-indigo-200 dark:border-indigo-900/50 bg-gray-100 dark:bg-dark-border">
+                        <img
+                          src={eviDriveCover}
+                          alt="Vista previa"
+                          className="w-full h-full object-cover"
+                        />
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent" />
+                        <div className="absolute bottom-2 left-2 right-2 flex items-center justify-between text-white text-[10px]">
+                          <span className="flex items-center gap-1 font-black uppercase tracking-wider">
+                            <i className="fab fa-google-drive"></i> Vista previa OK
+                          </span>
+                        </div>
+                      </div>
+                    )}
+                    {!eviDriveCoverLoading && !eviDriveCover && eviDriveUrl && (
+                      <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900/40 text-[11px] text-amber-700 dark:text-amber-400">
+                        <i className="fas fa-exclamation-triangle"></i>
+                        <span>No se pudo cargar vista previa. Verifica que la carpeta sea pública.</span>
+                      </div>
+                    )}
                   </div>
                 ) : (
                   <>
