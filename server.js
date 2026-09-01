@@ -1072,15 +1072,15 @@ app.post("/api/upload", authenticateToken, requireRole(["Administrador", "Docent
 });
 
 // --- MULTIPLE FILE UPLOAD ENDPOINT (para colecciones de evidencias) ---
+// Sin límite de cantidad: el usuario puede subir tantas fotos como necesite
+// (colecciones de 70-80 archivos son habituales). El límite de 100MB por archivo
+// se mantiene; el frontend acumula selecciones antes de mandar una sola request.
 app.post("/api/uploads", authenticateToken, requireRole(["Administrador", "Docente"]), (req, res) => {
-  upload.array("files", 30)(req, res, async (err) => {
+  upload.array("files")(req, res, async (err) => {
     if (err) {
       if (err instanceof multer.MulterError) {
         if (err.code === "LIMIT_FILE_SIZE") {
           return res.status(400).json({ error: "Uno o más archivos exceden el límite de 100 MB." });
-        }
-        if (err.code === "LIMIT_UNEXPECTED_FILE") {
-          return res.status(400).json({ error: "Demasiados archivos (máximo 30)." });
         }
         return res.status(400).json({ error: err.message });
       }
@@ -1096,18 +1096,26 @@ app.post("/api/uploads", authenticateToken, requireRole(["Administrador", "Docen
 
     try {
       const uploaded = [];
+      const failed = [];
       for (const f of files) {
-        const filename = generateFileName(f.originalname);
-        const result = await uploadFile(f.buffer, filename, f.mimetype);
-        uploaded.push({
-          url: result.url,
-          name: f.originalname,
-          size: f.size,
-          mimetype: f.mimetype,
-        });
+        try {
+          const filename = generateFileName(f.originalname);
+          const result = await uploadFile(f.buffer, filename, f.mimetype);
+          uploaded.push({
+            url: result.url,
+            name: f.originalname,
+            size: f.size,
+            mimetype: f.mimetype,
+          });
+        } catch (fileErr) {
+          logger.error(`[AUDIT] Fallo al subir ${f.originalname}:`, { error: fileErr.message });
+          failed.push({ name: f.originalname, error: fileErr.message });
+        }
       }
-      logger.info(`[AUDIT] Subida múltiple: ${uploaded.length} archivos`);
-      res.json({ success: true, files: uploaded });
+      logger.info(`[AUDIT] Subida múltiple: ${uploaded.length} OK, ${failed.length} fallidos de ${files.length}`);
+      // 207 Multi-Status si hubo fallos parciales; 200 si todo OK
+      const status = failed.length > 0 ? (uploaded.length > 0 ? 207 : 400) : 200;
+      res.status(status).json({ success: uploaded.length === files.length, uploaded, failed });
     } catch (uploadErr) {
       logger.error("[AUDIT] Error al guardar archivos:", { error: uploadErr.message });
       res.status(500).json({ error: uploadErr.message });

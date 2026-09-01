@@ -300,9 +300,18 @@ export default function AdminModal({ isOpen, onClose, type, editingItem }) {
       }
       if (!response.ok) throw new Error("Error en la carga múltiple.");
       const resData = await response.json();
-      setUploadProgressMsg(`¡${resData.files.length} archivo(s) subido(s)!`);
-      setTimeout(() => setUploadProgressMsg(""), 2000);
-      return resData.files;
+      const uploaded = resData.uploaded || resData.files || [];
+      const failed = resData.failed || [];
+      if (failed.length > 0) {
+        setUploadProgressMsg(
+          `Subidos ${uploaded.length}/${files.length}. Fallaron: ${failed.map(f => f.name).slice(0, 3).join(", ")}${failed.length > 3 ? "..." : ""}`
+        );
+        setTimeout(() => setUploadProgressMsg(""), 5000);
+      } else {
+        setUploadProgressMsg(`¡${uploaded.length} archivo(s) subido(s)!`);
+        setTimeout(() => setUploadProgressMsg(""), 2000);
+      }
+      return uploaded;
     } catch (_err) {
       console.error(_err);
       alert("Fallo al subir archivos al servidor.");
