@@ -934,7 +934,10 @@ app.post("/api/evidencias", authenticateToken, requireRole(["Administrador", "Do
     }
     if (!body.driveFolderUrl) body.driveFolderUrl = null;
     if (!body.fecha) body.fecha = new Date().toISOString().slice(0, 10);
-    body.imagenes = Array.isArray(body.imagenes) ? body.imagenes : null;
+    if (!body.url) body.url = null;
+    if (!body.imagenes || (Array.isArray(body.imagenes) && body.imagenes.length === 0)) {
+      body.imagenes = null;
+    }
 
     const evidencia = await Evidencia.create(body);
 

@@ -76,9 +76,9 @@ export const evidenciaSchema = z.object({
   categoria: z.enum(CATEGORIAS_EVIDENCIA, { message: "Categoría no válida" }).default("Otro"),
   tipo: z.enum(TIPOS_EVIDENCIA, { message: "Tipo de evidencia no válido" }).default("Foto"),
   desc: z.string().min(1, "La descripción es obligatoria").max(3000),
-  url: z.string().min(1).max(1000).optional(),
-  imagenes: z.array(imagenEvidenciaSchema).max(30, "Máximo 30 archivos por evidencia").optional(),
-  driveFolderUrl: z.string().min(1).max(1000).optional().or(z.literal("")).or(z.null()),
+  url: z.string().min(1).max(1000).nullish(),
+  imagenes: z.array(imagenEvidenciaSchema).max(30, "Máximo 30 archivos por evidencia").nullish(),
+  driveFolderUrl: z.string().min(1).max(1000).nullish(),
   fecha: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Fecha no válida (YYYY-MM-DD)").optional(),
 }).refine(
   (data) =>
