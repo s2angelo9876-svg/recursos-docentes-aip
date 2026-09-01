@@ -364,165 +364,129 @@ export default function AdminPanel() {
   };
 
   return (
-    <div className="space-y-8 text-left">
+    <div className="space-y-6 text-left">
       {/* Management Toolbar */}
-      <div className="bg-white dark:bg-dark-card border border-gray-150 dark:border-dark-border rounded-2xl p-5 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4 transition-colors">
+      <div className="rounded-cardLg border border-line dark:border-dark-border bg-white dark:bg-dark-card shadow-card p-5 flex flex-col md:flex-row md:items-center justify-between gap-4 transition-colors">
         <div>
-          <h3 className="font-bold text-lg text-gray-900 dark:text-white uppercase tracking-tight">
+          <p className="text-[11px] font-semibold tracking-[0.18em] uppercase text-primary-600 dark:text-primary-300">
+            Centro de control
+          </p>
+          <h2 className="mt-1 text-xl sm:text-2xl font-bold tracking-tight text-ink dark:text-white">
             Panel de Administración
-          </h3>
-          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-            Gestión en tiempo real de recursos, tutoriales y comunicados (los archivos y datos se guardan en el servidor local).
+          </h2>
+          <p className="mt-1 text-[12.5px] text-ink-subtle">
+            Gestión en tiempo real de recursos, tutoriales y comunicados.
           </p>
         </div>
 
-        {/* Action Controls */}
         <div className="flex flex-wrap gap-2">
-          {/* Physical Server Backup */}
           <button
             onClick={generateServerBackup}
-            className="px-4 py-2 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 shadow-sm cursor-pointer"
+            className="h-10 px-3.5 rounded-btn bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white text-[12px] font-semibold transition-all flex items-center gap-1.5 shadow-sm"
             title="Generar copia física de base de datos y archivos en el servidor"
           >
-            <i className="fas fa-hdd text-[11px]"></i> Backup Servidor (DB+Archivos)
+            <i className="fas fa-hdd text-[11px]" />
+            <span className="hidden sm:inline">Backup</span>
           </button>
-
-          {/* Export JSON Backup */}
           <button
             onClick={exportData}
-            className="px-4 py-2 border border-gray-200 dark:border-dark-border hover:bg-gray-100 dark:hover:bg-dark-border text-gray-700 dark:text-gray-300 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 shadow-sm"
+            className="h-10 px-3.5 rounded-btn border border-line dark:border-dark-border bg-white dark:bg-dark-card hover:bg-surface-alt dark:hover:bg-dark-hover text-ink dark:text-white text-[12px] font-semibold transition-all flex items-center gap-1.5"
           >
-            <i className="fas fa-download text-[11px] text-primary dark:text-dark-accent"></i> Exportar JSON
+            <i className="fas fa-download text-[11px] text-primary-600 dark:text-primary-300" />
+            <span className="hidden sm:inline">Exportar</span>
           </button>
-
-          {/* Import JSON Backup */}
-          <label className="px-4 py-2 border border-gray-200 dark:border-dark-border hover:bg-gray-100 dark:hover:bg-dark-border text-gray-700 dark:text-gray-300 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shadow-sm">
-            <i className="fas fa-upload text-[11px] text-amber-500"></i> Importar Datos
-            <input
-              type="file"
-              accept=".json"
-              onChange={handleImportFile}
-              className="hidden"
-            />
+          <label className="h-10 px-3.5 rounded-btn border border-line dark:border-dark-border bg-white dark:bg-dark-card hover:bg-surface-alt dark:hover:bg-dark-hover text-ink dark:text-white text-[12px] font-semibold transition-all flex items-center gap-1.5 cursor-pointer">
+            <i className="fas fa-upload text-[11px] text-amber-500" />
+            <span className="hidden sm:inline">Importar</span>
+            <input type="file" accept=".json" onChange={handleImportFile} className="hidden" />
           </label>
         </div>
       </div>
 
       {importStatus && (
-        <div className="p-3 bg-blue-50 border border-blue-200 dark:bg-blue-950/20 dark:border-blue-900/50 text-blue-700 dark:text-blue-400 rounded-xl text-xs font-bold text-center animate-pulse">
+        <div className="p-3 bg-primary-50 border border-primary-100 dark:bg-primary-600/15 dark:border-primary-500/30 text-primary-700 dark:text-primary-300 rounded-btn text-[12.5px] font-medium text-center inline-flex items-center justify-center gap-2 w-full">
+          <i className="fas fa-circle-info" />
           {importStatus}
         </div>
       )}
 
-      {/* DASHBOARD STATISTICS WIDGET (Fase 4) */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* Total Recursos Card */}
-        <div className="bg-white dark:bg-dark-card border border-gray-150 dark:border-dark-border rounded-2xl p-5 shadow-sm transition-colors flex items-center gap-4">
-          <div className="w-10 h-10 rounded-xl bg-blue-50 dark:bg-blue-950/30 text-blue-600 dark:text-blue-400 flex items-center justify-center text-lg">
-            <i className="fas fa-book"></i>
+      {/* DASHBOARD STATISTICS WIDGET */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+        <AdminStat
+          icon="fa-book"
+          accent="from-primary-500/20 to-primary-600/5 text-primary-300"
+          label="Total Recursos"
+          value={stats.totalRecursos}
+        />
+        <AdminStat
+          icon="fa-circle-play"
+          accent="from-accent-500/20 to-accent-600/5 text-accent-300"
+          label="Tutoriales"
+          value={stats.totalTutoriales}
+          meta={`${stats.tutorialesDocente} doc · ${stats.tutorialesEstudiante} est`}
+        />
+        <AdminStat
+          icon="fa-bullhorn"
+          accent="from-violet-500/20 to-violet-600/5 text-violet-300"
+          label="Comunicados"
+          value={stats.totalNoticias}
+        />
+        <div className="relative overflow-hidden rounded-cardLg border border-line dark:border-dark-border bg-white dark:bg-dark-card p-4 flex flex-col gap-2">
+          <div className="absolute -top-12 -right-12 w-32 h-32 rounded-full bg-gradient-to-br from-emerald-500/20 to-emerald-600/5 blur-2xl opacity-50 pointer-events-none" />
+          <div className="relative flex items-center justify-between gap-2">
+            <p className="text-[10.5px] font-semibold text-ink-subtle uppercase tracking-wider">
+              Exportar CSV
+            </p>
+            <span className="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-surface-sunk dark:bg-dark-elev text-emerald-600">
+              <i className="fas fa-file-csv text-sm" />
+            </span>
           </div>
-          <div>
-            <h4 className="text-[10px] font-black uppercase text-gray-400 dark:text-gray-500 tracking-wider">Total Recursos</h4>
-            <div className="text-xl font-black text-gray-900 dark:text-white mt-0.5">{stats.totalRecursos}</div>
-          </div>
-        </div>
-
-        {/* Total Tutoriales Card */}
-        <div className="bg-white dark:bg-dark-card border border-gray-150 dark:border-dark-border rounded-2xl p-5 shadow-sm transition-colors flex items-center gap-4">
-          <div className="w-10 h-10 rounded-xl bg-red-50 dark:bg-red-950/30 text-red-600 dark:text-red-400 flex items-center justify-center text-lg">
-            <i className="fab fa-youtube"></i>
-          </div>
-          <div>
-            <h4 className="text-[10px] font-black uppercase text-gray-400 dark:text-gray-500 tracking-wider">Total Tutoriales</h4>
-            <div className="text-xl font-black text-gray-900 dark:text-white mt-0.5">
-              {stats.totalTutoriales}
-              <span className="text-[10px] text-gray-400 dark:text-gray-500 font-bold ml-1.5">({stats.tutorialesDocente} doc. / {stats.tutorialesEstudiante} est.)</span>
-            </div>
-          </div>
-        </div>
-
-        {/* Total Comunicados Card */}
-        <div className="bg-white dark:bg-dark-card border border-gray-150 dark:border-dark-border rounded-2xl p-5 shadow-sm transition-colors flex items-center gap-4">
-          <div className="w-10 h-10 rounded-xl bg-purple-50 dark:bg-purple-950/30 text-purple-600 dark:text-purple-400 flex items-center justify-center text-lg">
-            <i className="fas fa-bullhorn"></i>
-          </div>
-          <div>
-            <h4 className="text-[10px] font-black uppercase text-gray-400 dark:text-gray-500 tracking-wider">Comunicados</h4>
-            <div className="text-xl font-black text-gray-900 dark:text-white mt-0.5">{stats.totalNoticias}</div>
-          </div>
-        </div>
-
-        {/* CSV Export Card */}
-        <div className="bg-white dark:bg-dark-card border border-gray-150 dark:border-dark-border rounded-2xl p-5 shadow-sm transition-colors flex flex-col justify-center gap-1.5">
-          <h4 className="text-[10px] font-black uppercase text-gray-400 dark:text-gray-500 tracking-wider block">Descargas Curriculares</h4>
-          <div className="flex gap-1.5 mt-1">
+          <div className="relative flex gap-2 mt-auto">
             <button
               onClick={exportResourcesToCSV}
-              className="flex-1 py-1 px-2.5 bg-gray-50 dark:bg-dark-border hover:bg-primary dark:hover:bg-dark-accent hover:text-white text-gray-600 dark:text-gray-300 rounded-lg text-[9px] font-bold uppercase transition-colors flex items-center justify-center gap-1 border border-gray-150 dark:border-dark-border cursor-pointer"
+              className="flex-1 h-8 rounded-btn bg-surface-alt dark:bg-dark-elev hover:bg-emerald-600 hover:text-white text-ink-subtle text-[11px] font-semibold transition-colors inline-flex items-center justify-center gap-1.5"
               title="Descargar recursos en formato CSV"
             >
-              <i className="fas fa-file-csv"></i> Recursos
+              <i className="fas fa-file-csv text-[10px]" />
+              Recursos
             </button>
             <button
               onClick={exportTutorialesToCSV}
-              className="flex-1 py-1 px-2.5 bg-gray-50 dark:bg-dark-border hover:bg-primary dark:hover:bg-dark-accent hover:text-white text-gray-600 dark:text-gray-300 rounded-lg text-[9px] font-bold uppercase transition-colors flex items-center justify-center gap-1 border border-gray-150 dark:border-dark-border cursor-pointer"
+              className="flex-1 h-8 rounded-btn bg-surface-alt dark:bg-dark-elev hover:bg-emerald-600 hover:text-white text-ink-subtle text-[11px] font-semibold transition-colors inline-flex items-center justify-center gap-1.5"
               title="Descargar tutoriales en formato CSV"
             >
-              <i className="fas fa-file-csv"></i> Tutoriales
+              <i className="fas fa-file-csv text-[10px]" />
+              Tutoriales
             </button>
           </div>
         </div>
       </div>
 
       {/* Tabs list inside Panel */}
-      <div className="flex border-b border-gray-200 dark:border-dark-border">
-        <button
-          onClick={() => setActiveSubTab("recursos")}
-          className={`pb-3 px-4 font-black uppercase text-xs tracking-wider transition-all border-b-2 -mb-px cursor-pointer ${activeSubTab === "recursos"
-            ? "border-primary dark:border-dark-accent text-primary dark:text-dark-accent-text"
-            : "border-transparent text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
-            }`}
-        >
-          <i className="fas fa-book mr-1.5"></i> Recursos
-        </button>
-        <button
-          onClick={() => setActiveSubTab("tutoriales")}
-          className={`pb-3 px-4 font-black uppercase text-xs tracking-wider transition-all border-b-2 -mb-px cursor-pointer ${activeSubTab === "tutoriales"
-            ? "border-primary dark:border-dark-accent text-primary dark:text-dark-accent-text"
-            : "border-transparent text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
-            }`}
-        >
-          <i className="fab fa-youtube mr-1.5"></i> Tutoriales
-        </button>
-        <button
-          onClick={() => setActiveSubTab("noticias")}
-          className={`pb-3 px-4 font-black uppercase text-xs tracking-wider transition-all border-b-2 -mb-px cursor-pointer ${activeSubTab === "noticias"
-            ? "border-primary dark:border-dark-accent text-primary dark:text-dark-accent-text"
-            : "border-transparent text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
-            }`}
-        >
-          <i className="fas fa-bullhorn mr-1.5"></i> Comunicados
-        </button>
-        <button
-          onClick={() => setActiveSubTab("usuarios")}
-          className={`pb-3 px-4 font-black uppercase text-xs tracking-wider transition-all border-b-2 -mb-px cursor-pointer ${activeSubTab === "usuarios"
-            ? "border-primary dark:border-dark-accent text-primary dark:text-dark-accent-text"
-            : "border-transparent text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
-            }`}
-        >
-          <i className="fas fa-users mr-1.5"></i> Usuarios
-        </button>
-        {currentUser?.rol === "Administrador" && (
-          <button
-            onClick={() => setActiveSubTab("auditoria")}
-            className={`pb-3 px-4 font-black uppercase text-xs tracking-wider transition-all border-b-2 -mb-px cursor-pointer ${activeSubTab === "auditoria"
-              ? "border-primary dark:border-dark-accent text-primary dark:text-dark-accent-text"
-              : "border-transparent text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+      <div className="rounded-cardLg border border-line dark:border-dark-border bg-white dark:bg-dark-card shadow-card p-1.5 flex flex-wrap gap-1">
+        {[
+          { key: "recursos", label: "Recursos", icon: "fa-book-open" },
+          { key: "tutoriales", label: "Tutoriales", icon: "fa-circle-play" },
+          { key: "noticias", label: "Comunicados", icon: "fa-bullhorn" },
+          { key: "usuarios", label: "Usuarios", icon: "fa-users" },
+          ...(currentUser?.rol === "Administrador" ? [{ key: "auditoria", label: "Auditoría", icon: "fa-shield-halved" }] : []),
+        ].map((t) => {
+          const active = activeSubTab === t.key;
+          return (
+            <button
+              key={t.key}
+              onClick={() => setActiveSubTab(t.key)}
+              className={`h-10 px-4 rounded-btn text-[12.5px] font-semibold transition-all duration-200 inline-flex items-center gap-2 ${
+                active
+                  ? "bg-primary-600 text-white shadow-sm"
+                  : "text-ink-subtle hover:text-ink dark:hover:text-white hover:bg-surface-alt dark:hover:bg-dark-hover"
               }`}
-          >
-            <i className="fas fa-shield-alt mr-1.5"></i> Auditoría
-          </button>
-        )}
+            >
+              <i className={`fas ${t.icon} text-[11px]`} />
+              {t.label}
+            </button>
+          );
+        })}
       </div>
 
       {/* Adding buttons */}
@@ -530,9 +494,10 @@ export default function AdminPanel() {
         <div className="flex justify-end">
           <button
             onClick={() => handleOpenAdd(activeSubTab)}
-            className="px-5 py-2.5 bg-primary dark:bg-dark-accent hover:bg-blue-850 dark:hover:bg-blue-600 text-white rounded-xl text-xs font-black uppercase tracking-wider transition-all flex items-center gap-1.5 shadow-md active:scale-95 cursor-pointer"
+            className="h-10 px-4 rounded-btn bg-primary-600 hover:bg-primary-700 text-white text-[12.5px] font-semibold transition-all flex items-center gap-2 shadow-sm hover:shadow"
           >
-            <i className="fas fa-plus-circle text-[13px]"></i> Nuevo Elemento
+            <i className="fas fa-plus text-[11px]" />
+            Nuevo elemento
           </button>
         </div>
       )}
@@ -876,6 +841,29 @@ export default function AdminPanel() {
         type={modalType}
         editingItem={editingItem}
       />
+    </div>
+  );
+}
+function AdminStat({ icon, accent, label, value, meta }) {
+  return (
+    <div className="relative overflow-hidden rounded-cardLg border border-line dark:border-dark-border bg-white dark:bg-dark-card p-4">
+      <div className={`absolute -top-12 -right-12 w-32 h-32 rounded-full bg-gradient-to-br ${accent} blur-2xl opacity-50 pointer-events-none`} />
+      <div className="relative flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="text-[10.5px] font-semibold text-ink-subtle uppercase tracking-wider">
+            {label}
+          </p>
+          <p className="mt-1 text-2xl font-bold tabular-nums text-ink dark:text-white">
+            {value}
+          </p>
+          {meta && (
+            <p className="mt-1 text-[10.5px] text-ink-subtle">{meta}</p>
+          )}
+        </div>
+        <span className="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-surface-sunk dark:bg-dark-elev text-ink-subtle">
+          <i className={`fas ${icon} text-sm`} />
+        </span>
+      </div>
     </div>
   );
 }

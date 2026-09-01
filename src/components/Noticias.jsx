@@ -196,12 +196,14 @@ export default function Noticias({ isAdminMode = false, onEditClick = null }) {
   const stats = useMemo(() => {
     const list = noticias || [];
     const total = list.length;
+    // eslint-disable-next-line react-hooks/purity -- intentionally time-dependent; refreshed on each render
+    const now = Date.now();
     const last7Days = list.filter((n) => {
       const t = n.fecha ? new Date(n.fecha).getTime() : 0;
-      return t > Date.now() - 7 * 24 * 60 * 60 * 1000;
+      return t > now - 7 * 24 * 60 * 60 * 1000;
     }).length;
     const autores = new Set(list.map((n) => n.autor).filter(Boolean));
-    return { total, last7Days, autores: autores.size };
+    return { total, last7Days, autores: autores.size, now };
   }, [noticias]);
 
   return (
@@ -211,7 +213,7 @@ export default function Noticias({ isAdminMode = false, onEditClick = null }) {
           { icon: "fa-bullhorn",         value: stats.total,     label: "Comunicados",     accent: "from-violet-500/20 to-violet-600/5 text-violet-300" },
           { icon: "fa-calendar-week",   value: stats.last7Days, label: "Últimos 7 días",  accent: "from-emerald-500/20 to-emerald-600/5 text-emerald-300" },
           { icon: "fa-user-edit",        value: stats.autores,   label: "Autores",         accent: "from-primary-500/20 to-primary-600/5 text-primary-300" },
-          { icon: "fa-bell",             value: lastVisit ? Math.max(0, Math.ceil((Date.now() - lastVisit) / (24 * 60 * 60 * 1000))) : 0, label: "Días sin visita", accent: "from-amber-500/20 to-amber-600/5 text-amber-300" },
+          { icon: "fa-bell",             value: lastVisit ? Math.max(0, Math.ceil((stats.now - lastVisit) / (24 * 60 * 60 * 1000))) : 0, label: "Días sin visita", accent: "from-amber-500/20 to-amber-600/5 text-amber-300" },
         ].map((s) => (
           <div
             key={s.label}
