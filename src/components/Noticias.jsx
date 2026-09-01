@@ -193,32 +193,76 @@ export default function Noticias({ isAdminMode = false, onEditClick = null }) {
     });
   }, [noticias]);
 
+  const stats = useMemo(() => {
+    const list = noticias || [];
+    const total = list.length;
+    const last7Days = list.filter((n) => {
+      const t = n.fecha ? new Date(n.fecha).getTime() : 0;
+      return t > Date.now() - 7 * 24 * 60 * 60 * 1000;
+    }).length;
+    const autores = new Set(list.map((n) => n.autor).filter(Boolean));
+    return { total, last7Days, autores: autores.size };
+  }, [noticias]);
+
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        {[
+          { icon: "fa-bullhorn",         value: stats.total,     label: "Comunicados",     accent: "from-violet-500/20 to-violet-600/5 text-violet-300" },
+          { icon: "fa-calendar-week",   value: stats.last7Days, label: "Últimos 7 días",  accent: "from-emerald-500/20 to-emerald-600/5 text-emerald-300" },
+          { icon: "fa-user-edit",        value: stats.autores,   label: "Autores",         accent: "from-primary-500/20 to-primary-600/5 text-primary-300" },
+          { icon: "fa-bell",             value: lastVisit ? Math.max(0, Math.ceil((Date.now() - lastVisit) / (24 * 60 * 60 * 1000))) : 0, label: "Días sin visita", accent: "from-amber-500/20 to-amber-600/5 text-amber-300" },
+        ].map((s) => (
+          <div
+            key={s.label}
+            className="relative overflow-hidden rounded-cardLg border border-line dark:border-dark-border bg-white dark:bg-dark-card p-4"
+          >
+            <div className={`absolute -top-12 -right-12 w-32 h-32 rounded-full bg-gradient-to-br ${s.accent} blur-2xl opacity-50 pointer-events-none`} />
+            <div className="relative flex items-start justify-between gap-3">
+              <div>
+                <p className="text-[10.5px] font-semibold text-ink-subtle uppercase tracking-wider">
+                  {s.label}
+                </p>
+                <p className="mt-1 text-2xl font-bold tabular-nums text-ink dark:text-white">
+                  {s.value}
+                </p>
+              </div>
+              <span className="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-surface-sunk dark:bg-dark-elev text-ink-subtle">
+                <i className={`fas ${s.icon} text-sm`} />
+              </span>
+            </div>
+          </div>
+        ))}
+      </div>
+
       {ordenadas.length > 0 ? (
-        <AnimatePresence mode="popLayout">
-          {ordenadas.map((n) => (
-            <NewsCard
-              key={n.id}
-              n={n}
-              lastVisit={lastVisit}
-              isAdmin={isAdminMode}
-              onOpen={setSelectedNews}
-              onEdit={onEditClick}
-              onDelete={(item) => setPendingDelete(item)}
-            />
-          ))}
-        </AnimatePresence>
+        <div className="space-y-4">
+          <AnimatePresence mode="popLayout">
+            {ordenadas.map((n) => (
+              <NewsCard
+                key={n.id}
+                n={n}
+                lastVisit={lastVisit}
+                isAdmin={isAdminMode}
+                onOpen={setSelectedNews}
+                onEdit={onEditClick}
+                onDelete={(item) => setPendingDelete(item)}
+              />
+            ))}
+          </AnimatePresence>
+        </div>
       ) : (
-        <div className="rounded-cardLg border border-dashed border-line dark:border-dark-border bg-surface-alt/50 dark:bg-dark-card/40 py-16 px-6 text-center">
-          <span className="inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-surface-sunk dark:bg-dark-elev text-ink-meta mb-4">
-            <i className="fas fa-bullhorn text-2xl" />
-          </span>
-          <h3 className="text-[15px] font-semibold text-ink dark:text-white">
+        <div className="rounded-cardLg border border-dashed border-line dark:border-dark-border bg-surface-alt/50 dark:bg-dark-card/40 py-20 px-6 text-center">
+          <div className="relative inline-flex h-20 w-20 items-center justify-center rounded-2xl bg-gradient-to-br from-violet-50 to-violet-100 dark:from-violet-600/15 dark:to-violet-700/5 text-violet-500 mb-5">
+            <i className="fas fa-bullhorn text-3xl" />
+            <span className="absolute -top-1 -right-1 inline-flex h-5 w-5 items-center justify-center rounded-full bg-amber-400 text-white text-[10px] font-bold">!</span>
+          </div>
+          <h3 className="text-[16px] font-semibold text-ink dark:text-white">
             Sin comunicados publicados
           </h3>
           <p className="mt-1.5 text-[13px] text-ink-subtle max-w-sm mx-auto">
-            Cuando se publiquen avisos oficiales del AIP aparecerán aquí.
+            Cuando el AIP publique avisos oficiales aparecerán aquí.
+            {isAdminMode && " Usa el botón + Nuevo para crear el primero."}
           </p>
         </div>
       )}
