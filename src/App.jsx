@@ -89,7 +89,7 @@ function AppContent() {
       )}
 
       {/* Dynamic Content Main area */}
-      <main className="max-w-6xl w-full mx-auto px-4 py-8 flex-grow">
+      <main id="main-content" className="max-w-6xl w-full mx-auto px-4 py-8 flex-grow">
         <AnimatePresence mode="wait">
           <Routes location={location} key={location.pathname}>
             <Route path="/" element={
@@ -201,80 +201,77 @@ function AppContent() {
       />
 
       {/* Footer */}
-      <footer className="bg-[#001D52] dark:bg-black text-white">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 py-12 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
-          {/* Column 1: Logo + descripción */}
-          <div>
-            <div className="flex items-center gap-2 mb-4">
-              <img src="/img/escudo.png" alt="Logo" className="w-10 h-10 rounded-xl bg-white/10 p-1" onError={(e) => { e.currentTarget.style.display = "none"; }} />
-              <div>
-                <h4 className="font-black text-base uppercase tracking-tight">INNOVA BANDERA</h4>
-                <p className="text-[10px] text-blue-200/70 font-semibold">I.E. Bandera del Perú · Pisco</p>
+      <footer className="bg-[#001D52] dark:bg-black text-white mt-12">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 py-10">
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-6">
+            <div className="flex items-center gap-3">
+              <img
+                src="/Img logo AIP.jpeg"
+                alt="Logo I.E. Bandera del Perú"
+                className="h-10 w-10 rounded-xl bg-white/10 p-1 object-cover ring-1 ring-white/15"
+              />
+              <div className="leading-none">
+                <p className="text-[14px] font-semibold tracking-tight">Innova Bandera</p>
+                <p className="text-[11px] text-blue-200/70 mt-1">
+                  I.E. Emblemática Bandera del Perú · Pisco, Ica
+                </p>
               </div>
             </div>
-            <p className="text-xs text-blue-100/70 leading-relaxed">
-              Institución educativa pública emblemática comprometida con la excelencia y la formación integral.
-            </p>
-          </div>
 
-          {/* Column 2: Navegación */}
-          <div>
-            <h5 className="text-[10px] font-black uppercase tracking-widest text-blue-300 mb-4">Navegación</h5>
-            <ul className="space-y-2 text-xs text-blue-100/80">
-              <li><button onClick={() => setActiveTab("portada")} className="hover:text-yellow-300 transition-colors">Inicio</button></li>
-              <li><button onClick={() => setActiveTab("recursos")} className="hover:text-yellow-300 transition-colors">Recursos</button></li>
-              <li><button onClick={() => setActiveTab("evidencias")} className="hover:text-yellow-300 transition-colors">Evidencias</button></li>
-              <li><button onClick={() => setActiveTab("tutoriales")} className="hover:text-yellow-300 transition-colors">Tutoriales</button></li>
-              <li><button onClick={() => setActiveTab("noticias")} className="hover:text-yellow-300 transition-colors">Noticias</button></li>
-            </ul>
-          </div>
-
-          {/* Column 3: Recursos */}
-          <div>
-            <h5 className="text-[10px] font-black uppercase tracking-widest text-blue-300 mb-4">Recursos</h5>
-            <ul className="space-y-2 text-xs text-blue-100/80">
-              <li><a href="#" className="hover:text-yellow-300 transition-colors">Biblioteca Digital</a></li>
-              <li><a href="#" className="hover:text-yellow-300 transition-colors">Soporte Técnico</a></li>
-              <li><a href="#" className="hover:text-yellow-300 transition-colors">Portal Académico</a></li>
-              <li><a href="#" className="hover:text-yellow-300 transition-colors">Calendario Escolar</a></li>
-            </ul>
-          </div>
-
-          {/* Column 4: Contacto */}
-          <div>
-            <h5 className="text-[10px] font-black uppercase tracking-widest text-blue-300 mb-4">Contacto</h5>
-            <ul className="space-y-2 text-xs text-blue-100/80">
-              <li className="flex items-start gap-2">
-                <i className="fas fa-envelope mt-0.5 text-blue-300"></i>
-                <a href="mailto:contacto@banderadelperu.edu.pe" className="hover:text-yellow-300 transition-colors break-all">contacto@banderadelperu.edu.pe</a>
-              </li>
-              <li className="flex items-start gap-2">
-                <i className="fas fa-map-marker-alt mt-0.5 text-blue-300"></i>
-                <span>Pisco, Ica, Perú</span>
-              </li>
-              <li className="flex items-start gap-2">
-                <i className="fas fa-phone mt-0.5 text-blue-300"></i>
-                <span>Aula de Innovación Pedagógica</span>
-              </li>
-            </ul>
-          </div>
-        </div>
-
-        {/* Bottom bar */}
-        <div className="border-t border-white/10">
-          <div className="max-w-6xl mx-auto px-4 sm:px-6 py-4 flex flex-col sm:flex-row items-center justify-between gap-3 text-[10px] text-blue-200/70">
-            <p className="font-semibold">© 2026 I.E. Bandera del Perú · Aula de Innovación Pedagógica · Prof. Luis Fajardo</p>
-            <div className="flex items-center gap-3">
-              <a href="#" aria-label="Facebook" className="w-7 h-7 rounded-full bg-white/10 hover:bg-yellow-400 hover:text-[#001D52] flex items-center justify-center transition-colors">
-                <i className="fab fa-facebook-f"></i>
+            <nav aria-label="Enlaces del pie" className="flex flex-wrap items-center gap-x-6 gap-y-2">
+              <button onClick={() => setActiveTab("portada")} className="text-[13px] text-white/80 hover:text-white transition-colors">
+                Inicio
+              </button>
+              <button onClick={() => setActiveTab("recursos")} className="text-[13px] text-white/80 hover:text-white transition-colors">
+                Recursos
+              </button>
+              <button onClick={() => setActiveTab("evidencias")} className="text-[13px] text-white/80 hover:text-white transition-colors">
+                Evidencias
+              </button>
+              <button onClick={() => setActiveTab("noticias")} className="text-[13px] text-white/80 hover:text-white transition-colors">
+                Noticias
+              </button>
+              <a
+                href="mailto:contacto@banderadelperu.edu.pe"
+                className="text-[13px] text-white/80 hover:text-white transition-colors"
+              >
+                Contacto
               </a>
-              <a href="#" aria-label="YouTube" className="w-7 h-7 rounded-full bg-white/10 hover:bg-red-500 hover:text-white flex items-center justify-center transition-colors">
-                <i className="fab fa-youtube"></i>
+            </nav>
+
+            <div className="flex items-center gap-2">
+              <a
+                href="#"
+                aria-label="Facebook"
+                className="h-9 w-9 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center transition-colors"
+              >
+                <i className="fab fa-facebook-f text-xs" />
               </a>
-              <a href="#" aria-label="Instagram" className="w-7 h-7 rounded-full bg-white/10 hover:bg-pink-500 hover:text-white flex items-center justify-center transition-colors">
-                <i className="fab fa-instagram"></i>
+              <a
+                href="#"
+                aria-label="YouTube"
+                className="h-9 w-9 rounded-full bg-white/10 hover:bg-accent-500 flex items-center justify-center transition-colors"
+              >
+                <i className="fab fa-youtube text-xs" />
+              </a>
+              <a
+                href="#"
+                aria-label="Instagram"
+                className="h-9 w-9 rounded-full bg-white/10 hover:bg-pink-500 flex items-center justify-center transition-colors"
+              >
+                <i className="fab fa-instagram text-xs" />
               </a>
             </div>
+          </div>
+
+          <div className="mt-8 pt-6 border-t border-white/10 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 text-[11px] text-blue-200/60">
+            <p>
+              © {new Date().getFullYear()} Aula de Innovación Pedagógica · Prof. Luis Fajardo. Todos los derechos reservados.
+            </p>
+            <p className="flex items-center gap-1.5">
+              <span className="inline-block h-1.5 w-1.5 rounded-full bg-success animate-soft-pulse" />
+              Plataforma operativa · {new Date().toLocaleDateString("es-PE", { month: "long", year: "numeric" })}
+            </p>
           </div>
         </div>
       </footer>

@@ -1,163 +1,239 @@
-
+import { useState } from "react";
 import { useApp } from "../context/AppContext";
 
 export default function Header({ activeTab, setActiveTab }) {
   const { darkMode, setDarkMode, currentUser, logout } = useApp();
   const isAdmin = currentUser?.rol === "Administrador";
+  const [mobileOpen, setMobileOpen] = useState(false);
+  const [userMenuOpen, setUserMenuOpen] = useState(false);
 
   const SECCIONES = [
-    { key: "portada", label: "Inicio", iconClass: "fas fa-rocket" },
-    { key: "recursos", label: "Recursos", iconClass: "fas fa-book" },
-    { key: "evidencias", label: "Evidencias", iconClass: "fas fa-images" },
-    { key: "tutoriales", label: "Tutoriales", iconClass: "fab fa-youtube" },
-    { key: "noticias", label: "Noticias", iconClass: "fas fa-bullhorn" },
-    ...(isAdmin ? [{ key: "admin", label: "Gestión", iconClass: "fas fa-user-cog" }] : []),
+    { key: "portada", label: "Inicio", icon: "fa-house" },
+    { key: "recursos", label: "Recursos", icon: "fa-book-open" },
+    { key: "evidencias", label: "Evidencias", icon: "fa-images" },
+    { key: "tutoriales", label: "Tutoriales", icon: "fa-circle-play" },
+    { key: "noticias", label: "Noticias", icon: "fa-bullhorn" },
+    ...(isAdmin ? [{ key: "admin", label: "Gestión", icon: "fa-shield-halved" }] : []),
   ];
 
   const getRoleBadge = (rol) => {
-    if (rol === "Administrador") return "bg-gradient-to-r from-amber-500 to-orange-500 text-white";
-    if (rol === "Docente") return "bg-gradient-to-r from-blue-500 to-cyan-500 text-white";
-    return "bg-gray-400 text-white";
+    if (rol === "Administrador") return { label: "Administrador", cls: "bg-amber-500/15 text-amber-700 ring-1 ring-amber-500/30 dark:text-amber-300" };
+    if (rol === "Docente") return { label: "Docente", cls: "bg-sky-500/15 text-sky-700 ring-1 ring-sky-500/30 dark:text-sky-300" };
+    return { label: "Invitado", cls: "bg-slate-500/15 text-slate-600 ring-1 ring-slate-500/30 dark:text-slate-300" };
   };
 
   const getInitials = (name) => {
     if (!name) return "?";
-    return name.split(" ").slice(0, 2).map(n => n[0]).join("").toUpperCase();
+    return name.split(" ").slice(0, 2).map((n) => n[0]).join("").toUpperCase();
+  };
+
+  const go = (key) => {
+    setActiveTab(key);
+    setMobileOpen(false);
+    setUserMenuOpen(false);
   };
 
   return (
-    <header className="sticky top-0 z-50 bg-white/80 dark:bg-dark-card/80 backdrop-blur-xl border-b border-gray-200/60 dark:border-dark-border shadow-sm transition-colors duration-300">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 py-3 flex items-center justify-between gap-4">
+    <header className="sticky top-0 z-50 transition-colors duration-300">
+      <div
+        className={`border-b backdrop-blur-xl ${
+          darkMode
+            ? "bg-[#020617]/80 border-white/10"
+            : "bg-primary/[0.97] border-white/10"
+        }`}
+      >
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 h-16 flex items-center gap-3 sm:gap-6">
+          <button
+            onClick={() => go("portada")}
+            className="flex items-center gap-2.5 group flex-shrink-0"
+            aria-label="Ir al inicio"
+          >
+            <span className="relative inline-flex">
+              <span className="absolute inset-0 rounded-xl bg-white/20 blur-md opacity-60 group-hover:opacity-90 transition-opacity" />
+              <img
+                src="/Img logo AIP.jpeg"
+                alt="Logo Innova Bandera"
+                className="relative h-10 w-10 rounded-xl object-cover ring-1 ring-white/40 shadow-lg"
+              />
+            </span>
+            <span className="hidden sm:flex flex-col items-start leading-none text-white">
+              <span className="text-[15px] font-bold tracking-tight">Innova Bandera</span>
+              <span className="text-[11px] font-medium text-white/70 mt-0.5">
+                I.E. Bandera del Perú · Pisco
+              </span>
+            </span>
+          </button>
 
-        {/* Brand */}
-        <div className="flex items-center gap-3 cursor-pointer select-none flex-shrink-0" onClick={() => setActiveTab("portada")}>
-          <div className="relative">
-            <div className="absolute inset-0 bg-gradient-to-br from-primary to-blue-600 rounded-2xl blur-md opacity-40" />
-            <img
-              src="/Img logo AIP.jpeg"
-              alt="Logo AIP"
-              className="relative h-11 w-11 object-cover rounded-xl shadow-lg ring-2 ring-white dark:ring-dark-card"
-            />
-          </div>
-          <div className="text-left hidden sm:block">
-            <h1 className="text-base font-black tracking-tight uppercase text-gray-900 dark:text-white leading-none">
-              Innova Bandera
-            </h1>
-            <p className="text-[10px] text-gray-500 dark:text-gray-400 font-bold leading-none mt-1 tracking-wide">
-              I.E. Bandera del Perú · Pisco
-            </p>
-          </div>
-        </div>
-
-        {/* Navigation + Controls */}
-        <div className="flex items-center gap-2 sm:gap-3">
-
-          {/* Desktop Nav */}
-          <nav className="hidden md:flex items-center gap-1 bg-gradient-to-br from-gray-50 to-gray-100/80 dark:from-dark-border dark:to-dark-bg/50 rounded-2xl p-1.5 border border-gray-200/40 dark:border-dark-border/40">
-            {SECCIONES.map((s) => (
-              <button
-                key={s.key}
-                onClick={() => setActiveTab(s.key)}
-                title={s.label}
-                className={`relative px-3.5 py-2 rounded-xl text-[11px] font-bold transition-all flex items-center gap-1.5 overflow-hidden ${
-                  activeTab === s.key
-                    ? "bg-gradient-to-r from-primary to-blue-700 dark:from-dark-accent dark:to-blue-600 text-white shadow-md shadow-primary/30"
-                    : "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-white/60 dark:hover:bg-dark-card/60"
-                }`}
-              >
-                {activeTab === s.key && (
-                  <span className="absolute inset-0 bg-white/10 animate-pulse pointer-events-none" />
-                )}
-                <i className={`${s.iconClass} text-[11px] relative`}></i>
-                <span className="relative">{s.label}</span>
-              </button>
-            ))}
+          <nav className="hidden lg:flex items-center gap-1 ml-2" aria-label="Navegación principal">
+            {SECCIONES.map((s) => {
+              const active = activeTab === s.key;
+              return (
+                <button
+                  key={s.key}
+                  onClick={() => go(s.key)}
+                  className={`relative px-3.5 py-2 rounded-xl text-[13px] font-medium transition-colors duration-200 flex items-center gap-2 ${
+                    active
+                      ? "text-white bg-white/15"
+                      : "text-white/75 hover:text-white hover:bg-white/8"
+                  }`}
+                >
+                  <i className={`fas ${s.icon} text-[12px] ${active ? "text-white" : "text-white/60"}`} />
+                  <span>{s.label}</span>
+                  {active && (
+                    <span className="absolute left-1/2 -translate-x-1/2 -bottom-[19px] h-[2px] w-6 rounded-full bg-white" />
+                  )}
+                </button>
+              );
+            })}
           </nav>
 
-          <div className="hidden md:block w-px h-7 bg-gradient-to-b from-transparent via-gray-300 dark:via-dark-border to-transparent"></div>
+          <div className="flex-1" />
 
-          {/* Login button — visible only when not authenticated */}
-          {!currentUser && (
+          <button
+            onClick={() => setDarkMode(!darkMode)}
+            className="hidden sm:inline-flex h-10 w-10 items-center justify-center rounded-xl bg-white/10 hover:bg-white/20 text-white transition-colors"
+            aria-label={darkMode ? "Cambiar a modo claro" : "Cambiar a modo oscuro"}
+            title={darkMode ? "Modo claro" : "Modo oscuro"}
+          >
+            <i className={`fas ${darkMode ? "fa-sun" : "fa-moon"} text-sm`} />
+          </button>
+
+          {!currentUser ? (
             <button
-              onClick={() => setActiveTab("login")}
-              className="hidden sm:flex items-center gap-2 px-3.5 py-2 rounded-xl bg-gradient-to-r from-primary to-blue-700 dark:from-dark-accent dark:to-blue-600 hover:from-blue-800 hover:to-primary text-white text-[11px] font-bold uppercase tracking-wider transition-all shadow-md active:scale-95"
-              title="Iniciar Sesión"
+              onClick={() => go("login")}
+              className="hidden sm:inline-flex items-center gap-2 h-10 px-4 rounded-xl bg-white text-primary-700 font-semibold text-[13px] hover:bg-white/90 transition-colors shadow-sm"
             >
-              <i className="fas fa-sign-in-alt text-[11px]"></i>
-              <span className="hidden lg:inline">Ingresar</span>
+              <i className="fas fa-arrow-right-to-bracket text-xs" />
+              <span>Acceder</span>
             </button>
-          )}
-
-          {/* User info & logout — visible when authenticated */}
-          {currentUser && (
-            <div className="flex items-center gap-2">
-              <div className="hidden sm:flex items-center gap-2.5 pl-2 pr-1 py-1 rounded-2xl border border-gray-200 dark:border-dark-border bg-white dark:bg-dark-card shadow-sm">
-                <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-primary to-blue-700 dark:from-dark-accent dark:to-blue-600 text-white flex items-center justify-center font-black text-[11px]">
-                  {getInitials(currentUser.nombre)}
-                </div>
-                <div className="text-left">
-                  <div className="text-[11px] font-bold text-gray-900 dark:text-white leading-tight">
-                    {currentUser.nombre}
-                  </div>
-                  <div className={`text-[8px] font-black px-1.5 py-0.5 rounded-full mt-0.5 inline-block uppercase tracking-wider ${getRoleBadge(currentUser.rol)} ${isAdmin ? "animate-pulse" : ""}`}>
-                    {isAdmin && <i className="fas fa-shield-alt mr-0.5"></i>}
-                    {currentUser.rol}
-                  </div>
-                </div>
-              </div>
+          ) : (
+            <div className="relative hidden sm:block">
               <button
-                onClick={logout}
-                className="p-2.5 rounded-xl border border-red-200 dark:border-red-900/50 bg-red-50 dark:bg-red-950/20 hover:bg-red-600 hover:text-white hover:border-red-600 text-red-600 dark:text-red-400 transition-all flex items-center justify-center shadow-sm hover:shadow-md active:scale-95"
-                title="Cerrar Sesión"
+                onClick={() => setUserMenuOpen((v) => !v)}
+                className="flex items-center gap-2.5 h-10 pl-1.5 pr-3 rounded-xl bg-white/10 hover:bg-white/15 text-white transition-colors"
+                aria-expanded={userMenuOpen}
+                aria-haspopup="menu"
               >
-                <i className="fas fa-sign-out-alt text-xs"></i>
+                <span className="h-7 w-7 rounded-lg bg-gradient-to-br from-white to-white/70 text-primary-700 font-bold text-[12px] flex items-center justify-center">
+                  {getInitials(currentUser.nombre)}
+                </span>
+                <span className="hidden md:flex flex-col items-start leading-none">
+                  <span className="text-[12px] font-semibold">{currentUser.nombre}</span>
+                  <span className="text-[10px] text-white/70 mt-0.5">{getRoleBadge(currentUser.rol).label}</span>
+                </span>
+                <i className="fas fa-chevron-down text-[9px] text-white/60" />
               </button>
+              {userMenuOpen && (
+                <>
+                  <div className="fixed inset-0 z-40" onClick={() => setUserMenuOpen(false)} />
+                  <div
+                    className={`absolute right-0 top-12 w-60 rounded-2xl border shadow-xl overflow-hidden z-50 ${
+                      darkMode
+                        ? "bg-dark-card border-dark-border"
+                        : "bg-white border-line shadow-card-hover"
+                    }`}
+                  >
+                    <div className="p-4 border-b border-line dark:border-dark-border">
+                      <div className="text-[13px] font-semibold text-ink dark:text-white">
+                        {currentUser.nombre}
+                      </div>
+                      <div className="text-[11px] text-ink-subtle mt-0.5">
+                        {currentUser.usuario || currentUser.email}
+                      </div>
+                      <span
+                        className={`inline-flex items-center mt-2 px-2 py-0.5 rounded-full text-[10px] font-semibold ${getRoleBadge(currentUser.rol).cls}`}
+                      >
+                        {getRoleBadge(currentUser.rol).label}
+                      </span>
+                    </div>
+                    <div className="p-1.5">
+                      {isAdmin && (
+                        <button
+                          onClick={() => go("admin")}
+                          className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-[13px] text-ink dark:text-white hover:bg-surface-alt dark:hover:bg-dark-hover transition-colors text-left"
+                        >
+                          <i className="fas fa-shield-halved w-4 text-ink-subtle" />
+                          Panel de gestión
+                        </button>
+                      )}
+                      <button
+                        onClick={() => {
+                          logout();
+                          setUserMenuOpen(false);
+                        }}
+                        className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-[13px] text-accent-600 hover:bg-accent-50 dark:hover:bg-accent-700/20 transition-colors text-left"
+                      >
+                        <i className="fas fa-right-from-bracket w-4" />
+                        Cerrar sesión
+                      </button>
+                    </div>
+                  </div>
+                </>
+              )}
             </div>
           )}
 
-          {/* Theme toggle */}
           <button
-            onClick={() => setDarkMode(!darkMode)}
-            className="p-2.5 rounded-xl border border-gray-200 dark:border-dark-border bg-white dark:bg-dark-card hover:bg-gray-50 dark:hover:bg-dark-border transition-all flex items-center justify-center text-gray-700 dark:text-amber-400 shadow-sm hover:shadow-md active:scale-95"
-            title={darkMode ? "Modo Claro" : "Modo Oscuro"}
+            onClick={() => setMobileOpen((v) => !v)}
+            className="lg:hidden inline-flex h-10 w-10 items-center justify-center rounded-xl bg-white/10 hover:bg-white/20 text-white"
+            aria-label="Abrir menú"
+            aria-expanded={mobileOpen}
           >
-            {darkMode ? (
-              <i className="fas fa-sun text-sm"></i>
-            ) : (
-              <i className="fas fa-moon text-sm text-primary"></i>
-            )}
+            <i className={`fas ${mobileOpen ? "fa-xmark" : "fa-bars"} text-base`} />
           </button>
         </div>
-      </div>
 
-      {/* Mobile Navigation */}
-      <div className="md:hidden border-t border-gray-100 dark:border-dark-border">
-        <div className="max-w-7xl mx-auto px-4 py-2 flex gap-1 overflow-x-auto scrollbar-hide">
-          {SECCIONES.map((s) => (
-            <button
-              key={s.key}
-              onClick={() => setActiveTab(s.key)}
-              className={`flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[11px] font-bold transition-all whitespace-nowrap ${
-                activeTab === s.key
-                  ? "bg-gradient-to-r from-primary to-blue-700 text-white shadow-md"
-                  : "bg-gray-100 dark:bg-dark-border text-gray-600 dark:text-gray-300"
-              }`}
-            >
-              <i className={`${s.iconClass} text-[10px]`}></i>
-              {s.label}
-            </button>
-          ))}
-          {!currentUser && (
-            <button
-              onClick={() => setActiveTab("login")}
-              className="flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-gradient-to-r from-primary to-blue-700 text-white text-[11px] font-bold uppercase tracking-wider"
-              title="Iniciar Sesión"
-            >
-              <i className="fas fa-sign-in-alt text-[10px]"></i>
-              Ingresar
-            </button>
-          )}
-        </div>
+        {mobileOpen && (
+          <div className="lg:hidden border-t border-white/10 bg-primary-800/95 backdrop-blur-xl">
+            <nav className="max-w-7xl mx-auto px-4 py-3 grid grid-cols-2 gap-2">
+              {SECCIONES.map((s) => {
+                const active = activeTab === s.key;
+                return (
+                  <button
+                    key={s.key}
+                    onClick={() => go(s.key)}
+                    className={`flex items-center gap-2 px-3 py-2.5 rounded-xl text-[13px] font-medium transition-colors ${
+                      active
+                        ? "bg-white text-primary-700"
+                        : "text-white/85 hover:bg-white/10"
+                    }`}
+                  >
+                    <i className={`fas ${s.icon} text-xs ${active ? "" : "text-white/60"}`} />
+                    {s.label}
+                  </button>
+                );
+              })}
+              {!currentUser && (
+                <button
+                  onClick={() => go("login")}
+                  className="col-span-2 flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl bg-white text-primary-700 font-semibold text-[13px]"
+                >
+                  <i className="fas fa-arrow-right-to-bracket" />
+                  Acceder al panel
+                </button>
+              )}
+              {currentUser && (
+                <button
+                  onClick={() => {
+                    logout();
+                    setMobileOpen(false);
+                  }}
+                  className="col-span-2 flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl bg-accent-600 text-white font-semibold text-[13px]"
+                >
+                  <i className="fas fa-right-from-bracket" />
+                  Cerrar sesión
+                </button>
+              )}
+              <button
+                onClick={() => setDarkMode(!darkMode)}
+                className="col-span-2 flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl bg-white/10 text-white font-medium text-[13px]"
+              >
+                <i className={`fas ${darkMode ? "fa-sun" : "fa-moon"}`} />
+                {darkMode ? "Modo claro" : "Modo oscuro"}
+              </button>
+            </nav>
+          </div>
+        )}
       </div>
     </header>
   );
