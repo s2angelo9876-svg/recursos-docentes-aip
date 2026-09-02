@@ -56,11 +56,19 @@ export default function Hero({ setActiveTab }) {
           </svg>
         </div>
         <div
-          className="absolute -top-32 -right-24 w-[28rem] h-[28rem] rounded-full bg-primary-400/30 blur-[100px] pointer-events-none"
+          className="absolute -top-32 -right-24 w-[28rem] h-[28rem] rounded-full bg-accent-500/35 blur-[100px] pointer-events-none"
           aria-hidden
         />
         <div
-          className="absolute -bottom-32 -left-16 w-96 h-96 rounded-full bg-accent-500/20 blur-[100px] pointer-events-none"
+          className="absolute -bottom-32 -left-16 w-96 h-96 rounded-full bg-primary-400/30 blur-[100px] pointer-events-none"
+          aria-hidden
+        />
+        <div
+          className="absolute top-1/3 left-1/4 w-72 h-72 rounded-full bg-rose-500/25 blur-[100px] pointer-events-none"
+          aria-hidden
+        />
+        <div
+          className="absolute top-1/4 right-1/3 w-64 h-64 rounded-full bg-accent-700/20 blur-[80px] pointer-events-none"
           aria-hidden
         />
 
@@ -85,7 +93,7 @@ export default function Hero({ setActiveTab }) {
               Repositorio digital
               <br />
               de recursos{" "}
-              <span className="bg-gradient-to-r from-primary-300 via-white to-accent-300 bg-clip-text text-transparent">
+              <span className="bg-gradient-to-r from-rose-300 via-white to-accent-400 bg-clip-text text-transparent">
                 pedagógicos
               </span>
             </motion.h1>
@@ -109,7 +117,7 @@ export default function Hero({ setActiveTab }) {
             >
             <button
               onClick={() => setActiveTab("recursos")}
-              className="group inline-flex items-center gap-2 h-11 px-5 rounded-btn bg-white text-primary-700 font-semibold text-[13px] hover:bg-primary-50 transition-colors shadow-sm"
+              className="group inline-flex items-center gap-2 h-11 px-5 rounded-btn bg-accent-600 hover:bg-accent-700 text-white font-semibold text-[13px] transition-colors shadow-sm hover:shadow"
             >
               Explorar recursos
               <i className="fas fa-arrow-right text-[11px] transition-transform group-hover:translate-x-0.5" />
@@ -156,21 +164,34 @@ export default function Hero({ setActiveTab }) {
             aria-hidden
           >
             <div className="relative h-full grid grid-cols-2 grid-rows-2 gap-3">
-              {/* Brand pill (top, full width) */}
+              {/* Brand pill (top, full width) — gradiente rojo estetico */}
               <motion.div
                 animate={{ y: [0, -4, 0] }}
                 transition={{ duration: 6, repeat: Infinity, ease: "easeInOut" }}
-                className="col-span-2 flex items-center gap-3 rounded-2xl bg-white px-4 py-3 shadow-glow ring-1 ring-white/20"
+                className="col-span-2 relative flex items-center gap-3 rounded-2xl px-4 py-3 shadow-glow overflow-hidden bg-gradient-to-r from-rose-500 via-accent-500 to-accent-600"
               >
-                <span className="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-primary-700 text-white">
+                <div
+                  className="absolute inset-0 opacity-20 pointer-events-none"
+                  aria-hidden
+                >
+                  <svg className="w-full h-full" xmlns="http://www.w3.org/2000/svg">
+                    <defs>
+                      <pattern id="brand-grid" width="16" height="16" patternUnits="userSpaceOnUse">
+                        <path d="M 16 0 L 0 0 0 16" fill="none" stroke="white" strokeWidth="0.5" />
+                      </pattern>
+                    </defs>
+                    <rect width="100%" height="100%" fill="url(#brand-grid)" />
+                  </svg>
+                </div>
+                <span className="relative inline-flex h-9 w-9 items-center justify-center rounded-xl bg-white/20 ring-1 ring-white/30 text-white">
                   <i className="fas fa-graduation-cap text-sm" />
                 </span>
-                <div className="flex-1 min-w-0">
-                  <p className="text-[13px] font-bold text-primary-900">Aula de Innovación Pedagógica</p>
-                  <p className="text-[11px] text-primary-700/70">I.E. Bandera del Perú · Pisco</p>
+                <div className="relative flex-1 min-w-0">
+                  <p className="text-[13px] font-bold text-white">Aula de Innovación Pedagógica</p>
+                  <p className="text-[11px] text-white/80">I.E. Bandera del Perú · Pisco</p>
                 </div>
-                <span className="inline-flex h-6 items-center gap-1 rounded-full bg-accent-600 px-2 text-[10px] font-bold text-white">
-                  <span className="h-1.5 w-1.5 rounded-full bg-white animate-soft-pulse" />
+                <span className="relative inline-flex h-6 items-center gap-1 rounded-full bg-white px-2 text-[10px] font-bold text-accent-700">
+                  <span className="h-1.5 w-1.5 rounded-full bg-accent-600 animate-soft-pulse" />
                   Activa
                 </span>
               </motion.div>
@@ -179,9 +200,13 @@ export default function Hero({ setActiveTab }) {
               <motion.div
                 animate={{ y: [0, 5, 0] }}
                 transition={{ duration: 7, repeat: Infinity, ease: "easeInOut" }}
-                className="row-span-2 rounded-2xl bg-white/[0.08] ring-1 ring-white/15 backdrop-blur-md p-5 flex flex-col"
+                className="row-span-2 relative rounded-2xl bg-white/[0.08] ring-1 ring-white/15 backdrop-blur-md p-5 flex flex-col overflow-hidden"
               >
-                <div className="flex items-center justify-between text-white/85">
+                <div
+                  className="absolute -top-12 -right-12 w-40 h-40 rounded-full bg-accent-500/20 blur-2xl pointer-events-none"
+                  aria-hidden
+                />
+                <div className="relative flex items-center justify-between text-white/85">
                   <span className="text-[10px] uppercase tracking-[0.12em] font-semibold">
                     Cobertura
                   </span>
@@ -189,8 +214,8 @@ export default function Hero({ setActiveTab }) {
                 </div>
                 <p className="mt-2 text-3xl font-bold tabular-nums text-white">96%</p>
                 <p className="mt-1 text-[11px] text-white/60">Áreas curriculares cubiertas</p>
-                <div className="mt-4 h-2 rounded-full bg-white/10 overflow-hidden">
-                  <div className="h-full w-[96%] bg-accent-500" />
+                <div className="mt-4 h-2.5 rounded-full bg-white/10 overflow-hidden ring-1 ring-white/10">
+                  <div className="h-full w-[96%] bg-gradient-to-r from-rose-500 to-accent-500" />
                 </div>
                 <div className="mt-auto pt-4 grid grid-cols-3 gap-2 text-center">
                   {[
@@ -206,11 +231,11 @@ export default function Hero({ setActiveTab }) {
                 </div>
               </motion.div>
 
-              {/* Actividad reciente (bento right, más compacto) */}
+              {/* Actividad reciente (bento right, más compacto) — gradiente rojo */}
               <motion.div
                 animate={{ y: [0, -3, 0] }}
                 transition={{ duration: 5, repeat: Infinity, ease: "easeInOut" }}
-                className="rounded-2xl bg-gradient-to-br from-primary-500/40 to-primary-700/40 ring-1 ring-white/20 p-4 flex flex-col"
+                className="rounded-2xl bg-gradient-to-br from-accent-500/45 to-rose-700/45 ring-1 ring-white/20 p-4 flex flex-col"
               >
                 <div className="flex items-center gap-2 text-white mb-2">
                   <i className="fas fa-bolt text-xs" />
@@ -218,12 +243,12 @@ export default function Hero({ setActiveTab }) {
                     Actividad
                   </span>
                 </div>
-                <p className="text-[11px] text-white/85 leading-relaxed">
+                <p className="text-[11px] text-white/90 leading-relaxed">
                   {noticias?.[0]?.titulo
                     ? `Último: "${noticias[0].titulo.slice(0, 32)}${noticias[0].titulo.length > 32 ? "…" : ""}"`
                     : "Sin comunicados recientes aún"}
                 </p>
-                <div className="mt-auto pt-3 flex items-center gap-1.5 text-[10px] text-white/60">
+                <div className="mt-auto pt-3 flex items-center gap-1.5 text-[10px] text-white/80">
                   <span className="inline-block h-1.5 w-1.5 rounded-full bg-white animate-soft-pulse" />
                   En vivo
                 </div>
