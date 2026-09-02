@@ -85,7 +85,7 @@ export default function Hero({ setActiveTab }) {
               Repositorio digital
               <br />
               de recursos{" "}
-              <span className="bg-gradient-to-r from-amber-300 via-amber-200 to-rose-300 bg-clip-text text-transparent">
+              <span className="bg-gradient-to-r from-primary-300 via-white to-accent-300 bg-clip-text text-transparent">
                 pedagógicos
               </span>
             </motion.h1>
@@ -107,13 +107,13 @@ export default function Hero({ setActiveTab }) {
               transition={{ duration: 0.6, delay: 0.24, ease: easeOut }}
               className="mt-7 flex flex-wrap gap-3"
             >
-              <button
-                onClick={() => setActiveTab("recursos")}
-                className="group inline-flex items-center gap-2 h-11 px-5 rounded-btn bg-white text-primary-700 font-semibold text-[13px] hover:bg-amber-300 hover:text-primary-800 transition-colors shadow-sm"
-              >
-                Explorar recursos
-                <i className="fas fa-arrow-right text-[11px] transition-transform group-hover:translate-x-0.5" />
-              </button>
+            <button
+              onClick={() => setActiveTab("recursos")}
+              className="group inline-flex items-center gap-2 h-11 px-5 rounded-btn bg-white text-primary-700 font-semibold text-[13px] hover:bg-primary-50 transition-colors shadow-sm"
+            >
+              Explorar recursos
+              <i className="fas fa-arrow-right text-[11px] transition-transform group-hover:translate-x-0.5" />
+            </button>
               <button
                 onClick={() => setActiveTab("evidencias")}
                 className="inline-flex items-center gap-2 h-11 px-5 rounded-btn bg-white/10 ring-1 ring-white/25 text-white font-semibold text-[13px] hover:bg-white/15 transition-colors backdrop-blur"
@@ -160,17 +160,17 @@ export default function Hero({ setActiveTab }) {
               <motion.div
                 animate={{ y: [0, -4, 0] }}
                 transition={{ duration: 6, repeat: Infinity, ease: "easeInOut" }}
-                className="col-span-2 flex items-center gap-3 rounded-2xl bg-gradient-to-r from-amber-300/90 to-rose-300/90 px-4 py-3 shadow-glow"
+                className="col-span-2 flex items-center gap-3 rounded-2xl bg-white px-4 py-3 shadow-glow ring-1 ring-white/20"
               >
-                <span className="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-primary-900/15 text-primary-900">
+                <span className="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-primary-700 text-white">
                   <i className="fas fa-graduation-cap text-sm" />
                 </span>
                 <div className="flex-1 min-w-0">
                   <p className="text-[13px] font-bold text-primary-900">Aula de Innovación Pedagógica</p>
-                  <p className="text-[11px] text-primary-900/70">I.E. Bandera del Perú · Pisco</p>
+                  <p className="text-[11px] text-primary-700/70">I.E. Bandera del Perú · Pisco</p>
                 </div>
-                <span className="inline-flex h-6 items-center gap-1 rounded-full bg-primary-900/10 px-2 text-[10px] font-bold text-primary-900">
-                  <span className="h-1.5 w-1.5 rounded-full bg-primary-900 animate-soft-pulse" />
+                <span className="inline-flex h-6 items-center gap-1 rounded-full bg-accent-600 px-2 text-[10px] font-bold text-white">
+                  <span className="h-1.5 w-1.5 rounded-full bg-white animate-soft-pulse" />
                   Activa
                 </span>
               </motion.div>
@@ -185,12 +185,12 @@ export default function Hero({ setActiveTab }) {
                   <span className="text-[10px] uppercase tracking-[0.12em] font-semibold">
                     Cobertura
                   </span>
-                  <i className="fas fa-chart-line text-amber-300" />
+                  <i className="fas fa-chart-line text-accent-300" />
                 </div>
                 <p className="mt-2 text-3xl font-bold tabular-nums text-white">96%</p>
                 <p className="mt-1 text-[11px] text-white/60">Áreas curriculares cubiertas</p>
                 <div className="mt-4 h-2 rounded-full bg-white/10 overflow-hidden">
-                  <div className="h-full w-[96%] bg-gradient-to-r from-amber-300 to-rose-300" />
+                  <div className="h-full w-[96%] bg-accent-500" />
                 </div>
                 <div className="mt-auto pt-4 grid grid-cols-3 gap-2 text-center">
                   {[
@@ -212,7 +212,7 @@ export default function Hero({ setActiveTab }) {
                 transition={{ duration: 5, repeat: Infinity, ease: "easeInOut" }}
                 className="rounded-2xl bg-gradient-to-br from-primary-500/40 to-primary-700/40 ring-1 ring-white/20 p-4 flex flex-col"
               >
-                <div className="flex items-center gap-2 text-amber-300 mb-2">
+                <div className="flex items-center gap-2 text-white mb-2">
                   <i className="fas fa-bolt text-xs" />
                   <span className="text-[10px] uppercase tracking-[0.12em] font-semibold">
                     Actividad
@@ -224,7 +224,7 @@ export default function Hero({ setActiveTab }) {
                     : "Sin comunicados recientes aún"}
                 </p>
                 <div className="mt-auto pt-3 flex items-center gap-1.5 text-[10px] text-white/60">
-                  <span className="inline-block h-1.5 w-1.5 rounded-full bg-emerald-400 animate-soft-pulse" />
+                  <span className="inline-block h-1.5 w-1.5 rounded-full bg-white animate-soft-pulse" />
                   En vivo
                 </div>
               </motion.div>
@@ -237,8 +237,8 @@ export default function Hero({ setActiveTab }) {
             <span
               className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-semibold backdrop-blur ${
                 isAdmin
-                  ? "bg-amber-400/20 text-amber-200 ring-1 ring-amber-300/40"
-                  : "bg-sky-400/20 text-sky-100 ring-1 ring-sky-300/40"
+                  ? "bg-accent-500/25 text-accent-100 ring-1 ring-accent-300/50"
+                  : "bg-primary-300/20 text-primary-100 ring-1 ring-primary-300/40"
               }`}
             >
               <i className={`fas ${isAdmin ? "fa-shield-halved" : "fa-pen"} text-[9px]`} />
