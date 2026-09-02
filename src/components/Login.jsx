@@ -48,11 +48,15 @@ export default function Login({ onLoginSuccess }) {
           </svg>
         </div>
         <div
-          className="absolute -top-32 -right-32 w-80 h-80 rounded-full bg-amber-400/25 blur-[100px] pointer-events-none"
+          className="absolute -top-32 -right-32 w-[28rem] h-[28rem] rounded-full bg-accent-500/30 blur-[100px] pointer-events-none"
           aria-hidden
         />
         <div
           className="absolute -bottom-40 -left-20 w-96 h-96 rounded-full bg-primary-400/30 blur-[100px] pointer-events-none"
+          aria-hidden
+        />
+        <div
+          className="absolute top-1/3 right-10 w-72 h-72 rounded-full bg-rose-500/25 blur-[100px] pointer-events-none"
           aria-hidden
         />
 
@@ -77,7 +81,7 @@ export default function Login({ onLoginSuccess }) {
           <h1 className="text-3xl xl:text-4xl font-bold tracking-[-0.02em] leading-[1.1]">
             I.E. Emblemática
             <br />
-            <span className="bg-gradient-to-r from-amber-300 via-amber-200 to-rose-300 bg-clip-text text-transparent">
+            <span className="bg-gradient-to-r from-rose-300 via-white to-accent-300 bg-clip-text text-transparent">
               Bandera del Perú
             </span>
           </h1>
@@ -176,7 +180,7 @@ export default function Login({ onLoginSuccess }) {
                 </label>
                 <button
                   type="button"
-                  className="text-[11px] text-primary-600 dark:text-primary-300 hover:underline font-medium"
+                  className="text-[11px] text-accent-600 dark:text-accent-400 hover:underline font-medium"
                   tabIndex={-1}
                 >
                   ¿Olvidaste tu clave?
@@ -208,7 +212,7 @@ export default function Login({ onLoginSuccess }) {
             <button
               type="submit"
               disabled={loading}
-              className="w-full h-11 mt-2 inline-flex items-center justify-center gap-2 rounded-btn bg-gradient-to-r from-primary-600 to-primary-700 hover:from-primary-700 hover:to-primary-800 text-white text-[14px] font-semibold transition-all shadow-sm hover:shadow disabled:opacity-60 disabled:cursor-not-allowed"
+              className="w-full h-11 mt-2 inline-flex items-center justify-center gap-2 rounded-btn bg-gradient-to-r from-accent-600 to-accent-700 hover:from-accent-700 hover:to-accent-800 text-white text-[14px] font-semibold transition-all shadow-sm hover:shadow disabled:opacity-60 disabled:cursor-not-allowed"
             >
               {loading ? (
                 <>
@@ -232,7 +236,7 @@ export default function Login({ onLoginSuccess }) {
               Soporte:{" "}
               <a
                 href="mailto:contacto@banderadelperu.edu.pe"
-                className="text-primary-600 dark:text-primary-300 hover:underline font-medium"
+                className="text-accent-600 dark:text-accent-400 hover:underline font-medium"
               >
                 contacto@banderadelperu.edu.pe
               </a>
