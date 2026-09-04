@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate, useLocation } from "react-router-dom";
 import { AnimatePresence, motion } from "framer-motion";
 import { AppContextProvider, useApp } from "./context/AppContext";
@@ -13,6 +13,7 @@ import Login from "./components/Login";
 import AdminModal from "./components/AdminModal";
 import ConfirmModal from "./components/ConfirmModal";
 import { ToastProvider } from "./components/Toast";
+import { CommandPalette } from "./components/CommandPalette";
 
 function SectionHeader({ icon, iconColor, title, onAdd }) {
   return (
@@ -60,6 +61,19 @@ function AppContent() {
     if (tabKey === "portada") navigate("/");
     else navigate(`/${tabKey}`);
   };
+
+  // Listener para navegación desde el CommandPalette (Cmd+K)
+  useEffect(() => {
+    const onNav = (e) => {
+      const target = e.detail?.target;
+      if (target) setActiveTab(target);
+      // scroll-to-top en cada navegación del command palette
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    };
+    window.addEventListener("innova:navigate", onNav);
+    return () => window.removeEventListener("innova:navigate", onNav);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // ── CMS Modal state (shared across all views) ──────────
   const [cmsModal, setCmsModal] = useState({ open: false, type: "recursos", item: null });
@@ -292,6 +306,8 @@ function AppContent() {
           </div>
         </div>
       </footer>
+
+      <CommandPalette />
 
       <ConfirmModal
         open={!!pendingDelete}

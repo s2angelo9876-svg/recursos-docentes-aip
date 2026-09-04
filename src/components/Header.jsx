@@ -98,6 +98,20 @@ export default function Header({ activeTab, setActiveTab }) {
             <i className={`fas ${darkMode ? "fa-sun" : "fa-moon"} text-sm`} />
           </button>
 
+          {/* Buscador global (Cmd+K) */}
+          <button
+            onClick={() => window.dispatchEvent(new CustomEvent("innova:command"))}
+            className="hidden lg:inline-flex items-center gap-2 h-10 px-3 rounded-xl bg-white/10 hover:bg-white/20 text-white/85 hover:text-white transition-colors text-[12px] font-medium"
+            aria-label="Búsqueda global (presiona Ctrl+K)"
+            title="Búsqueda global (Ctrl+K)"
+          >
+            <i className="fas fa-magnifying-glass text-xs" />
+            <span>Buscar</span>
+            <kbd className="hidden xl:inline-flex items-center gap-0.5 ml-1 px-1.5 py-0.5 rounded-md bg-white/20 text-[10px] font-semibold tracking-wide">
+              Ctrl K
+            </kbd>
+          </button>
+
           {!currentUser ? (
             <button
               onClick={() => go("login")}
