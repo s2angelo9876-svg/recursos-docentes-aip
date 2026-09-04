@@ -32,9 +32,32 @@ const features = [
 ];
 
 export default function Hero({ setActiveTab }) {
-  const { currentUser, recursos, tutoriales, evidencias, noticias } = useApp();
+  const { currentUser, recursos, tutoriales, evidencias, noticias, isLoading } = useApp();
   const isAdmin = currentUser?.rol === "Administrador";
   const isDocente = currentUser?.rol === "Docente";
+
+  const stats = [
+    {
+      value: isLoading ? "..." : (recursos?.length ?? 0),
+      label: "Recursos disponibles",
+      tab: "recursos",
+    },
+    {
+      value: isLoading ? "..." : (evidencias?.length ?? 0),
+      label: "Evidencias subidas",
+      tab: "evidencias",
+    },
+    {
+      value: isLoading ? "..." : (tutoriales?.length ?? 0),
+      label: "Tutoriales TIC",
+      tab: "tutoriales",
+    },
+    {
+      value: 10,
+      label: "Áreas curriculares",
+      tab: "recursos",
+    },
+  ];
 
   return (
     <div className="space-y-14">
@@ -125,6 +148,31 @@ export default function Hero({ setActiveTab }) {
               </button>
             </motion.div>
 
+            <motion.dl
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6, delay: 0.32, ease: easeOut }}
+              className="mt-10 grid grid-cols-2 sm:grid-cols-4 gap-4 sm:gap-6 max-w-2xl"
+            >
+              {stats.map((s, i) => (
+                <div
+                  key={s.label}
+                  onClick={() => s.tab && setActiveTab && setActiveTab(s.tab)}
+                  className={`cursor-pointer group/stat transition-transform hover:-translate-y-0.5 ${
+                    i > 0 ? "sm:border-l sm:border-white/15 sm:pl-5" : ""
+                  }`}
+                  title={`Ir a ${s.label.toLowerCase()}`}
+                >
+                  <dt className="sr-only">{s.label}</dt>
+                  <dd className="text-2xl sm:text-3xl font-bold tracking-tight tabular-nums leading-none group-hover/stat:text-accent-300 transition-colors">
+                    {s.value}
+                  </dd>
+                  <p className="mt-2 text-[10.5px] uppercase tracking-[0.12em] text-white/65 font-medium group-hover/stat:text-white/90 transition-colors">
+                    {s.label}
+                  </p>
+                </div>
+              ))}
+            </motion.dl>
           </div>
 
           {/* Right panel — single unified card with background image */}
