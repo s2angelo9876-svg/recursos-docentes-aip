@@ -9,6 +9,7 @@ import jwt from "jsonwebtoken";
 import rateLimit from "express-rate-limit";
 import helmet from "helmet";
 import { fileURLToPath } from "url";
+import sharp from "sharp";
 import { Sequelize, Op, DataTypes } from "sequelize";
 import { defineModels } from "./server/models.js";
 import * as XLSX from "xlsx";
@@ -234,6 +235,39 @@ function cleanFileName(originalName) {
 
 function generateFileName(originalName) {
   return `${Date.now()}-${cleanFileName(originalName)}`;
+}
+
+// Mime types que sí convertimos a AVIF (imágenes raster con compresión con pérdida).
+// SVG y GIF animados quedan fuera (AVIF no soporta animación y SVG es vectorial).
+const AVIF_CONVERTIBLE_MIMES = new Set([
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+]);
+
+// Convierte un buffer de imagen a AVIF para reducir ~70% del tamaño
+// preservando la resolución y calidad visual (quality 80 = imperceptible vs original).
+// Si el archivo no es una imagen convertible, devuelve el buffer original intacto.
+async function convertToAvifIfImage(buffer, mimetype) {
+  if (!AVIF_CONVERTIBLE_MIMES.has(mimetype)) {
+    return { buffer, mimetype, converted: false };
+  }
+  try {
+    const avifBuffer = await sharp(buffer)
+      .rotate() // respeta orientación EXIF
+      .avif({
+        quality: 80,        // 80 = punto dulce calidad/tamaño para AVIF
+        effort: 4,           // 0 (rápido) → 9 (lento). 4 es balance.
+        chromaSubsampling: "4:4:4", // sin pérdida de color
+      })
+      .toBuffer();
+    return { buffer: avifBuffer, mimetype: "image/avif", converted: true };
+  } catch (err) {
+    // Si sharp no puede procesar la imagen (archivo corrupto, formato raro),
+    // caemos al archivo original para no romper el upload.
+    logger.warn(`[AVIF] Conversión falló para mimetype ${mimetype}: ${err.message}. Se sube original.`);
+    return { buffer, mimetype, converted: false };
+  }
 }
 
 const storage = multer.memoryStorage();
@@ -1060,10 +1094,42 @@ app.post("/api/upload", authenticateToken, requireRole(["Administrador", "Docent
     }
 
     try {
-      const filename = generateFileName(req.file.originalname);
-      const result = await uploadFile(req.file.buffer, filename, req.file.mimetype);
-      logger.info(`[AUDIT] Subida exitosa: Archivo=${result.filename} (${req.file.size} bytes) | Storage=${result.storage}`);
-      res.json({ success: true, url: result.url, filename: result.filename });
+      // Convertir imagen a AVIF (reduce ~70% del tamaño preservando resolución)
+      const { buffer: fileBuffer, mimetype: fileMime, converted } = await convertToAvifIfImage(
+        req.file.buffer,
+        req.file.mimetype
+      );
+
+      // Si fue convertido, renombrar la extensión a .avif para consistencia
+      const baseName = converted
+        ? req.file.originalname.replace(/\.[^.]+$/, "") + ".avif"
+        : req.file.originalname;
+
+      const filename = generateFileName(baseName);
+      const result = await uploadFile(fileBuffer, filename, fileMime);
+
+      const originalSize = req.file.size;
+      const newSize = fileBuffer.length;
+      const compressionPct = converted && originalSize > 0
+        ? Math.max(0, Math.round((1 - newSize / originalSize) * 100))
+        : 0;
+
+      logger.info(
+        `[AUDIT] Subida exitosa: Archivo=${result.filename} ` +
+        `(${newSize} bytes${converted ? `, original=${originalSize}, -${compressionPct}%` : ""}) ` +
+        `| Storage=${result.storage} | mime=${fileMime}`
+      );
+
+      res.json({
+        success: true,
+        url: result.url,
+        filename: result.filename,
+        mimetype: fileMime,
+        size: newSize,
+        originalSize: converted ? originalSize : undefined,
+        compressionPct: converted ? compressionPct : undefined,
+        converted,
+      });
     } catch (uploadErr) {
       logger.error("[AUDIT] Error al guardar archivo:", { error: uploadErr.message });
       res.status(500).json({ error: uploadErr.message });
@@ -1097,25 +1163,76 @@ app.post("/api/uploads", authenticateToken, requireRole(["Administrador", "Docen
     try {
       const uploaded = [];
       const failed = [];
+      let totalOriginalBytes = 0;
+      let totalCompressedBytes = 0;
+      let totalConverted = 0;
+
       for (const f of files) {
         try {
-          const filename = generateFileName(f.originalname);
-          const result = await uploadFile(f.buffer, filename, f.mimetype);
+          // Convertir imagen a AVIF si aplica (reduce ~70% del tamaño)
+          const { buffer: fileBuffer, mimetype: fileMime, converted } = await convertToAvifIfImage(
+            f.buffer,
+            f.mimetype
+          );
+
+          const baseName = converted
+            ? f.originalname.replace(/\.[^.]+$/, "") + ".avif"
+            : f.originalname;
+
+          const filename = generateFileName(baseName);
+          const result = await uploadFile(fileBuffer, filename, fileMime);
+
+          const originalSize = f.size;
+          const newSize = fileBuffer.length;
+          const compressionPct = converted && originalSize > 0
+            ? Math.max(0, Math.round((1 - newSize / originalSize) * 100))
+            : 0;
+
+          totalOriginalBytes += originalSize;
+          totalCompressedBytes += newSize;
+          if (converted) totalConverted += 1;
+
           uploaded.push({
             url: result.url,
             name: f.originalname,
-            size: f.size,
-            mimetype: f.mimetype,
+            filename,
+            size: newSize,
+            originalSize: converted ? originalSize : undefined,
+            compressionPct: converted ? compressionPct : undefined,
+            mimetype: fileMime,
           });
         } catch (fileErr) {
           logger.error(`[AUDIT] Fallo al subir ${f.originalname}:`, { error: fileErr.message });
           failed.push({ name: f.originalname, error: fileErr.message });
         }
       }
-      logger.info(`[AUDIT] Subida múltiple: ${uploaded.length} OK, ${failed.length} fallidos de ${files.length}`);
+
+      const totalSaved = totalOriginalBytes - totalCompressedBytes;
+      const overallPct = totalOriginalBytes > 0
+        ? Math.round((totalSaved / totalOriginalBytes) * 100)
+        : 0;
+
+      logger.info(
+        `[AUDIT] Subida múltiple: ${uploaded.length} OK, ${failed.length} fallidos de ${files.length} ` +
+        `| ${totalConverted} convertidas a AVIF ` +
+        `| ${(totalOriginalBytes / 1024 / 1024).toFixed(2)} MB → ${(totalCompressedBytes / 1024 / 1024).toFixed(2)} MB (-${overallPct}%)`
+      );
+
       // 207 Multi-Status si hubo fallos parciales; 200 si todo OK
       const status = failed.length > 0 ? (uploaded.length > 0 ? 207 : 400) : 200;
-      res.status(status).json({ success: uploaded.length === files.length, uploaded, failed });
+      res.status(status).json({
+        success: uploaded.length === files.length,
+        uploaded,
+        failed,
+        stats: {
+          totalFiles: files.length,
+          convertedToAvif: totalConverted,
+          originalSizeMB: +(totalOriginalBytes / 1024 / 1024).toFixed(2),
+          compressedSizeMB: +(totalCompressedBytes / 1024 / 1024).toFixed(2),
+          savedMB: +(totalSaved / 1024 / 1024).toFixed(2),
+          compressionPct: overallPct,
+        },
+      });
     } catch (uploadErr) {
       logger.error("[AUDIT] Error al guardar archivos:", { error: uploadErr.message });
       res.status(500).json({ error: uploadErr.message });
