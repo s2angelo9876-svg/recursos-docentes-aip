@@ -236,11 +236,13 @@ function AppContent() {
         <div className="max-w-6xl mx-auto px-4 sm:px-6 py-10">
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-6">
             <div className="flex items-center gap-3">
-              <img
-                src="/Img logo AIP.jpeg"
-                alt="Logo I.E. Bandera del Perú"
-                className="h-10 w-10 rounded-xl bg-white/10 p-1 object-cover ring-1 ring-white/15"
-              />
+              <div className="h-10 w-10 sm:h-11 sm:w-11 rounded-xl bg-white p-1 shadow-md ring-1 ring-white/20 flex items-center justify-center flex-shrink-0 overflow-hidden">
+                <img
+                  src="/Escudo Bandera.jpeg"
+                  alt="Escudo I.E. Bandera del Perú"
+                  className="h-full w-full object-contain"
+                />
+              </div>
               <div className="leading-none">
                 <p className="text-[14px] font-semibold tracking-tight">Innova Bandera</p>
                 <p className="text-[11px] text-blue-200/70 mt-1">
@@ -272,25 +274,14 @@ function AppContent() {
 
             <div className="flex items-center gap-2">
               <a
-                href="#"
-                aria-label="Facebook"
-                className="h-9 w-9 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center transition-colors"
+                href="https://www.youtube.com/@AIP.L.Fajardo"
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label="Canal oficial de YouTube AIP"
+                title="Canal de YouTube @AIP.L.Fajardo"
+                className="h-9 w-9 rounded-full bg-white/10 hover:bg-accent-600 flex items-center justify-center transition-colors shadow-sm hover:shadow"
               >
-                <i className="fab fa-facebook-f text-xs" />
-              </a>
-              <a
-                href="#"
-                aria-label="YouTube"
-                className="h-9 w-9 rounded-full bg-white/10 hover:bg-accent-500 flex items-center justify-center transition-colors"
-              >
-                <i className="fab fa-youtube text-xs" />
-              </a>
-              <a
-                href="#"
-                aria-label="Instagram"
-                className="h-9 w-9 rounded-full bg-white/10 hover:bg-pink-500 flex items-center justify-center transition-colors"
-              >
-                <i className="fab fa-instagram text-xs" />
+                <i className="fab fa-youtube text-sm" />
               </a>
             </div>
           </div>

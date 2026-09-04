@@ -164,8 +164,8 @@ export default function Hero({ setActiveTab }) {
             >
               {/* Background image */}
               <img
-                src="/hero-bg.jpg"
-                alt=""
+                src="/imagen-hero-bandera.jpg"
+                alt="Estudiantes I.E. Emblemática Bandera del Perú"
                 className="absolute inset-0 w-full h-full object-cover"
               />
               {/* Dark overlay gradient */}

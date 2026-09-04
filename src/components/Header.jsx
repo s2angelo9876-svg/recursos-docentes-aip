@@ -48,13 +48,15 @@ export default function Header({ activeTab, setActiveTab }) {
             className="flex items-center gap-2.5 group flex-shrink-0"
             aria-label="Ir al inicio"
           >
-            <span className="relative inline-flex">
+            <span className="relative inline-flex items-center justify-center">
               <span className="absolute inset-0 rounded-xl bg-white/20 blur-md opacity-60 group-hover:opacity-90 transition-opacity" />
-              <img
-                src="/Escudo Bandera.jpeg"
-                alt="Logo Innova Bandera"
-                className="relative h-10 w-10 rounded-xl object-cover ring-1 ring-white/40 shadow-lg"
-              />
+              <span className="relative h-10 w-10 sm:h-11 sm:w-11 rounded-xl bg-white p-1 shadow-md ring-1 ring-white/30 flex items-center justify-center overflow-hidden flex-shrink-0">
+                <img
+                  src="/Escudo Bandera.jpeg"
+                  alt="Escudo Institucional Innova Bandera"
+                  className="h-full w-full object-contain"
+                />
+              </span>
             </span>
             <span className="hidden sm:flex flex-col items-start leading-none text-white">
               <span className="text-[15px] font-bold tracking-tight">Innova Bandera</span>
@@ -95,21 +97,27 @@ export default function Header({ activeTab, setActiveTab }) {
             aria-label={darkMode ? "Cambiar a modo claro" : "Cambiar a modo oscuro"}
             title={darkMode ? "Modo claro" : "Modo oscuro"}
           >
-            <i className={`fas ${darkMode ? "fa-sun" : "fa-moon"} text-sm`} />
+            {darkMode ? (
+              <svg className="w-4 h-4 text-amber-300 transition-transform duration-300 hover:rotate-45" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="12" cy="12" r="4" fill="currentColor" fillOpacity="0.25" />
+                <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41" />
+              </svg>
+            ) : (
+              <svg className="w-4 h-4 text-sky-200 transition-transform duration-300 hover:-rotate-12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z" fill="currentColor" fillOpacity="0.25" />
+              </svg>
+            )}
           </button>
 
-          {/* Buscador global (Cmd+K) */}
+          {/* Buscador global */}
           <button
             onClick={() => window.dispatchEvent(new CustomEvent("innova:command"))}
-            className="hidden lg:inline-flex items-center gap-2 h-10 px-3 rounded-xl bg-white/10 hover:bg-white/20 text-white/85 hover:text-white transition-colors text-[12px] font-medium"
-            aria-label="Búsqueda global (presiona Ctrl+K)"
-            title="Búsqueda global (Ctrl+K)"
+            className="hidden lg:inline-flex items-center gap-2 h-10 px-3.5 rounded-xl bg-white/10 hover:bg-white/20 text-white/85 hover:text-white transition-colors text-[12px] font-medium"
+            aria-label="Buscar"
+            title="Buscar en la plataforma"
           >
             <i className="fas fa-magnifying-glass text-xs" />
             <span>Buscar</span>
-            <kbd className="hidden xl:inline-flex items-center gap-0.5 ml-1 px-1.5 py-0.5 rounded-md bg-white/20 text-[10px] font-semibold tracking-wide">
-              Ctrl K
-            </kbd>
           </button>
 
           {!currentUser ? (
@@ -242,7 +250,16 @@ export default function Header({ activeTab, setActiveTab }) {
                 onClick={() => setDarkMode(!darkMode)}
                 className="col-span-2 flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl bg-white/10 text-white font-medium text-[13px]"
               >
-                <i className={`fas ${darkMode ? "fa-sun" : "fa-moon"}`} />
+                {darkMode ? (
+                  <svg className="w-4 h-4 text-amber-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <circle cx="12" cy="12" r="4" fill="currentColor" fillOpacity="0.25" />
+                    <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41" />
+                  </svg>
+                ) : (
+                  <svg className="w-4 h-4 text-sky-200" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z" fill="currentColor" fillOpacity="0.25" />
+                  </svg>
+                )}
                 {darkMode ? "Modo claro" : "Modo oscuro"}
               </button>
             </nav>
