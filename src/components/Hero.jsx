@@ -3,12 +3,6 @@ import { motion } from "framer-motion";
 
 const easeOut = [0.16, 1, 0.3, 1];
 
-const stats = [
-  { value: "147", label: "Recursos publicados" },
-  { value: "23", label: "Docentes activos" },
-  { value: "10", label: "Áreas curriculares" },
-  { value: "96%", label: "Cobertura pedagógica" },
-];
 
 const features = [
   {
@@ -131,29 +125,6 @@ export default function Hero({ setActiveTab }) {
               </button>
             </motion.div>
 
-            <motion.dl
-              initial={{ opacity: 0, y: 12 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.6, delay: 0.32, ease: easeOut }}
-              className="mt-10 grid grid-cols-2 sm:grid-cols-4 gap-4 sm:gap-6 max-w-2xl"
-            >
-              {stats.map((s, i) => (
-                <div
-                  key={s.label}
-                  className={`${
-                    i > 0 ? "sm:border-l sm:border-white/15 sm:pl-5" : ""
-                  }`}
-                >
-                  <dt className="sr-only">{s.label}</dt>
-                  <dd className="text-2xl sm:text-3xl font-bold tracking-tight tabular-nums leading-none">
-                    {s.value}
-                  </dd>
-                  <p className="mt-2 text-[10.5px] uppercase tracking-[0.12em] text-white/65 font-medium">
-                    {s.label}
-                  </p>
-                </div>
-              ))}
-            </motion.dl>
           </div>
 
           {/* Right panel — single unified card with background image */}

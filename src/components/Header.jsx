@@ -51,7 +51,7 @@ export default function Header({ activeTab, setActiveTab }) {
             <span className="relative inline-flex">
               <span className="absolute inset-0 rounded-xl bg-white/20 blur-md opacity-60 group-hover:opacity-90 transition-opacity" />
               <img
-                src="/Img logo AIP.jpeg"
+                src="/Escudo Bandera.jpeg"
                 alt="Logo Innova Bandera"
                 className="relative h-10 w-10 rounded-xl object-cover ring-1 ring-white/40 shadow-lg"
               />
