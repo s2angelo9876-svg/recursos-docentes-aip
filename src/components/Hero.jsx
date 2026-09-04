@@ -36,26 +36,30 @@ export default function Hero({ setActiveTab }) {
   const isAdmin = currentUser?.rol === "Administrador";
   const isDocente = currentUser?.rol === "Docente";
 
-  const stats = [
+  const cardStats = [
     {
+      icon: "fa-book-open",
       value: isLoading ? "..." : (recursos?.length ?? 0),
-      label: "Recursos disponibles",
+      label: "Recursos\ndisponibles",
       tab: "recursos",
     },
     {
+      icon: "fa-chalkboard-user",
+      value: "23",
+      label: "Docentes\nque comparten",
+      tab: null,
+    },
+    {
+      icon: "fa-layer-group",
+      value: "10",
+      label: "Áreas\nrepresentadas",
+      tab: "recursos",
+    },
+    {
+      icon: "fa-images",
       value: isLoading ? "..." : (evidencias?.length ?? 0),
-      label: "Evidencias subidas",
+      label: "Evidencias\nsubidas",
       tab: "evidencias",
-    },
-    {
-      value: isLoading ? "..." : (tutoriales?.length ?? 0),
-      label: "Tutoriales TIC",
-      tab: "tutoriales",
-    },
-    {
-      value: 10,
-      label: "Áreas curriculares",
-      tab: "recursos",
     },
   ];
 
@@ -97,21 +101,18 @@ export default function Hero({ setActiveTab }) {
               transition={{ duration: 0.5, ease: easeOut }}
               className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 ring-1 ring-white/20 backdrop-blur text-[11px] font-medium tracking-wide"
             >
-              <span className="inline-block h-1.5 w-1.5 rounded-full bg-emerald-400 animate-soft-pulse" />
-              Aula de Innovación Pedagógica · 2026
+              <span className="h-1.5 w-1.5 rounded-full bg-accent-400 animate-pulse" />
+              Plataforma Institucional · AIP
             </motion.span>
 
             <motion.h1
               initial={{ opacity: 0, y: 12 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.6, delay: 0.08, ease: easeOut }}
-              className="mt-5 text-4xl sm:text-5xl lg:text-[3.5rem] font-bold tracking-[-0.02em] leading-[1.05]"
+              className="mt-6 text-4xl sm:text-5xl lg:text-[56px] font-black tracking-tight leading-[1.05]"
             >
               Innova{" "}
-              <span
-                className="bg-gradient-to-r from-rose-400 via-red-500 to-rose-600 bg-clip-text text-transparent"
-                style={{ filter: "drop-shadow(0 0 24px rgba(239,68,68,0.45))" }}
-              >
+              <span className="bg-gradient-to-r from-red-500 via-rose-500 to-red-600 bg-clip-text text-transparent drop-shadow-[0_0_25px_rgba(239,68,68,0.4)]">
                 Bandera
               </span>
             </motion.h1>
@@ -120,10 +121,9 @@ export default function Hero({ setActiveTab }) {
               initial={{ opacity: 0, y: 12 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.6, delay: 0.16, ease: easeOut }}
-              className="mt-5 text-[15px] text-white/80 leading-relaxed max-w-xl"
+              className="mt-5 text-[15px] sm:text-base text-white/80 max-w-xl leading-relaxed font-normal"
             >
-              Materiales, herramientas y experiencias para potenciar el aprendizaje y la
-              innovación en tus clases.
+              Materiales, herramientas y experiencias para potenciar el aprendizaje y la innovación en tus clases.
             </motion.p>
 
             <motion.div
@@ -147,32 +147,6 @@ export default function Hero({ setActiveTab }) {
                 Ver evidencias
               </button>
             </motion.div>
-
-            <motion.dl
-              initial={{ opacity: 0, y: 12 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.6, delay: 0.32, ease: easeOut }}
-              className="mt-10 grid grid-cols-2 sm:grid-cols-4 gap-4 sm:gap-6 max-w-2xl"
-            >
-              {stats.map((s, i) => (
-                <div
-                  key={s.label}
-                  onClick={() => s.tab && setActiveTab && setActiveTab(s.tab)}
-                  className={`cursor-pointer group/stat transition-transform hover:-translate-y-0.5 ${
-                    i > 0 ? "sm:border-l sm:border-white/15 sm:pl-5" : ""
-                  }`}
-                  title={`Ir a ${s.label.toLowerCase()}`}
-                >
-                  <dt className="sr-only">{s.label}</dt>
-                  <dd className="text-2xl sm:text-3xl font-bold tracking-tight tabular-nums leading-none group-hover/stat:text-accent-300 transition-colors">
-                    {s.value}
-                  </dd>
-                  <p className="mt-2 text-[10.5px] uppercase tracking-[0.12em] text-white/65 font-medium group-hover/stat:text-white/90 transition-colors">
-                    {s.label}
-                  </p>
-                </div>
-              ))}
-            </motion.dl>
           </div>
 
           {/* Right panel — single unified card with background image */}
@@ -219,16 +193,22 @@ export default function Hero({ setActiveTab }) {
 
                 {/* Bottom: Stats row */}
                 <div className="grid grid-cols-4 gap-3">
-                  {[
-                    { icon: "fa-book-open", value: recursos?.length || 0, label: "Recursos\ndisponibles" },
-                    { icon: "fa-chalkboard-user", value: "23", label: "Docentes\nque comparten" },
-                    { icon: "fa-layer-group", value: "10", label: "Áreas\nrepresentadas" },
-                    { icon: "fa-chart-line", value: "96%", label: "Cobertura\npedagógica" },
-                  ].map((s) => (
-                    <div key={s.label} className="flex flex-col items-center text-center rounded-xl bg-white/[0.08] backdrop-blur-sm ring-1 ring-white/10 py-3 px-1">
-                      <i className={`fas ${s.icon} text-sm text-white/70 mb-2`} />
-                      <p className="text-xl font-bold text-white tabular-nums leading-none">{s.value}</p>
-                      <p className="mt-1.5 text-[9px] text-white/60 uppercase tracking-wider leading-tight whitespace-pre-line">{s.label}</p>
+                  {cardStats.map((s) => (
+                    <div
+                      key={s.label}
+                      onClick={() => s.tab && setActiveTab && setActiveTab(s.tab)}
+                      className={`flex flex-col items-center text-center rounded-xl bg-white/[0.08] backdrop-blur-sm ring-1 ring-white/10 py-3 px-1 transition-all group/item ${
+                        s.tab ? "cursor-pointer hover:bg-white/[0.15] hover:-translate-y-0.5" : ""
+                      }`}
+                      title={s.tab ? `Ver ${s.label.replace("\n", " ").toLowerCase()}` : undefined}
+                    >
+                      <i className={`fas ${s.icon} text-sm text-white/70 group-hover/item:text-accent-300 transition-colors mb-2`} />
+                      <p className="text-xl font-bold text-white tabular-nums leading-none group-hover/item:text-accent-300 transition-colors">
+                        {s.value}
+                      </p>
+                      <p className="mt-1.5 text-[9px] text-white/60 group-hover/item:text-white/80 uppercase tracking-wider leading-tight whitespace-pre-line transition-colors">
+                        {s.label}
+                      </p>
                     </div>
                   ))}
                 </div>
