@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { getYouTubeId, getYouTubeThumbnail } from "../utils/youtube";
 import { listDriveImages, DriveGalleryError } from "../services/googleDrive";
 import GaleriaModal from "./GaleriaModal";
+import { SkeletonStats, SkeletonGrid } from "./Skeleton";
 
 const MESES = [
   "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto",
@@ -317,7 +318,7 @@ function FilterChip({ active, onClick, children, count }) {
 }
 
 export default function Evidencias({ isAdminMode = false, onEditClick = null, onDeleteClick = null }) {
-  const { evidencias } = useApp();
+  const { evidencias, isLoading } = useApp();
   const [mesSel, setMesSel] = useState(MES_INICIAL);
   const [busqueda, setBusqueda] = useState("");
   const [categoriaSel, setCategoriaSel] = useState("Todas");
@@ -550,6 +551,15 @@ export default function Evidencias({ isAdminMode = false, onEditClick = null, on
       )}
     </div>
   );
+
+  if (isLoading) {
+    return (
+      <div className="space-y-6">
+        <SkeletonStats count={4} />
+        <SkeletonGrid items={6} />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">

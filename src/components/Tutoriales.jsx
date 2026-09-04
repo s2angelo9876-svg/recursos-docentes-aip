@@ -2,6 +2,7 @@ import { useState, useMemo } from "react";
 import { useApp } from "../context/AppContext";
 import { motion, AnimatePresence } from "framer-motion";
 import { getYouTubeId, getYouTubeThumbnail } from "../utils/youtube";
+import { SkeletonStats, SkeletonGrid } from "./Skeleton";
 
 const AREAS_CNEB = [
   "Matemática", "Comunicación", "Inglés", "Arte y Cultura",
@@ -171,7 +172,7 @@ function AudiencePill({ audience }) {
 }
 
 export default function Tutoriales({ isAdminMode = false, onEditClick = null, onDeleteClick = null }) {
-  const { tutoriales, deleteTutorial, tutorialAccess, setTutorialAccess } = useApp();
+  const { tutoriales, deleteTutorial, tutorialAccess, setTutorialAccess, isLoading } = useApp();
   const [busqueda, setBusqueda] = useState("");
   const [areaSel, setAreaSel] = useState(AREA_TODAS);
   const accessType = isAdminMode ? null : tutorialAccess;
@@ -235,6 +236,15 @@ export default function Tutoriales({ isAdminMode = false, onEditClick = null, on
     setBusqueda("");
     setAreaSel(AREA_TODAS);
   };
+
+  if (isLoading && (isAdminMode || accessType)) {
+    return (
+      <div className="space-y-6">
+        <SkeletonStats count={4} />
+        <SkeletonGrid items={6} />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">

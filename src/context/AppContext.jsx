@@ -33,6 +33,9 @@ export function AppContextProvider({ children }) {
 
   const [tutorialAccess, setTutorialAccess] = useState(null);
 
+  // Bandera para que la UI muestre skeletons durante la carga inicial
+  const [isLoading, setIsLoading] = useState(true);
+
   // --- SYNC LOCAL CLIENT CONFIG ---
   useEffect(() => {
     localStorage.setItem("innova_favoritos", JSON.stringify(favoritos));
@@ -49,6 +52,7 @@ export function AppContextProvider({ children }) {
 
   // --- FETCH CENTRAL DATABASE FROM EXPRESS API (con reintentos) ---
   const loadDatabase = async ({ retries = 5, delayMs = 1500 } = {}) => {
+    setIsLoading(true);
     for (let attempt = 1; attempt <= retries; attempt++) {
       try {
         const [resRec, resTut, resNot, resEvi] = await Promise.all([
@@ -64,6 +68,7 @@ export function AppContextProvider({ children }) {
             await new Promise((r) => setTimeout(r, delayMs * attempt));
             continue;
           }
+          setIsLoading(false);
           return; // Se agotaron reintentos, quedamos con arrays vacíos
         }
 
@@ -78,6 +83,7 @@ export function AppContextProvider({ children }) {
         setTutoriales(tut);
         setNoticias(not);
         setEvidencias(evi);
+        setIsLoading(false);
         return; // éxito
       } catch {
         // ECONNREFUSED u otro error de red — reintentamos
@@ -86,6 +92,7 @@ export function AppContextProvider({ children }) {
         }
       }
     }
+    setIsLoading(false);
   };
 
   // Cargar la base de datos al montar el componente o al cambiar el token de autenticación
@@ -514,7 +521,7 @@ export function AppContextProvider({ children }) {
     }
   };
 
-  return (
+    return (
     <AppContext.Provider
       value={{
         recursos,
@@ -546,6 +553,7 @@ export function AppContextProvider({ children }) {
         importData,
         tutorialAccess,
         setTutorialAccess,
+        isLoading,
       }}
     >
       {children}

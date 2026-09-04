@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from "react";
 import { useApp } from "../context/AppContext";
 import { motion, AnimatePresence } from "framer-motion";
 import ConfirmModal from "./ConfirmModal";
+import { SkeletonStats, SkeletonList } from "./Skeleton";
 
 const easeOut = [0.16, 1, 0.3, 1];
 
@@ -174,7 +175,7 @@ function NewsModal({ news, onClose }) {
 }
 
 export default function Noticias({ isAdminMode = false, onEditClick = null }) {
-  const { noticias, deleteNoticia } = useApp();
+  const { noticias, deleteNoticia, isLoading } = useApp();
   const [selectedNews, setSelectedNews] = useState(null);
   const [pendingDelete, setPendingDelete] = useState(null);
   const [lastVisit, setLastVisit] = useState(0);
@@ -205,6 +206,15 @@ export default function Noticias({ isAdminMode = false, onEditClick = null }) {
     const autores = new Set(list.map((n) => n.autor).filter(Boolean));
     return { total, last7Days, autores: autores.size, now };
   }, [noticias]);
+
+  if (isLoading) {
+    return (
+      <div className="space-y-6">
+        <SkeletonStats count={4} />
+        <SkeletonList items={5} />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">

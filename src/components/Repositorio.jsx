@@ -1,6 +1,7 @@
 import { useState, useMemo } from "react";
 import { useApp } from "../context/AppContext";
 import { motion, AnimatePresence } from "framer-motion";
+import { SkeletonStats, SkeletonFilterBar, SkeletonGrid } from "./Skeleton";
 
 const AREAS_CNEB = [
   "Matemática",
@@ -53,7 +54,7 @@ const easeOut = [0.16, 1, 0.3, 1];
 const PAGE_SIZE = 9;
 
 export default function Repositorio({ isAdminMode = false, onEditClick = null, onDeleteClick = null }) {
-  const { recursos, favoritos, toggleFavorito, deleteRecurso } = useApp();
+  const { recursos, favoritos, toggleFavorito, deleteRecurso, isLoading } = useApp();
 
   const [busqueda, setBusqueda] = useState("");
   const [areaSel, setAreaSel] = useState("Todas");
@@ -88,6 +89,16 @@ export default function Repositorio({ isAdminMode = false, onEditClick = null, o
     setter(value);
     setPage(1);
   };
+
+  if (isLoading) {
+    return (
+      <div className="space-y-6">
+        <SkeletonStats count={4} />
+        <SkeletonFilterBar />
+        <SkeletonGrid items={6} />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
