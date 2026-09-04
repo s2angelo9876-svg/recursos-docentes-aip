@@ -48,15 +48,12 @@ export default function Header({ activeTab, setActiveTab }) {
             className="flex items-center gap-2.5 group flex-shrink-0"
             aria-label="Ir al inicio"
           >
-            <span className="relative inline-flex items-center justify-center">
-              <span className="absolute inset-0 rounded-xl bg-white/20 blur-md opacity-60 group-hover:opacity-90 transition-opacity" />
-              <span className="relative h-10 w-10 sm:h-11 sm:w-11 rounded-xl bg-white p-1 shadow-md ring-1 ring-white/30 flex items-center justify-center overflow-hidden flex-shrink-0">
-                <img
-                  src="/Escudo Bandera.jpeg"
-                  alt="Escudo Institucional Innova Bandera"
-                  className="h-full w-full object-contain"
-                />
-              </span>
+            <span className="relative inline-flex items-center justify-center flex-shrink-0">
+              <img
+                src="/escudo-bandera.png"
+                alt="Escudo Institucional Innova Bandera"
+                className="h-10 w-auto sm:h-11 object-contain drop-shadow-[0_2px_8px_rgba(0,0,0,0.35)] group-hover:scale-105 transition-transform duration-200"
+              />
             </span>
             <span className="hidden sm:flex flex-col items-start leading-none text-white">
               <span className="text-[15px] font-bold tracking-tight">Innova Bandera</span>

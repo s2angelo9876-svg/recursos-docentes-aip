@@ -236,11 +236,11 @@ function AppContent() {
         <div className="max-w-6xl mx-auto px-4 sm:px-6 py-10">
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-6">
             <div className="flex items-center gap-3">
-              <div className="h-10 w-10 sm:h-11 sm:w-11 rounded-xl bg-white p-1 shadow-md ring-1 ring-white/20 flex items-center justify-center flex-shrink-0 overflow-hidden">
+              <div className="flex items-center justify-center flex-shrink-0">
                 <img
-                  src="/Escudo Bandera.jpeg"
+                  src="/escudo-bandera.png"
                   alt="Escudo I.E. Bandera del Perú"
-                  className="h-full w-full object-contain"
+                  className="h-10 sm:h-11 w-auto object-contain drop-shadow-[0_2px_8px_rgba(0,0,0,0.4)]"
                 />
               </div>
               <div className="leading-none">
