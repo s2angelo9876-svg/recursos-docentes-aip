@@ -1,5 +1,220 @@
-import { useCallback, useEffect, useState, useRef } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+
+const ZOOM_MIN = 1;
+const ZOOM_MAX = 5;
+const ZOOM_STEP = 0.4;
+
+function useZoom() {
+  const [scale, setScale] = useState(1);
+  const [tx, setTx] = useState(0);
+  const [ty, setTy] = useState(0);
+  const reset = useCallback(() => {
+    setScale(1);
+    setTx(0);
+    setTy(0);
+  }, []);
+  const zoomIn = useCallback(() => {
+    setScale((s) => Math.min(ZOOM_MAX, +(s + ZOOM_STEP).toFixed(2)));
+  }, []);
+  const zoomOut = useCallback(() => {
+    setScale((s) => {
+      const next = Math.max(ZOOM_MIN, +(s - ZOOM_STEP).toFixed(2));
+      if (next === 1) {
+        setTx(0);
+        setTy(0);
+      }
+      return next;
+    });
+  }, []);
+  return { scale, tx, ty, setTx, setTy, reset, zoomIn, zoomOut };
+}
+
+function ZoomableImage({ src, alt, loaded, onLoad, onError }) {
+  const { scale, tx, ty, setScale, setTx, setTy, reset } = useZoom();
+  const lastTouchDist = useRef(0);
+  const dragRef = useRef({ active: false, startX: 0, startY: 0, baseTx: 0, baseTy: 0 });
+
+  // Wheel zoom
+  const onWheel = useCallback(
+    (e) => {
+      e.preventDefault();
+      const delta = e.deltaY > 0 ? -ZOOM_STEP : ZOOM_STEP;
+      setScale((s) => {
+        const next = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, +(s + delta).toFixed(2)));
+        if (next === 1) {
+          setTx(0);
+          setTy(0);
+        }
+        return next;
+      });
+    },
+    [setScale, setTx, setTy]
+  );
+
+  // Pinch zoom + drag (touch)
+  const onTouchStart = useCallback((e) => {
+    if (e.touches.length === 2) {
+      e.preventDefault();
+      const dx = e.touches[0].clientX - e.touches[1].clientX;
+      const dy = e.touches[0].clientY - e.touches[1].clientY;
+      lastTouchDist.current = Math.hypot(dx, dy);
+    } else if (e.touches.length === 1) {
+      const t = e.touches[0];
+      dragRef.current = {
+        active: true,
+        startX: t.clientX,
+        startY: t.clientY,
+        baseTx: tx,
+        baseTy: ty,
+      };
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [scale, tx, ty]);
+
+  const onTouchMove = useCallback((e) => {
+    if (e.touches.length === 2) {
+      e.preventDefault();
+      const dx = e.touches[0].clientX - e.touches[1].clientX;
+      const dy = e.touches[0].clientY - e.touches[1].clientY;
+      const dist = Math.hypot(dx, dy);
+      const ratio = dist / Math.max(1, lastTouchDist.current);
+      lastTouchDist.current = dist;
+      setScale((s) => {
+        const next = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, +(s * ratio).toFixed(2)));
+        if (next === 1) {
+          setTx(0);
+          setTy(0);
+        }
+        return next;
+      });
+    } else if (e.touches.length === 1 && dragRef.current.active) {
+      e.preventDefault();
+      const t = e.touches[0];
+      setTx(dragRef.current.baseTx + (t.clientX - dragRef.current.startX));
+      setTy(dragRef.current.baseTy + (t.clientY - dragRef.current.startY));
+    }
+  }, [setScale, setTx, setTy]);
+
+  const onTouchEnd = useCallback(() => {
+    dragRef.current.active = false;
+  }, []);
+
+  // Mouse drag (solo si hay zoom activo)
+  const onMouseDown = useCallback(
+    (e) => {
+      if (scale <= 1) return;
+      e.preventDefault();
+      dragRef.current = {
+        active: true,
+        startX: e.clientX,
+        startY: e.clientY,
+        baseTx: tx,
+        baseTy: ty,
+      };
+    },
+    [scale, tx, ty]
+  );
+
+  const onMouseMove = useCallback(
+    (e) => {
+      if (!dragRef.current.active) return;
+      setTx(dragRef.current.baseTx + (e.clientX - dragRef.current.startX));
+      setTy(dragRef.current.baseTy + (e.clientY - dragRef.current.startY));
+    },
+    [setTx, setTy]
+  );
+
+  const onMouseUp = useCallback(() => {
+    dragRef.current.active = false;
+  }, []);
+
+  // Doble click: alterna 1x ↔ 2.5x
+  const onDoubleClick = useCallback(
+    (e) => {
+      e.preventDefault();
+      if (scale > 1) {
+        reset();
+      } else {
+        setScale(2.5);
+        setTx(0);
+        setTy(0);
+      }
+    },
+    [scale, reset, setScale, setTx, setTy]
+  );
+
+  useEffect(() => {
+    if (dragRef.current.active) {
+      window.addEventListener("mousemove", onMouseMove);
+      window.addEventListener("mouseup", onMouseUp);
+      return () => {
+        window.removeEventListener("mousemove", onMouseMove);
+        window.removeEventListener("mouseup", onMouseUp);
+      };
+    }
+    return undefined;
+  }, [onMouseMove, onMouseUp]);
+
+  return (
+    <img
+      src={src}
+      alt={alt}
+      loading="eager"
+      onLoad={onLoad}
+      onError={onError}
+      onWheel={onWheel}
+      onMouseDown={onMouseDown}
+      onTouchStart={onTouchStart}
+      onTouchMove={onTouchMove}
+      onTouchEnd={onTouchEnd}
+      onDoubleClick={onDoubleClick}
+      draggable={false}
+      style={{
+        transform: `translate3d(${tx}px, ${ty}px, 0) scale(${scale})`,
+        cursor: scale > 1 ? "grab" : "zoom-in",
+        transition: "transform 200ms ease-out",
+      }}
+      className={`max-w-full max-h-full object-contain select-none ${loaded ? "opacity-100" : "opacity-0"}`}
+    />
+  );
+}
+
+function ZoomControls({ onPrev, onReset, onNext, scale }) {
+  return (
+    <div className="absolute right-4 top-20 z-20 flex flex-col gap-1.5 bg-black/40 backdrop-blur-md rounded-full p-1.5 border border-white/10">
+      <button
+        type="button"
+        onClick={onPrev}
+        aria-label="Zoom out"
+        title="Zoom out (-)"
+        className="w-9 h-9 rounded-full text-white/85 hover:bg-white/15 hover:text-white flex items-center justify-center transition-colors disabled:opacity-30"
+        disabled={scale <= ZOOM_MIN}
+      >
+        <i className="fas fa-minus text-xs" />
+      </button>
+      <button
+        type="button"
+        onClick={onReset}
+        aria-label="Resetear zoom"
+        title="Resetear zoom (0)"
+        className="h-7 px-1.5 rounded-full text-[10px] font-bold text-white/85 hover:bg-white/15 hover:text-white transition-colors tabular-nums"
+      >
+        {Math.round(scale * 100)}%
+      </button>
+      <button
+        type="button"
+        onClick={onNext}
+        aria-label="Zoom in"
+        title="Zoom in (+)"
+        className="w-9 h-9 rounded-full text-white/85 hover:bg-white/15 hover:text-white flex items-center justify-center transition-colors disabled:opacity-30"
+        disabled={scale >= ZOOM_MAX}
+      >
+        <i className="fas fa-plus text-xs" />
+      </button>
+    </div>
+  );
+}
 
 function ArrowLeftIcon() {
   return (
@@ -69,6 +284,35 @@ export default function GaleriaModal({
   const [imgLoaded, setImgLoaded] = useState(false);
   const touchStart = useRef(null);
   const touchDelta = useRef(0);
+
+  // Zoom compartido entre todas las imágenes (se resetea al cambiar)
+  const zoom = useZoom();
+  const { scale: zoomScale, reset: zoomReset, zoomIn, zoomOut } = zoom;
+
+  // Resetear zoom cada vez que cambia la imagen
+  useEffect(() => {
+    zoomReset();
+    setImgLoaded(false);
+  }, [index, zoomReset]);
+
+  // Atajos de teclado para zoom: + - 0
+  useEffect(() => {
+    if (!open) return undefined;
+    const onKey = (e) => {
+      if (e.key === "+" || e.key === "=") {
+        e.preventDefault();
+        zoomIn();
+      } else if (e.key === "-" || e.key === "_") {
+        e.preventDefault();
+        zoomOut();
+      } else if (e.key === "0") {
+        e.preventDefault();
+        zoomReset();
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [open, zoomIn, zoomOut, zoomReset]);
 
   useEffect(() => {
     if (open) {
@@ -275,18 +519,22 @@ export default function GaleriaModal({
                         onError={() => setImgLoaded(true)}
                       />
                     ) : (
-                      <img
+                      <ZoomableImage
+                        key={current.id}
                         src={current.url}
                         alt={current.name || `Imagen ${index + 1}`}
-                        loading="eager"
+                        loaded={imgLoaded}
                         onLoad={() => setImgLoaded(true)}
                         onError={() => setImgLoaded(true)}
-                        draggable={false}
-                        className={`max-w-full max-h-full object-contain select-none transition-opacity duration-300 ${imgLoaded ? "opacity-100" : "opacity-0"}`}
                       />
                     )}
                   </motion.div>
                 </AnimatePresence>
+              )}
+
+              {/* Controles de zoom (solo para imágenes) */}
+              {!loading && !error && current && !isVideo(current) && imgLoaded && (
+                <ZoomControls onPrev={zoomOut} onReset={zoomReset} onNext={zoomIn} scale={zoomScale} />
               )}
 
               {!loading && !error && images.length > 1 && (
