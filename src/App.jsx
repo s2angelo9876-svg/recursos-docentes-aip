@@ -12,6 +12,7 @@ import AdminPanel from "./components/AdminPanel";
 import Login from "./components/Login";
 import AdminModal from "./components/AdminModal";
 import ConfirmModal from "./components/ConfirmModal";
+import { ToastProvider } from "./components/Toast";
 
 function SectionHeader({ icon, iconColor, title, onAdd }) {
   return (
@@ -320,7 +321,9 @@ export default function App() {
   return (
     <Router>
       <AppContextProvider>
-        <AppContent />
+        <ToastProvider>
+          <AppContent />
+        </ToastProvider>
       </AppContextProvider>
     </Router>
   );

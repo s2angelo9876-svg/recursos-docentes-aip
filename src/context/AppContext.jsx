@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useEffect } from "react";
 import { API_BASE } from "../utils/api.js";
+import { dispatchToast } from "../components/Toast";
 
 const AppContext = createContext();
 
@@ -155,7 +156,12 @@ export function AppContextProvider({ children }) {
       if (timeoutId) clearTimeout(timeoutId);
       timeoutId = setTimeout(() => {
         logout();
-        alert("Tu sesión ha expirado por inactividad. Por favor, inicia sesión de nuevo.");
+        dispatchToast({
+          tone: "warning",
+          title: "Sesión expirada",
+          message: "Tu sesión ha expirado por inactividad. Por favor, inicia sesión de nuevo.",
+          duration: 6000,
+        });
       }, 15 * 60 * 1000);
     };
     const events = ["mousedown", "mousemove", "keypress", "scroll", "touchstart"];
@@ -180,7 +186,12 @@ export function AppContextProvider({ children }) {
   const handleApiResponse = async (response) => {
     if (response.status === 401 || response.status === 403) {
       logout();
-      alert("Tu sesión ha expirado o no tienes permisos para esta acción. Por favor, inicia sesión de nuevo.");
+      dispatchToast({
+        tone: "warning",
+        title: "Sesión expirada",
+        message: "Tu sesión ha expirado o no tienes permisos para esta acción. Por favor, inicia sesión de nuevo.",
+        duration: 6000,
+      });
       return false;
     }
     return true;
