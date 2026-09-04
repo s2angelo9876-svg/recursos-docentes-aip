@@ -81,7 +81,7 @@ export default function Hero({ setActiveTab }) {
               className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 ring-1 ring-white/20 backdrop-blur text-[11px] font-medium tracking-wide"
             >
               <span className="inline-block h-1.5 w-1.5 rounded-full bg-emerald-400 animate-soft-pulse" />
-              Plataforma educativa · 2026
+              Aula de Innovación Pedagógica · 2026
             </motion.span>
 
             <motion.h1
@@ -90,11 +90,12 @@ export default function Hero({ setActiveTab }) {
               transition={{ duration: 0.6, delay: 0.08, ease: easeOut }}
               className="mt-5 text-4xl sm:text-5xl lg:text-[3.5rem] font-bold tracking-[-0.02em] leading-[1.05]"
             >
-              Repositorio digital
-              <br />
-              de recursos{" "}
-              <span className="bg-gradient-to-r from-rose-300 via-white to-accent-400 bg-clip-text text-transparent">
-                pedagógicos
+              Innova{" "}
+              <span
+                className="bg-gradient-to-r from-rose-400 via-red-500 to-rose-600 bg-clip-text text-transparent"
+                style={{ filter: "drop-shadow(0 0 24px rgba(239,68,68,0.45))" }}
+              >
+                Bandera
               </span>
             </motion.h1>
 
@@ -104,9 +105,8 @@ export default function Hero({ setActiveTab }) {
               transition={{ duration: 0.6, delay: 0.16, ease: easeOut }}
               className="mt-5 text-[15px] text-white/80 leading-relaxed max-w-xl"
             >
-              Accede, comparte y gestiona materiales educativos de la I.E. Bandera del Perú.
-              Un espacio institucional moderno diseñado para potenciar el aprendizaje y la
-              innovación docente.
+              Materiales, herramientas y experiencias para potenciar el aprendizaje y la
+              innovación en tus clases.
             </motion.p>
 
             <motion.div
@@ -156,6 +156,7 @@ export default function Hero({ setActiveTab }) {
             </motion.dl>
           </div>
 
+          {/* Right panel — single unified card with background image */}
           <motion.div
             initial={{ opacity: 0, scale: 0.96 }}
             animate={{ opacity: 1, scale: 1 }}
@@ -163,97 +164,57 @@ export default function Hero({ setActiveTab }) {
             className="relative hidden lg:block"
             aria-hidden
           >
-            <div className="relative h-full grid grid-cols-2 grid-rows-2 gap-3">
-              {/* Brand pill (top, full width) — gradiente rojo estetico */}
-              <motion.div
-                animate={{ y: [0, -4, 0] }}
-                transition={{ duration: 6, repeat: Infinity, ease: "easeInOut" }}
-                className="col-span-2 relative flex items-center gap-3 rounded-2xl px-4 py-3 shadow-glow overflow-hidden bg-gradient-to-r from-rose-500 via-accent-500 to-accent-600"
-              >
-                <div
-                  className="absolute inset-0 opacity-20 pointer-events-none"
-                  aria-hidden
-                >
-                  <svg className="w-full h-full" xmlns="http://www.w3.org/2000/svg">
-                    <defs>
-                      <pattern id="brand-grid" width="16" height="16" patternUnits="userSpaceOnUse">
-                        <path d="M 16 0 L 0 0 0 16" fill="none" stroke="white" strokeWidth="0.5" />
-                      </pattern>
-                    </defs>
-                    <rect width="100%" height="100%" fill="url(#brand-grid)" />
-                  </svg>
-                </div>
-                <span className="relative inline-flex h-9 w-9 items-center justify-center rounded-xl bg-white/20 ring-1 ring-white/30 text-white">
-                  <i className="fas fa-graduation-cap text-sm" />
-                </span>
-                <div className="relative flex-1 min-w-0">
-                  <p className="text-[13px] font-bold text-white">Aula de Innovación Pedagógica</p>
-                  <p className="text-[11px] text-white/80">I.E. Bandera del Perú · Pisco</p>
-                </div>
-                <span className="relative inline-flex h-6 items-center gap-1 rounded-full bg-white px-2 text-[10px] font-bold text-accent-700">
-                  <span className="h-1.5 w-1.5 rounded-full bg-accent-600 animate-soft-pulse" />
-                  Activa
-                </span>
-              </motion.div>
+            <motion.div
+              animate={{ y: [0, -5, 0] }}
+              transition={{ duration: 6, repeat: Infinity, ease: "easeInOut" }}
+              className="relative h-full rounded-2xl overflow-hidden shadow-glow ring-1 ring-white/20"
+            >
+              {/* Background image */}
+              <img
+                src="/hero-bg.jpg"
+                alt=""
+                className="absolute inset-0 w-full h-full object-cover"
+              />
+              {/* Dark overlay gradient */}
+              <div className="absolute inset-0 bg-gradient-to-t from-[#0a1628]/95 via-[#0a1628]/60 to-[#0a1628]/30" />
 
-              {/* Cobertura (bento left, más grande con visual) */}
-              <motion.div
-                animate={{ y: [0, 5, 0] }}
-                transition={{ duration: 7, repeat: Infinity, ease: "easeInOut" }}
-                className="row-span-2 relative rounded-2xl bg-white/[0.08] ring-1 ring-white/15 backdrop-blur-md p-5 flex flex-col overflow-hidden"
-              >
-                <div
-                  className="absolute -top-12 -right-12 w-40 h-40 rounded-full bg-accent-500/20 blur-2xl pointer-events-none"
-                  aria-hidden
-                />
-                <div className="relative flex items-center justify-between text-white/85">
-                  <span className="text-[10px] uppercase tracking-[0.12em] font-semibold">
-                    Cobertura
+              {/* Content */}
+              <div className="relative flex flex-col h-full min-h-[340px] p-5">
+                {/* Top: Brand pill */}
+                <div className="flex items-center gap-3">
+                  <span className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-white/20 ring-1 ring-white/30 backdrop-blur-sm">
+                    <i className="fas fa-graduation-cap text-sm text-white" />
                   </span>
-                  <i className="fas fa-chart-line text-accent-300" />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[14px] font-bold text-white">Aula de Innovación Pedagógica</p>
+                    <p className="text-[11px] text-white/75">I.E. Bandera del Perú · Pisco</p>
+                  </div>
+                  <span className="inline-flex h-6 items-center gap-1 rounded-full bg-white px-2.5 text-[10px] font-bold text-accent-700 shadow-sm">
+                    <span className="h-1.5 w-1.5 rounded-full bg-accent-600 animate-soft-pulse" />
+                    Activa
+                  </span>
                 </div>
-                <p className="mt-2 text-3xl font-bold tabular-nums text-white">96%</p>
-                <p className="mt-1 text-[11px] text-white/60">Áreas curriculares cubiertas</p>
-                <div className="mt-4 h-2.5 rounded-full bg-white/10 overflow-hidden ring-1 ring-white/10">
-                  <div className="h-full w-[96%] bg-gradient-to-r from-rose-500 to-accent-500" />
-                </div>
-                <div className="mt-auto pt-4 grid grid-cols-3 gap-2 text-center">
+
+                {/* Spacer */}
+                <div className="flex-1" />
+
+                {/* Bottom: Stats row */}
+                <div className="grid grid-cols-4 gap-3">
                   {[
-                    { v: recursos?.length || 0, l: "Recursos" },
-                    { v: tutoriales?.length || 0, l: "Tuto." },
-                    { v: evidencias?.length || 0, l: "Evid." },
-                  ].map((m) => (
-                    <div key={m.l} className="rounded-xl bg-white/5 py-2">
-                      <p className="text-[15px] font-bold text-white tabular-nums">{m.v}</p>
-                      <p className="text-[9px] text-white/55 uppercase tracking-wider mt-0.5">{m.l}</p>
+                    { icon: "fa-book-open", value: recursos?.length || 0, label: "Recursos\ndisponibles" },
+                    { icon: "fa-chalkboard-user", value: "23", label: "Docentes\nque comparten" },
+                    { icon: "fa-layer-group", value: "10", label: "Áreas\nrepresentadas" },
+                    { icon: "fa-chart-line", value: "96%", label: "Cobertura\npedagógica" },
+                  ].map((s) => (
+                    <div key={s.label} className="flex flex-col items-center text-center rounded-xl bg-white/[0.08] backdrop-blur-sm ring-1 ring-white/10 py-3 px-1">
+                      <i className={`fas ${s.icon} text-sm text-white/70 mb-2`} />
+                      <p className="text-xl font-bold text-white tabular-nums leading-none">{s.value}</p>
+                      <p className="mt-1.5 text-[9px] text-white/60 uppercase tracking-wider leading-tight whitespace-pre-line">{s.label}</p>
                     </div>
                   ))}
                 </div>
-              </motion.div>
-
-              {/* Actividad reciente (bento right, más compacto) — gradiente rojo */}
-              <motion.div
-                animate={{ y: [0, -3, 0] }}
-                transition={{ duration: 5, repeat: Infinity, ease: "easeInOut" }}
-                className="rounded-2xl bg-gradient-to-br from-accent-500/45 to-rose-700/45 ring-1 ring-white/20 p-4 flex flex-col"
-              >
-                <div className="flex items-center gap-2 text-white mb-2">
-                  <i className="fas fa-bolt text-xs" />
-                  <span className="text-[10px] uppercase tracking-[0.12em] font-semibold">
-                    Actividad
-                  </span>
-                </div>
-                <p className="text-[11px] text-white/90 leading-relaxed">
-                  {noticias?.[0]?.titulo
-                    ? `Último: "${noticias[0].titulo.slice(0, 32)}${noticias[0].titulo.length > 32 ? "…" : ""}"`
-                    : "Sin comunicados recientes aún"}
-                </p>
-                <div className="mt-auto pt-3 flex items-center gap-1.5 text-[10px] text-white/80">
-                  <span className="inline-block h-1.5 w-1.5 rounded-full bg-white animate-soft-pulse" />
-                  En vivo
-                </div>
-              </motion.div>
-            </div>
+              </div>
+            </motion.div>
           </motion.div>
         </div>
 
