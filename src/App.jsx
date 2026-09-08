@@ -264,12 +264,6 @@ function AppContent() {
               <button onClick={() => setActiveTab("noticias")} className="text-[13px] text-white/80 hover:text-white transition-colors">
                 Noticias
               </button>
-              <a
-                href="mailto:contacto@banderadelperu.edu.pe"
-                className="text-[13px] text-white/80 hover:text-white transition-colors"
-              >
-                Contacto
-              </a>
             </nav>
 
             <div className="flex items-center gap-2">

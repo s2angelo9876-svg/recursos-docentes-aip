@@ -73,16 +73,22 @@ export default function Login({ onLoginSuccess }) {
         </div>
 
         <motion.div
-          initial={{ opacity: 0, y: 12 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, ease: easeOut }}
-          className="relative flex items-center justify-center flex-1 py-4"
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ duration: 0.7, ease: easeOut }}
+          className="relative flex items-center justify-center flex-1 py-6"
         >
-          <img
-            src="/escudo-bandera.png"
-            alt="Escudo I.E. Bandera del Perú"
-            className="w-56 sm:w-64 md:w-72 lg:w-80 xl:w-96 max-h-full object-contain drop-shadow-2xl"
-          />
+          <div className="relative">
+            <div
+              className="absolute inset-0 rounded-full bg-white/10 blur-3xl scale-110 pointer-events-none"
+              aria-hidden
+            />
+            <img
+              src="/escudo-bandera.png"
+              alt="Escudo I.E. Bandera del Perú"
+              className="relative w-32 sm:w-36 md:w-40 lg:w-44 h-auto object-contain drop-shadow-[0_20px_40px_rgba(0,0,0,0.35)]"
+            />
+          </div>
         </motion.div>
 
         <div className="relative">
