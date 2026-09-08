@@ -76,40 +76,13 @@ export default function Login({ onLoginSuccess }) {
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6, ease: easeOut }}
-          className="relative"
+          className="relative flex items-center justify-center flex-1 py-4"
         >
-          <h1 className="text-3xl xl:text-4xl font-bold tracking-[-0.02em] leading-[1.1]">
-            I.E. Emblemática
-            <br />
-            <span className="bg-gradient-to-r from-rose-300 via-white to-accent-300 bg-clip-text text-transparent">
-              Bandera del Perú
-            </span>
-          </h1>
-          <p className="mt-5 text-[14px] text-white/80 leading-relaxed max-w-sm">
-            Plataforma institucional para la gestión de recursos pedagógicos del
-            cuerpo docente. Ingresa con tus credenciales asignadas por el área AIP.
-          </p>
-
-          <ul className="mt-8 space-y-2.5 text-[12.5px] text-white/85">
-            <li className="flex items-center gap-2.5">
-              <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-white/15">
-                <i className="fas fa-check text-[9px]" />
-              </span>
-              Acceso seguro con credenciales institucionales
-            </li>
-            <li className="flex items-center gap-2.5">
-              <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-white/15">
-                <i className="fas fa-check text-[9px]" />
-              </span>
-              Sincronización con el aula de innovación
-            </li>
-            <li className="flex items-center gap-2.5">
-              <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-white/15">
-                <i className="fas fa-check text-[9px]" />
-              </span>
-              Respaldo y auditoría de actividades
-            </li>
-          </ul>
+          <img
+            src="/escudo-bandera.png"
+            alt="Escudo I.E. Bandera del Perú"
+            className="w-56 sm:w-64 md:w-72 lg:w-80 xl:w-96 max-h-full object-contain drop-shadow-2xl"
+          />
         </motion.div>
 
         <div className="relative">
@@ -227,21 +200,6 @@ export default function Login({ onLoginSuccess }) {
               )}
             </button>
           </form>
-
-          <div className="mt-7 pt-5 border-t border-line-subtle dark:border-dark-border">
-            <p className="text-[11px] text-ink-meta text-center">
-              Acceso restringido al personal autorizado de la I.E. Bandera del Perú.
-            </p>
-            <p className="mt-1.5 text-[10px] text-ink-meta text-center">
-              Soporte:{" "}
-              <a
-                href="mailto:contacto@banderadelperu.edu.pe"
-                className="text-accent-600 dark:text-accent-400 hover:underline font-medium"
-              >
-                contacto@banderadelperu.edu.pe
-              </a>
-            </p>
-          </div>
         </div>
       </section>
     </div>

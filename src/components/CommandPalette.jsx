@@ -67,7 +67,7 @@ function buildItems({ recursos, tutoriales, noticias, evidencias }) {
     icon: "fa-image",
     iconCls: "bg-emerald-50 text-emerald-600 dark:bg-emerald-600/15 dark:text-emerald-300",
     title: e.titulo,
-    sub: `${e.mes}${e.categoria ? ` · ${e.categoria}` : ""}`,
+    sub: e.mes,
     target: "evidencias",
     payload: e,
   }));

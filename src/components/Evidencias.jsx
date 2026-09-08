@@ -12,26 +12,8 @@ const MESES = [
 ];
 const MES_TODOS = "Todas";
 
-const CATEGORIAS = [
-  "Gestión", "Robótica", "Taller", "Feria", "Concurso",
-  "Capacitación", "Proyecto", "Celebración", "Galería", "Otro",
-];
-
 const mesActual = new Date().getMonth();
 const MES_INICIAL = mesActual >= 2 ? MESES[mesActual - 2] : "Marzo";
-
-const CATEGORIA_META = {
-  "Gestión":      { cls: "bg-primary-50 text-primary-700 dark:bg-primary-600/15 dark:text-primary-300 border-primary-100 dark:border-primary-500/30", icon: "fa-briefcase" },
-  "Robótica":     { cls: "bg-emerald-50 text-emerald-700 dark:bg-emerald-600/15 dark:text-emerald-300 border-emerald-100 dark:border-emerald-500/30", icon: "fa-robot" },
-  "Taller":       { cls: "bg-violet-50 text-violet-700 dark:bg-violet-600/15 dark:text-violet-300 border-violet-100 dark:border-violet-500/30", icon: "fa-screwdriver-wrench" },
-  "Feria":        { cls: "bg-amber-50 text-amber-700 dark:bg-amber-500/15 dark:text-amber-300 border-amber-100 dark:border-amber-500/30", icon: "fa-star" },
-  "Concurso":     { cls: "bg-accent-50 text-accent-700 dark:bg-accent-700/15 dark:text-accent-300 border-accent-100 dark:border-accent-700/30", icon: "fa-trophy" },
-  "Capacitación": { cls: "bg-cyan-50 text-cyan-700 dark:bg-cyan-600/15 dark:text-cyan-300 border-cyan-100 dark:border-cyan-500/30", icon: "fa-chalkboard-teacher" },
-  "Proyecto":     { cls: "bg-emerald-50 text-emerald-700 dark:bg-emerald-600/15 dark:text-emerald-300 border-emerald-100 dark:border-emerald-500/30", icon: "fa-diagram-project" },
-  "Celebración":  { cls: "bg-pink-50 text-pink-700 dark:bg-pink-600/15 dark:text-pink-300 border-pink-100 dark:border-pink-500/30", icon: "fa-party-horn" },
-  "Galería":      { cls: "bg-indigo-50 text-indigo-700 dark:bg-indigo-600/15 dark:text-indigo-300 border-indigo-100 dark:border-indigo-500/30", icon: "fa-images" },
-  "Otro":         { cls: "bg-slate-50 text-slate-700 dark:bg-slate-600/15 dark:text-slate-300 border-slate-200 dark:border-slate-500/30", icon: "fa-tag" },
-};
 
 const TIPO_META = {
   Foto:  { icon: "fa-image",      cls: "bg-primary-500",  label: "Foto" },
@@ -58,15 +40,14 @@ function normalizeImgs(ev) {
   return [];
 }
 
-function StatsHeader({ total, totalFotos, totalVideos, categoriasCount }) {
+function StatsHeader({ total, totalFotos, totalVideos }) {
   const stats = [
     { icon: "fa-calendar-check", value: total, label: "Actividades", accent: "from-primary-500/20 to-primary-600/5 text-primary-300" },
     { icon: "fa-image",           value: totalFotos, label: "Fotografías", accent: "from-cyan-500/20 to-cyan-600/5 text-cyan-300" },
     { icon: "fa-video",           value: totalVideos, label: "Videos",     accent: "from-accent-500/20 to-accent-600/5 text-accent-300" },
-    { icon: "fa-tags",            value: categoriasCount, label: "Categorías", accent: "from-emerald-500/20 to-emerald-600/5 text-emerald-300" },
   ];
   return (
-    <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+    <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
       {stats.map((s) => (
         <div
           key={s.label}
@@ -189,7 +170,6 @@ function EvidenciaCard({ ev, onOpen, isAdmin, onEdit, onDelete }) {
   const isVideoOnly = ev.tipo === "Video" && imgs.length === 1 && !ytId && isVideoItem(imgs[0]);
   const isCollection = imgs.length > 1;
   const isDriveFolder = Boolean(ev.driveFolderUrl);
-  const catMeta = CATEGORIA_META[ev.categoria] || CATEGORIA_META["Otro"];
   const tipoMeta = TIPO_META[ev.tipo] || TIPO_META.Foto;
 
   return (
@@ -208,10 +188,6 @@ function EvidenciaCard({ ev, onOpen, isAdmin, onEdit, onDelete }) {
           <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-semibold bg-surface-alt dark:bg-dark-elev text-ink-subtle">
             <i className="far fa-calendar text-[9px]" />
             {ev.mes}
-          </span>
-          <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-semibold border ${catMeta.cls}`}>
-            <i className={`fas ${catMeta.icon} text-[9px]`} />
-            {ev.categoria}
           </span>
           <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-semibold text-white ${tipoMeta.cls}`}>
             <i className={`fas ${tipoMeta.icon} text-[9px]`} />
@@ -321,7 +297,6 @@ export default function Evidencias({ isAdminMode = false, onEditClick = null, on
   const { evidencias, isLoading } = useApp();
   const [mesSel, setMesSel] = useState(MES_INICIAL);
   const [busqueda, setBusqueda] = useState("");
-  const [categoriaSel, setCategoriaSel] = useState("Todas");
   const [galeria, setGaleria] = useState({
     open: false,
     images: [],
@@ -335,16 +310,14 @@ export default function Evidencias({ isAdminMode = false, onEditClick = null, on
     const list = evidencias || [];
     let fotos = 0;
     let videos = 0;
-    const cats = new Set();
     for (const e of list) {
-      if (e.categoria) cats.add(e.categoria);
       const imgs = normalizeImgs(e);
       for (const img of imgs) {
         if (isVideoItem(img)) videos += 1;
         else fotos += 1;
       }
     }
-    return { total: list.length, totalFotos: fotos, totalVideos: videos, categoriasCount: cats.size };
+    return { total: list.length, totalFotos: fotos, totalVideos: videos };
   }, [evidencias]);
 
   const countsByMonth = useMemo(() => {
@@ -355,32 +328,23 @@ export default function Evidencias({ isAdminMode = false, onEditClick = null, on
     return map;
   }, [evidencias]);
 
-  const countsByCategoria = useMemo(() => {
-    const map = new Map();
-    for (const e of evidencias || []) {
-      if (e.categoria) map.set(e.categoria, (map.get(e.categoria) || 0) + 1);
-    }
-    return map;
-  }, [evidencias]);
-
   const filtradas = useMemo(() => {
     const base = evidencias || [];
     const q = busqueda.toLowerCase();
     return base
       .filter((e) => {
         const matchMes = mesSel === MES_TODOS || e.mes === mesSel;
-        const matchCategoria = categoriaSel === "Todas" || e.categoria === categoriaSel;
         const matchBusqueda =
           (e.titulo || "").toLowerCase().includes(q) ||
           (e.desc || "").toLowerCase().includes(q);
-        return matchMes && matchCategoria && matchBusqueda;
+        return matchMes && matchBusqueda;
       })
       .sort((a, b) => {
         const da = a.fecha ? new Date(a.fecha).getTime() : 0;
         const db = b.fecha ? new Date(b.fecha).getTime() : 0;
         return db - da;
       });
-  }, [evidencias, mesSel, busqueda, categoriaSel]);
+  }, [evidencias, mesSel, busqueda]);
 
   const grouped = useMemo(() => {
     if (mesSel !== MES_TODOS) return null;
@@ -396,7 +360,7 @@ export default function Evidencias({ isAdminMode = false, onEditClick = null, on
     return map;
   }, [filtradas, mesSel]);
 
-  const hasActiveFilters = busqueda || categoriaSel !== "Todas" || mesSel !== MES_INICIAL;
+  const hasActiveFilters = busqueda || mesSel !== MES_INICIAL;
 
   const openEvidenciaGaleria = async (ev) => {
     if (ev.driveFolderUrl) {
@@ -453,7 +417,6 @@ export default function Evidencias({ isAdminMode = false, onEditClick = null, on
   const closeGaleria = () => setGaleria((g) => ({ ...g, open: false }));
   const clearFilters = () => {
     setMesSel(MES_INICIAL);
-    setCategoriaSel("Todas");
     setBusqueda("");
   };
 
@@ -538,7 +501,7 @@ export default function Evidencias({ isAdminMode = false, onEditClick = null, on
       <p className="mt-1.5 text-[13px] text-ink-subtle max-w-sm mx-auto">
         {stats.total === 0
           ? "Sube la primera actividad usando el botón + Nuevo en la cabecera."
-          : "Prueba con otro mes, categoría o limpia los filtros para ver más resultados."}
+          : "Prueba con otro mes o limpia los filtros para ver más resultados."}
       </p>
       {hasActiveFilters && (
         <button
@@ -567,7 +530,6 @@ export default function Evidencias({ isAdminMode = false, onEditClick = null, on
         total={stats.total}
         totalFotos={stats.totalFotos}
         totalVideos={stats.totalVideos}
-        categoriasCount={stats.categoriasCount}
       />
 
       <div className="rounded-cardLg border border-line dark:border-dark-border bg-white dark:bg-dark-card shadow-card overflow-hidden">
@@ -586,54 +548,28 @@ export default function Evidencias({ isAdminMode = false, onEditClick = null, on
             </div>
           </div>
 
-          <div className="space-y-3">
-            <div className="flex items-center gap-2">
-              <span className="text-[10px] font-semibold text-ink-meta uppercase tracking-wider w-20 flex-shrink-0">
-                Mes
-              </span>
-              <div className="flex flex-wrap items-center gap-1.5">
+          <div className="flex items-center gap-2">
+            <span className="text-[10px] font-semibold text-ink-meta uppercase tracking-wider w-20 flex-shrink-0">
+              Mes
+            </span>
+            <div className="flex flex-wrap items-center gap-1.5">
+              <FilterChip
+                active={mesSel === MES_TODOS}
+                onClick={() => setMesSel(MES_TODOS)}
+                count={stats.total}
+              >
+                Todas
+              </FilterChip>
+              {MESES.map((m) => (
                 <FilterChip
-                  active={mesSel === MES_TODOS}
-                  onClick={() => setMesSel(MES_TODOS)}
-                  count={stats.total}
+                  key={m}
+                  active={mesSel === m}
+                  onClick={() => setMesSel(m)}
+                  count={countsByMonth.get(m) || 0}
                 >
-                  Todas
+                  {m}
                 </FilterChip>
-                {MESES.map((m) => (
-                  <FilterChip
-                    key={m}
-                    active={mesSel === m}
-                    onClick={() => setMesSel(m)}
-                    count={countsByMonth.get(m) || 0}
-                  >
-                    {m}
-                  </FilterChip>
-                ))}
-              </div>
-            </div>
-
-            <div className="flex items-start gap-2">
-              <span className="text-[10px] font-semibold text-ink-meta uppercase tracking-wider w-20 flex-shrink-0 pt-2">
-                Categoría
-              </span>
-              <div className="flex flex-wrap items-center gap-1.5">
-                <FilterChip
-                  active={categoriaSel === "Todas"}
-                  onClick={() => setCategoriaSel("Todas")}
-                >
-                  Todas
-                </FilterChip>
-                {CATEGORIAS.map((c) => (
-                  <FilterChip
-                    key={c}
-                    active={categoriaSel === c}
-                    onClick={() => setCategoriaSel(c)}
-                    count={countsByCategoria.get(c) || 0}
-                  >
-                    {c}
-                  </FilterChip>
-                ))}
-              </div>
+              ))}
             </div>
           </div>
         </div>

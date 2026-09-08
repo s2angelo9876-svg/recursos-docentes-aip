@@ -261,14 +261,21 @@ export default function AdminModal({ isOpen, onClose, type, editingItem }) {
         setUploadProgressMsg("Sesión inválida.");
         return null;
       }
-      if (!response.ok) throw new Error("Error en la carga.");
+      if (!response.ok) {
+        let detail = "";
+        try {
+          const errJson = await response.json();
+          detail = errJson?.error ? `: ${errJson.error}` : "";
+        } catch { /* ignore */ }
+        throw new Error(`HTTP ${response.status}${detail}`);
+      }
       const resData = await response.json();
       setUploadProgressMsg("¡Archivo cargado!");
       setTimeout(() => setUploadProgressMsg(""), 2000);
       return resData.url;
-    } catch (_err) {
-      console.error(_err);
-      alert("Fallo al subir archivo al servidor.");
+    } catch (err) {
+      console.error("uploadFile error:", err);
+      alert(`Fallo al subir archivo al servidor. ${err?.message || ""}`.trim());
       setUploadProgressMsg("Error al cargar.");
       return null;
     } finally {
@@ -283,12 +290,16 @@ export default function AdminModal({ isOpen, onClose, type, editingItem }) {
       alert(`"${oversized.name}" excede el límite de 100 MB.`);
       return null;
     }
-    try {
-      setLoadingFile(true);
-      setUploadProgressMsg(`Subiendo ${files.length} archivo(s)...`);
+
+    const CONCURRENCY = 4;
+    let done = 0;
+    setLoadingFile(true);
+    setUploadProgressMsg(`Subiendo ${files.length} archivo(s)...`);
+
+    const uploadOne = async (f) => {
       const formData = new FormData();
-      for (const f of files) formData.append("files", f);
-      const response = await fetch(`${API_BASE}/api/uploads`, {
+      formData.append("file", f);
+      const response = await fetch(`${API_BASE}/api/upload`, {
         method: "POST",
         headers: { ...(token ? { "Authorization": `Bearer ${token}` } : {}) },
         body: formData
@@ -296,25 +307,81 @@ export default function AdminModal({ isOpen, onClose, type, editingItem }) {
       if (response.status === 401 || response.status === 403) {
         logout();
         alert("Tu sesión ha expirado.");
-        return null;
+        throw new Error("SESSION_EXPIRED");
       }
-      if (!response.ok) throw new Error("Error en la carga múltiple.");
+      if (!response.ok) {
+        let detail = "";
+        try {
+          const errJson = await response.json();
+          detail = errJson?.error ? `: ${errJson.error}` : "";
+        } catch { /* ignore */ }
+        throw new Error(`HTTP ${response.status}${detail}`);
+      }
       const resData = await response.json();
-      const uploaded = resData.uploaded || resData.files || [];
-      const failed = resData.failed || [];
+      done += 1;
+      setUploadProgressMsg(`Subiendo ${Math.min(done, files.length)}/${files.length}`);
+      return {
+        url: resData.url,
+        name: f.name,
+        filename: resData.filename,
+        size: resData.size,
+        mimetype: resData.mimetype,
+      };
+    };
+
+    try {
+      const results = new Array(files.length);
+      let cursor = 0;
+
+      const worker = async () => {
+        while (cursor < files.length) {
+          const i = cursor++;
+          try {
+            results[i] = { ok: true, value: await uploadOne(files[i]) };
+          } catch (fileErr) {
+            if (fileErr?.message === "SESSION_EXPIRED") return;
+            results[i] = { ok: false, error: fileErr, file: files[i] };
+          }
+        }
+      };
+
+      const workers = Array.from(
+        { length: Math.min(CONCURRENCY, files.length) },
+        () => worker()
+      );
+      await Promise.all(workers);
+
+      const uploaded = [];
+      const failed = [];
+      for (const r of results) {
+        if (!r) continue;
+        if (r.ok) uploaded.push(r.value);
+        else {
+          console.error(`uploadFiles: fallo al subir ${r.file.name}:`, r.error);
+          failed.push({ name: r.file.name, error: r.error?.message || "Error desconocido" });
+        }
+      }
+
       if (failed.length > 0) {
+        const failedNames = failed.map((f) => f.name).slice(0, 3).join(", ") + (failed.length > 3 ? "…" : "");
         setUploadProgressMsg(
-          `Subidos ${uploaded.length}/${files.length}. Fallaron: ${failed.map(f => f.name).slice(0, 3).join(", ")}${failed.length > 3 ? "..." : ""}`
+          `Subidos ${uploaded.length}/${files.length}. Fallaron: ${failedNames}`
         );
         setTimeout(() => setUploadProgressMsg(""), 5000);
+        if (uploaded.length === 0) {
+          alert(
+            `No se pudo subir ningún archivo.\n${failed.map((f) => `• ${f.name}: ${f.error}`).join("\n")}`
+          );
+          return null;
+        }
       } else {
         setUploadProgressMsg(`¡${uploaded.length} archivo(s) subido(s)!`);
         setTimeout(() => setUploadProgressMsg(""), 2000);
       }
       return uploaded;
-    } catch (_err) {
-      console.error(_err);
-      alert("Fallo al subir archivos al servidor.");
+    } catch (err) {
+      console.error("uploadFiles error:", err);
+      alert(`Fallo al subir archivos al servidor. ${err?.message || ""}`.trim());
       setUploadProgressMsg("Error al cargar.");
       return null;
     } finally {
