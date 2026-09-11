@@ -14,7 +14,6 @@ const AREAS_TUTORIAL = [...AREAS_CNEB, "Todas las áreas"];
 const GRADOS = ["1.° Sec", "2.° Sec", "3.° Sec", "4.° Sec", "5.° Sec"];
 const TIPOS_RECURSO = ["Video", "Web / App", "PDF", "Simulación", "Juego", "Colección"];
 const MESES = ["Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
-const CATEGORIAS_EVIDENCIA = ["Gestión", "Robótica", "Taller", "Feria", "Concurso", "Capacitación", "Proyecto", "Celebración", "Otro"];
 const TIPOS_EVIDENCIA = ["Foto", "Video", "Ambos"];
 
 // Fusiona archivos nuevos con los existentes, descartando duplicados (mismo nombre + tamaño).
@@ -90,7 +89,6 @@ export default function AdminModal({ isOpen, onClose, type, editingItem }) {
   // ── Evidencias ────────────────────────────────────────────
   const [eviTitulo, setEviTitulo] = useState("");
   const [eviMes, setEviMes] = useState(MESES[0]);
-  const [eviCategoria, setEviCategoria] = useState(CATEGORIAS_EVIDENCIA[0]);
   const [eviTipo, setEviTipo] = useState(TIPOS_EVIDENCIA[0]);
   const [eviDesc, setEviDesc] = useState("");
   const [eviSourceType, setEviSourceType] = useState("url");
@@ -187,7 +185,6 @@ export default function AdminModal({ isOpen, onClose, type, editingItem }) {
       } else if (type === "evidencias") {
         setEviTitulo(editingItem.titulo || "");
         setEviMes(editingItem.mes || MESES[0]);
-        setEviCategoria(editingItem.categoria || CATEGORIAS_EVIDENCIA[0]);
         setEviTipo(editingItem.tipo || TIPOS_EVIDENCIA[0]);
         setEviDesc(editingItem.desc || "");
         const existingImgs = Array.isArray(editingItem.imagenes) ? editingItem.imagenes : [];
@@ -228,7 +225,7 @@ export default function AdminModal({ isOpen, onClose, type, editingItem }) {
       setTutTitulo(""); setTutArea(AREAS_CNEB[0]); setTutDesc("");
       setTutUrl(""); setTutAudiencia("ambos");
       setNotTitulo(""); setNotDesc(""); setNotAutor("");
-      setEviTitulo(""); setEviMes(MESES[0]); setEviCategoria(CATEGORIAS_EVIDENCIA[0]);
+      setEviTitulo(""); setEviMes(MESES[0]);
       setEviTipo(TIPOS_EVIDENCIA[0]); setEviDesc("");
       setEviSourceType("url"); setEviUrl(""); setEviFile(null);
       setEviFiles([]); setEviCollectionMode(false); setEviExistingImagenes([]);
@@ -529,7 +526,6 @@ export default function AdminModal({ isOpen, onClose, type, editingItem }) {
         data = {
           titulo: eviTitulo,
           mes: eviMes,
-          categoria: eviCategoria,
           tipo: eviTipo,
           desc: eviDesc,
           url: eviDriveCover || null,
@@ -541,7 +537,6 @@ export default function AdminModal({ isOpen, onClose, type, editingItem }) {
         data = {
           titulo: eviTitulo,
           mes: eviMes,
-          categoria: eviCategoria,
           tipo: eviTipo,
           desc: eviDesc,
           url: eviUrl,
@@ -560,7 +555,6 @@ export default function AdminModal({ isOpen, onClose, type, editingItem }) {
         data = {
           titulo: eviTitulo,
           mes: eviMes,
-          categoria: eviCategoria,
           tipo: eviTipo,
           desc: eviDesc,
           url: all[0]?.url || "",
@@ -584,7 +578,6 @@ export default function AdminModal({ isOpen, onClose, type, editingItem }) {
         data = {
           titulo: eviTitulo,
           mes: eviMes,
-          categoria: eviCategoria,
           tipo: eviTipo,
           desc: eviDesc,
           url: finalUrl,
@@ -699,7 +692,7 @@ export default function AdminModal({ isOpen, onClose, type, editingItem }) {
                   </select>
                 </div>
                 <div className="space-y-1">
-                  <label className="text-[10px] font-black uppercase text-gray-400 dark:text-gray-500 tracking-wider">Categoría</label>
+                  <label className="text-[10px] font-black uppercase text-gray-400 dark:text-gray-500 tracking-wider">Tipo</label>
                   {isCollection ? (
                     <div className="w-full px-3 py-2 border border-gray-200 dark:border-dark-border bg-gray-50 dark:bg-dark-border/30 rounded-xl text-xs text-gray-500 font-bold uppercase">Colección</div>
                   ) : (
@@ -860,17 +853,11 @@ export default function AdminModal({ isOpen, onClose, type, editingItem }) {
                 <input type="text" required placeholder="Ej. Feria de Ciencias 2026" className="w-full px-3 py-2 border border-gray-200 dark:border-dark-border bg-white dark:bg-dark-card rounded-xl text-xs focus:ring-2 focus:ring-primary outline-none text-gray-800 dark:text-gray-200" value={eviTitulo} onChange={(e) => setEviTitulo(e.target.value)} />
               </div>
 
-              <div className="grid grid-cols-3 gap-3">
+              <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1">
                   <label className="text-[10px] font-black uppercase text-gray-400 dark:text-gray-500 tracking-wider">Mes *</label>
                   <select className="w-full px-3 py-2 border border-gray-200 dark:border-dark-border bg-white dark:bg-dark-card rounded-xl text-xs outline-none text-gray-700 dark:text-gray-200" value={eviMes} onChange={(e) => setEviMes(e.target.value)}>
                     {MESES.map(m => <option key={m} value={m}>{m}</option>)}
-                  </select>
-                </div>
-                <div className="space-y-1">
-                  <label className="text-[10px] font-black uppercase text-gray-400 dark:text-gray-500 tracking-wider">Categoría *</label>
-                  <select className="w-full px-3 py-2 border border-gray-200 dark:border-dark-border bg-white dark:bg-dark-card rounded-xl text-xs outline-none text-gray-700 dark:text-gray-200" value={eviCategoria} onChange={(e) => setEviCategoria(e.target.value)}>
-                    {CATEGORIAS_EVIDENCIA.map(c => <option key={c} value={c}>{c}</option>)}
                   </select>
                 </div>
                 <div className="space-y-1">

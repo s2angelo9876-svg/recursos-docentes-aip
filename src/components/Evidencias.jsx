@@ -10,6 +10,11 @@ const MESES = [
   "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto",
   "Septiembre", "Octubre", "Noviembre", "Diciembre",
 ];
+const MES_ABREV = {
+  "Marzo": "Mar", "Abril": "Abr", "Mayo": "May", "Junio": "Jun",
+  "Julio": "Jul", "Agosto": "Ago", "Septiembre": "Sep",
+  "Octubre": "Oct", "Noviembre": "Nov", "Diciembre": "Dic",
+};
 const MES_TODOS = "Todas";
 
 const mesActual = new Date().getMonth();
@@ -567,7 +572,7 @@ export default function Evidencias({ isAdminMode = false, onEditClick = null, on
                   onClick={() => setMesSel(m)}
                   count={countsByMonth.get(m) || 0}
                 >
-                  {m}
+                  {MES_ABREV[m] || m}
                 </FilterChip>
               ))}
             </div>
