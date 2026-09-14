@@ -1,8 +1,30 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
+import { copyFileSync, mkdirSync, readdirSync } from 'node:fs'
+import { resolve, dirname } from 'node:path'
+import { fileURLToPath } from 'node:url'
+
+const __dirname = dirname(fileURLToPath(import.meta.url))
+
+function copyFontAwesomeFonts() {
+  return {
+    name: 'copy-fa-fonts',
+    apply: 'build',
+    closeBundle() {
+      const src = resolve(__dirname, 'node_modules/@fortawesome/fontawesome-free/webfonts')
+      const dest = resolve(__dirname, 'dist/webfonts')
+      mkdirSync(dest, { recursive: true })
+      for (const file of readdirSync(src)) {
+        if (file.endsWith('.woff2')) {
+          copyFileSync(resolve(src, file), resolve(dest, file))
+        }
+      }
+    },
+  }
+}
 
 export default defineConfig({
-  plugins: [react()],
+  plugins: [react(), copyFontAwesomeFonts()],
   build: {
     target: 'es2020',
     cssCodeSplit: true,
