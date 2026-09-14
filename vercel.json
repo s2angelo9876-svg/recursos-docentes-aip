@@ -1,4 +1,19 @@
 {
+  "headers": [
+    {
+      "source": "/(.*)\\.(js|css|woff2|avif|webp|png|jpg|jpeg|svg|gif)$",
+      "headers": [
+        { "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }
+      ]
+    },
+    {
+      "source": "/(index\\.html|$)",
+      "headers": [
+        { "key": "Cache-Control", "value": "no-cache, no-store, must-revalidate" },
+        { "key": "Pragma", "value": "no-cache" }
+      ]
+    }
+  ],
   "rewrites": [
     { "source": "/api/(.*)", "destination": "https://recursos-docentes.onrender.com/api/$1" },
     { "source": "/(.*)", "destination": "/index.html" }
