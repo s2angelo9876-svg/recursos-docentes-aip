@@ -1,4 +1,4 @@
-import { useState, useEffect, lazy, Suspense } from "react";
+import { useState, useEffect, lazy, Suspense, Component } from "react";
 import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate, useLocation } from "react-router-dom";
 import { AnimatePresence, motion } from "framer-motion";
 import { AppContextProvider, useApp } from "./context/AppContext";
@@ -22,6 +22,40 @@ function RouteFallback() {
       <span className="inline-flex h-10 w-10 items-center justify-center rounded-full border-2 border-primary-200 border-t-primary-600 animate-spin" />
     </div>
   );
+}
+
+class RouteErrorBoundary extends Component {
+  state = { hasError: false };
+
+  static getDerivedStateFromError() {
+    return { hasError: true };
+  }
+
+  componentDidCatch(error, info) {
+    console.error("[RouteErrorBoundary]", error, info?.componentStack);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="flex flex-col items-center justify-center py-20 text-center" role="alert">
+          <span className="inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-red-50 dark:bg-red-500/15 text-red-500 mb-3">
+            <i className="fas fa-triangle-exclamation text-lg" />
+          </span>
+          <h3 className="text-[15px] font-semibold text-ink dark:text-white">
+            No se pudo cargar esta sección
+          </h3>
+          <button
+            onClick={() => this.setState({ hasError: false })}
+            className="mt-4 h-9 px-4 rounded-btn bg-primary-600 hover:bg-primary-700 text-white text-[12px] font-semibold transition-colors inline-flex items-center gap-1.5"
+          >
+            <i className="fas fa-arrow-rotate-left text-[10px]" /> Reintentar
+          </button>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
 }
 
 function SectionHeader({ icon, iconColor, title, onAdd }) {
@@ -132,110 +166,97 @@ function AppContent() {
 
       {/* Dynamic Content Main area */}
       <main id="main-content" className="max-w-6xl w-full mx-auto px-4 py-8 flex-grow">
-        <AnimatePresence mode="wait">
-          <Routes location={location} key={location.pathname}>
-            <Route path="/" element={
-              <motion.div key="portada" initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -15 }} transition={{ duration: 0.25 }}>
-                <Suspense fallback={<RouteFallback />}>
+        <RouteErrorBoundary>
+        <Suspense fallback={<RouteFallback />} key={location.pathname}>
+          <AnimatePresence mode="wait" initial={false}>
+            <Routes location={location}>
+              <Route path="/" element={
+                <motion.div key="portada" initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -15 }} transition={{ duration: 0.25 }}>
                   <Hero setActiveTab={setActiveTab} />
-                </Suspense>
-              </motion.div>
-            } />
-            <Route path="/portada" element={<Navigate to="/" replace />} />
+                </motion.div>
+              } />
+              <Route path="/portada" element={<Navigate to="/" replace />} />
 
-            <Route path="/login" element={
-              currentUser ? <Navigate to="/" replace /> : (
-                <motion.div key="login" initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -15 }} transition={{ duration: 0.25 }}>
-                  <Suspense fallback={<RouteFallback />}>
+              <Route path="/login" element={
+                currentUser ? <Navigate to="/" replace /> : (
+                  <motion.div key="login" initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -15 }} transition={{ duration: 0.25 }}>
                     <Login onLoginSuccess={() => navigate("/")} />
-                  </Suspense>
-                </motion.div>
-              )
-            } />
+                  </motion.div>
+                )
+              } />
 
-            <Route path="/recursos" element={
-              !currentUser ? (
-                <motion.div key="recursos-login" initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -15 }} transition={{ duration: 0.25 }}>
-                  <Suspense fallback={<RouteFallback />}>
+              <Route path="/recursos" element={
+                !currentUser ? (
+                  <motion.div key="recursos-login" initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -15 }} transition={{ duration: 0.25 }}>
                     <Login onLoginSuccess={() => navigate("/recursos")} />
-                  </Suspense>
-                </motion.div>
-              ) : (
-                <motion.div key="recursos" initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -15 }} transition={{ duration: 0.25 }} className="space-y-6 text-left">
-                  <SectionHeader
-                    icon="fas fa-book"
-                    iconColor="bg-blue-50 text-blue-600 dark:bg-blue-950/30 dark:text-blue-400"
-                    title="Recursos Pedagógicos"
-                  />
-                  <Suspense fallback={<RouteFallback />}>
+                  </motion.div>
+                ) : (
+                  <motion.div key="recursos" initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -15 }} transition={{ duration: 0.25 }} className="space-y-6 text-left">
+                    <SectionHeader
+                      icon="fas fa-book"
+                      iconColor="bg-blue-50 text-blue-600 dark:bg-blue-950/30 dark:text-blue-400"
+                      title="Recursos Pedagógicos"
+                    />
                     <Repositorio
                       isAdminMode={isAdmin || isDocente}
                       onEditClick={(item) => openCmsEdit("recursos", item)}
                       onDeleteClick={(item) => setPendingDelete({ kind: "recurso", id: item.id, titulo: item.titulo })}
                     />
-                  </Suspense>
-                </motion.div>
-              )
-            } />
+                  </motion.div>
+                )
+              } />
 
-            <Route path="/evidencias" element={
-              <motion.div key="evidencias" initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -15 }} transition={{ duration: 0.25 }} className="space-y-6 text-left">
-                <SectionHeader
-                  icon="fas fa-images"
-                  iconColor="bg-green-50 text-green-600 dark:bg-green-950/30 dark:text-green-400"
-                  title="Evidencias por Mes"
-                  onAdd={isAdmin || isDocente ? () => openCmsAdd("evidencias") : null}
-                />
-                <Suspense fallback={<RouteFallback />}>
+              <Route path="/evidencias" element={
+                <motion.div key="evidencias" initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -15 }} transition={{ duration: 0.25 }} className="space-y-6 text-left">
+                  <SectionHeader
+                    icon="fas fa-images"
+                    iconColor="bg-green-50 text-green-600 dark:bg-green-950/30 dark:text-green-400"
+                    title="Evidencias por Mes"
+                    onAdd={isAdmin || isDocente ? () => openCmsAdd("evidencias") : null}
+                  />
                   <Evidencias
                     isAdminMode={isAdmin || isDocente}
                     onEditClick={(item) => openCmsEdit("evidencias", item)}
                     onDeleteClick={(item) => setPendingDelete({ kind: "evidencia", id: item.id, titulo: item.titulo })}
                   />
-                </Suspense>
-              </motion.div>
-            } />
+                </motion.div>
+              } />
 
-            <Route path="/tutoriales" element={
-              <motion.div key="tutoriales" initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -15 }} transition={{ duration: 0.25 }} className="space-y-6 text-left">
-                <SectionHeader
-                  icon="fab fa-youtube"
-                  iconColor="bg-red-50 text-red-600 dark:bg-red-950/30 dark:text-red-400"
-                  title="Tutoriales TIC"
-                  onAdd={isAdmin ? () => openCmsAdd("tutoriales") : null}
-                />
-                <Suspense fallback={<RouteFallback />}>
+              <Route path="/tutoriales" element={
+                <motion.div key="tutoriales" initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -15 }} transition={{ duration: 0.25 }} className="space-y-6 text-left">
+                  <SectionHeader
+                    icon="fab fa-youtube"
+                    iconColor="bg-red-50 text-red-600 dark:bg-red-950/30 dark:text-red-400"
+                    title="Tutoriales TIC"
+                    onAdd={isAdmin ? () => openCmsAdd("tutoriales") : null}
+                  />
                   <Tutoriales
                     isAdminMode={isAdmin}
                     onEditClick={(item) => openCmsEdit("tutoriales", item)}
                     onDeleteClick={(item) => setPendingDelete({ kind: "tutorial", id: item.id, titulo: item.titulo })}
                   />
-                </Suspense>
-              </motion.div>
-            } />
+                </motion.div>
+              } />
 
-            <Route path="/proyectos" element={<Navigate to="/tutoriales" replace />} />
+              <Route path="/proyectos" element={<Navigate to="/tutoriales" replace />} />
 
-            <Route path="/noticias" element={
-              <motion.div key="noticias" initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -15 }} transition={{ duration: 0.25 }} className="space-y-6 text-left">
-                <SectionHeader
-                  icon="fas fa-bullhorn"
-                  iconColor="bg-purple-50 text-purple-600 dark:bg-purple-950/30 dark:text-purple-400"
-                  title="Comunicados y Talleres TIC"
-                  onAdd={isAdmin ? () => openCmsAdd("noticias") : null}
-                />
-                <Suspense fallback={<RouteFallback />}>
+              <Route path="/noticias" element={
+                <motion.div key="noticias" initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -15 }} transition={{ duration: 0.25 }} className="space-y-6 text-left">
+                  <SectionHeader
+                    icon="fas fa-bullhorn"
+                    iconColor="bg-purple-50 text-purple-600 dark:bg-purple-950/30 dark:text-purple-400"
+                    title="Comunicados y Talleres TIC"
+                    onAdd={isAdmin ? () => openCmsAdd("noticias") : null}
+                  />
                   <Noticias
                     isAdminMode={isAdmin}
                     onEditClick={(item) => openCmsEdit("noticias", item)}
                   />
-                </Suspense>
-              </motion.div>
-            } />
+                </motion.div>
+              } />
 
-            <Route path="/admin" element={
-              <motion.div key="admin" initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -15 }} transition={{ duration: 0.25 }}>
-                <Suspense fallback={<RouteFallback />}>
+              <Route path="/admin" element={
+                <motion.div key="admin" initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -15 }} transition={{ duration: 0.25 }}>
                   {currentUser ? (
                     currentUser.rol === "Administrador" ? (
                       <AdminPanel />
@@ -245,13 +266,14 @@ function AppContent() {
                   ) : (
                     <Login onLoginSuccess={() => navigate("/admin")} />
                   )}
-                </Suspense>
-              </motion.div>
-            } />
+                </motion.div>
+              } />
 
-            <Route path="*" element={<Navigate to="/" replace />} />
-          </Routes>
-        </AnimatePresence>
+              <Route path="*" element={<Navigate to="/" replace />} />
+            </Routes>
+          </AnimatePresence>
+        </Suspense>
+        </RouteErrorBoundary>
       </main>
 
       {/* CMS Modal — shared across all views */}
