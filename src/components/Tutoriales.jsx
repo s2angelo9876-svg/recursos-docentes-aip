@@ -73,6 +73,79 @@ function YouTubeThumbnail({ url, title }) {
   );
 }
 
+function AccessSelector({ onSelect }) {
+  return (
+    <div className="flex flex-col items-center justify-center min-h-[60vh] px-4">
+      <motion.div
+        initial={{ opacity: 0, y: 16 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5, ease: easeOut }}
+        className="text-center mb-10 max-w-md"
+      >
+        <span className="inline-flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-accent-500 to-accent-700 text-white shadow-glow mb-5">
+          <i className="fab fa-youtube text-2xl" />
+        </span>
+        <h2 className="text-2xl sm:text-3xl font-bold tracking-tight text-ink dark:text-white">
+          Tutoriales TIC
+        </h2>
+        <p className="mt-2 text-[14px] text-ink-subtle leading-relaxed">
+          ¿Cómo deseas acceder al catálogo de tutoriales pedagógicos?
+        </p>
+      </motion.div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 w-full max-w-xl">
+        <motion.button
+          initial={{ opacity: 0, x: -16 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ duration: 0.5, delay: 0.1, ease: easeOut }}
+          onClick={() => onSelect("docente")}
+          className="group relative overflow-hidden rounded-cardLg border border-line dark:border-dark-border bg-white dark:bg-dark-card p-7 text-left hover:-translate-y-0.5 hover:shadow-card-hover hover:border-primary-200 dark:hover:border-primary-500/40 transition-all"
+        >
+          <div className="absolute inset-0 bg-gradient-to-br from-primary-500/[0.04] to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+          <div className="relative">
+            <span className="inline-flex h-12 w-12 items-center justify-center rounded-xl bg-primary-50 text-primary-600 dark:bg-primary-600/15 dark:text-primary-300 mb-4 group-hover:scale-110 transition-transform">
+              <i className="fas fa-chalkboard-teacher text-lg" />
+            </span>
+            <h3 className="text-[17px] font-semibold text-ink dark:text-white">
+              Docente
+            </h3>
+            <p className="mt-1.5 text-[13px] text-ink-subtle leading-relaxed">
+              Catálogo completo de tutoriales pedagógicos y recursos TIC para tu práctica.
+            </p>
+            <span className="mt-5 inline-flex items-center gap-1.5 text-[12px] font-semibold text-primary-600 dark:text-primary-300 group-hover:gap-2.5 transition-all">
+              Ingresar <i className="fas fa-arrow-right text-[10px]" />
+            </span>
+          </div>
+        </motion.button>
+
+        <motion.button
+          initial={{ opacity: 0, x: 16 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ duration: 0.5, delay: 0.15, ease: easeOut }}
+          onClick={() => onSelect("estudiante")}
+          className="group relative overflow-hidden rounded-cardLg border border-line dark:border-dark-border bg-white dark:bg-dark-card p-7 text-left hover:-translate-y-0.5 hover:shadow-card-hover hover:border-emerald-200 dark:hover:border-emerald-500/40 transition-all"
+        >
+          <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/[0.04] to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+          <div className="relative">
+            <span className="inline-flex h-12 w-12 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600 dark:bg-emerald-600/15 dark:text-emerald-300 mb-4 group-hover:scale-110 transition-transform">
+              <i className="fas fa-user-graduate text-lg" />
+            </span>
+            <h3 className="text-[17px] font-semibold text-ink dark:text-white">
+              Estudiante
+            </h3>
+            <p className="mt-1.5 text-[13px] text-ink-subtle leading-relaxed">
+              Aprende con videos seleccionados por tus docentes y tutores.
+            </p>
+            <span className="mt-5 inline-flex items-center gap-1.5 text-[12px] font-semibold text-emerald-600 dark:text-emerald-300 group-hover:gap-2.5 transition-all">
+              Ingresar <i className="fas fa-arrow-right text-[10px]" />
+            </span>
+          </div>
+        </motion.button>
+      </div>
+    </div>
+  );
+}
+
 function AudiencePill({ audience }) {
   if (!audience || audience === "ambos") return null;
   const map = {
@@ -105,7 +178,6 @@ export default function Tutoriales({ isAdminMode = false, onEditClick = null, on
   const [areaSel, setAreaSel] = useState(AREA_TODAS);
   const accessType = isAdminMode ? null : tutorialAccess;
   const setAccessType = setTutorialAccess;
-  const showAudienceFilter = !isAdminMode && Boolean(accessType);
 
   const tutorialesFiltrados = useMemo(() => {
     return tutoriales.filter((p) => {
@@ -156,6 +228,10 @@ export default function Tutoriales({ isAdminMode = false, onEditClick = null, on
     return map;
   }, [tutoriales]);
 
+  if (!accessType && !isAdminMode) {
+    return <AccessSelector onSelect={setAccessType} />;
+  }
+
   const hasActiveFilters = !!busqueda || areaSel !== AREA_TODAS;
   const clearFilters = () => {
     setBusqueda("");
@@ -173,7 +249,7 @@ export default function Tutoriales({ isAdminMode = false, onEditClick = null, on
 
   return (
     <div className="space-y-6">
-      {showAudienceFilter && (
+      {accessType && !isAdminMode && (
         <div className="flex items-center justify-between flex-wrap gap-2">
           <span
             className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-[11px] font-semibold border ${
