@@ -1,6 +1,5 @@
 import { useState, useEffect, lazy, Suspense, Component } from "react";
 import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate, useLocation } from "react-router-dom";
-import { AnimatePresence, motion } from "framer-motion";
 import { AppContextProvider, useApp } from "./context/AppContext";
 import Header from "./components/Header";
 import { ToastProvider } from "./components/Toast";
@@ -165,33 +164,22 @@ function AppContent() {
       )}
 
       {/* Dynamic Content Main area */}
-      <main id="main-content" className="max-w-6xl w-full mx-auto px-4 py-8 flex-grow">
+      <main id="main-content" key={location.pathname} className="route-transition max-w-6xl w-full mx-auto px-4 py-8 flex-grow">
         <RouteErrorBoundary>
-        <Suspense fallback={<RouteFallback />} key={location.pathname}>
-          <AnimatePresence mode="wait" initial={false}>
+          <Suspense fallback={<RouteFallback />}>
             <Routes location={location}>
-              <Route path="/" element={
-                <motion.div key="portada" initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -15 }} transition={{ duration: 0.25 }}>
-                  <Hero setActiveTab={setActiveTab} />
-                </motion.div>
-              } />
+              <Route path="/" element={<Hero setActiveTab={setActiveTab} />} />
               <Route path="/portada" element={<Navigate to="/" replace />} />
 
               <Route path="/login" element={
-                currentUser ? <Navigate to="/" replace /> : (
-                  <motion.div key="login" initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -15 }} transition={{ duration: 0.25 }}>
-                    <Login onLoginSuccess={() => navigate("/")} />
-                  </motion.div>
-                )
+                currentUser ? <Navigate to="/" replace /> : <Login onLoginSuccess={() => navigate("/")} />
               } />
 
               <Route path="/recursos" element={
                 !currentUser ? (
-                  <motion.div key="recursos-login" initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -15 }} transition={{ duration: 0.25 }}>
-                    <Login onLoginSuccess={() => navigate("/recursos")} />
-                  </motion.div>
+                  <Login onLoginSuccess={() => navigate("/recursos")} />
                 ) : (
-                  <motion.div key="recursos" initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -15 }} transition={{ duration: 0.25 }} className="space-y-6 text-left">
+                  <div className="space-y-6 text-left">
                     <SectionHeader
                       icon="fas fa-book"
                       iconColor="bg-blue-50 text-blue-600 dark:bg-blue-950/30 dark:text-blue-400"
@@ -202,12 +190,12 @@ function AppContent() {
                       onEditClick={(item) => openCmsEdit("recursos", item)}
                       onDeleteClick={(item) => setPendingDelete({ kind: "recurso", id: item.id, titulo: item.titulo })}
                     />
-                  </motion.div>
+                  </div>
                 )
               } />
 
               <Route path="/evidencias" element={
-                <motion.div key="evidencias" initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -15 }} transition={{ duration: 0.25 }} className="space-y-6 text-left">
+                <div className="space-y-6 text-left">
                   <SectionHeader
                     icon="fas fa-images"
                     iconColor="bg-green-50 text-green-600 dark:bg-green-950/30 dark:text-green-400"
@@ -219,11 +207,11 @@ function AppContent() {
                     onEditClick={(item) => openCmsEdit("evidencias", item)}
                     onDeleteClick={(item) => setPendingDelete({ kind: "evidencia", id: item.id, titulo: item.titulo })}
                   />
-                </motion.div>
+                </div>
               } />
 
               <Route path="/tutoriales" element={
-                <motion.div key="tutoriales" initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -15 }} transition={{ duration: 0.25 }} className="space-y-6 text-left">
+                <div className="space-y-6 text-left">
                   <SectionHeader
                     icon="fab fa-youtube"
                     iconColor="bg-red-50 text-red-600 dark:bg-red-950/30 dark:text-red-400"
@@ -235,13 +223,13 @@ function AppContent() {
                     onEditClick={(item) => openCmsEdit("tutoriales", item)}
                     onDeleteClick={(item) => setPendingDelete({ kind: "tutorial", id: item.id, titulo: item.titulo })}
                   />
-                </motion.div>
+                </div>
               } />
 
               <Route path="/proyectos" element={<Navigate to="/tutoriales" replace />} />
 
               <Route path="/noticias" element={
-                <motion.div key="noticias" initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -15 }} transition={{ duration: 0.25 }} className="space-y-6 text-left">
+                <div className="space-y-6 text-left">
                   <SectionHeader
                     icon="fas fa-bullhorn"
                     iconColor="bg-purple-50 text-purple-600 dark:bg-purple-950/30 dark:text-purple-400"
@@ -252,27 +240,20 @@ function AppContent() {
                     isAdminMode={isAdmin}
                     onEditClick={(item) => openCmsEdit("noticias", item)}
                   />
-                </motion.div>
+                </div>
               } />
 
               <Route path="/admin" element={
-                <motion.div key="admin" initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -15 }} transition={{ duration: 0.25 }}>
-                  {currentUser ? (
-                    currentUser.rol === "Administrador" ? (
-                      <AdminPanel />
-                    ) : (
-                      <Navigate to="/" replace />
-                    )
-                  ) : (
-                    <Login onLoginSuccess={() => navigate("/admin")} />
-                  )}
-                </motion.div>
+                currentUser ? (
+                  currentUser.rol === "Administrador" ? <AdminPanel /> : <Navigate to="/" replace />
+                ) : (
+                  <Login onLoginSuccess={() => navigate("/admin")} />
+                )
               } />
 
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
-          </AnimatePresence>
-        </Suspense>
+          </Suspense>
         </RouteErrorBoundary>
       </main>
 
