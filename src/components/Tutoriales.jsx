@@ -54,9 +54,10 @@ function YouTubeThumbnail({ url, title }) {
       <img
         src={thumb}
         alt={title}
+        loading="lazy"
+        decoding="async"
         className="w-full h-full object-cover transition-transform duration-500 group-hover/thumb:scale-105"
         onError={() => setImgError(true)}
-        loading="lazy"
       />
       <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/15 to-transparent transition-opacity group-hover/thumb:opacity-90" />
       <div className="absolute inset-0 flex items-center justify-center">

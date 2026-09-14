@@ -32,7 +32,7 @@ const features = [
 ];
 
 export default function Hero({ setActiveTab }) {
-  const { currentUser, recursos, tutoriales, evidencias, noticias, isLoading } = useApp();
+  const { currentUser, recursos, evidencias, isLoading } = useApp();
   const isAdmin = currentUser?.rol === "Administrador";
   const isDocente = currentUser?.rol === "Docente";
 
@@ -166,6 +166,10 @@ export default function Hero({ setActiveTab }) {
               <img
                 src="/imagen-hero-bandera.jpg"
                 alt="Estudiantes I.E. Emblemática Bandera del Perú"
+                width="1200"
+                height="800"
+                decoding="async"
+                fetchpriority="high"
                 className="absolute inset-0 w-full h-full object-cover"
               />
               {/* Dark overlay gradient */}

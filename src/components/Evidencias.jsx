@@ -89,7 +89,7 @@ function EvidenciaMedia({ evidencia, onOpen }) {
 
   const renderCover = () => {
     if (ytId) {
-      return <img src={getYouTubeThumbnail(ytId, "hqdefault")} alt="" className="w-full h-full object-cover" />;
+      return <img src={getYouTubeThumbnail(ytId, "hqdefault")} alt="" loading="lazy" decoding="async" className="w-full h-full object-cover" />;
     }
     if (isFirstVideo) {
       return (
@@ -107,6 +107,7 @@ function EvidenciaMedia({ evidencia, onOpen }) {
         src={firstItem?.url || ""}
         alt={evidencia.titulo}
         loading="lazy"
+        decoding="async"
         className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
         onError={(e) => { e.currentTarget.style.display = "none"; }}
       />
@@ -151,7 +152,7 @@ function EvidenciaMedia({ evidencia, onOpen }) {
                         <i className="fas fa-play text-[9px]" />
                       </div>
                     ) : (
-                      <img src={img.url} alt="" className="w-full h-full object-cover" />
+                      <img src={img.url} alt="" loading="lazy" decoding="async" className="w-full h-full object-cover" />
                     )}
                   </div>
                 );

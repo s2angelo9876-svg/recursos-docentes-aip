@@ -36,17 +36,20 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const PORT = process.env.PORT || 5000;
-const SECRET_KEY = process.env.JWT_SECRET || "innova-bandera-secret-key-2026";
 const isProduction = process.env.NODE_ENV === "production";
+
+if (!process.env.JWT_SECRET) {
+  if (isProduction) {
+    logger.error("❌ JWT_SECRET es obligatorio en producción. Defínalo en .env");
+    setTimeout(() => process.exit(1), 1000);
+  } else {
+    logger.warn("⚠️  JWT_SECRET no definido — usando clave de desarrollo. NO usar en producción.");
+  }
+}
+const SECRET_KEY = process.env.JWT_SECRET || "innova-bandera-dev-only-secret";
 
 const app = express();
 if (isProduction) app.set("trust proxy", 1);
-
-if (isProduction && !process.env.JWT_SECRET) {
-  logger.error("❌ JWT_SECRET es obligatorio en producción. Defínalo en .env");
-  // Le damos 1 segundo al logger para enviar el texto antes de salir
-  setTimeout(() => process.exit(1), 1000);
-}
 
 const supabaseHost = process.env.SUPABASE_URL
   ? new URL(process.env.SUPABASE_URL).origin
@@ -56,17 +59,26 @@ const supabaseHost = process.env.SUPABASE_URL
 app.disable("x-powered-by");
 app.use(helmet({
   contentSecurityPolicy: {
+    useDefaults: false,
     directives: {
       defaultSrc: ["'self'"],
+      baseUri: ["'self'"],
+      objectSrc: ["'none'"],
+      frameAncestors: ["'none'"],
+      formAction: ["'self'"],
       styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
-      fontSrc: ["'self'", "https://fonts.gstatic.com"],
-      scriptSrc: ["'self'", "'unsafe-inline'"],
-      imgSrc: ["'self'", "data:", "https:"],
-      frameSrc: ["'self'", "https://www.youtube.com", "https://youtube.com"],
+      fontSrc: ["'self'", "https://fonts.gstatic.com", "data:"],
+      scriptSrc: ["'self'"],
+      imgSrc: ["'self'", "data:", "https:", "blob:"],
+      mediaSrc: ["'self'", "https:", "blob:"],
+      frameSrc: ["'self'", "https://www.youtube.com", "https://www.youtube-nocookie.com", "https://youtube.com"],
       connectSrc: supabaseHost ? ["'self'", supabaseHost] : ["'self'"],
+      workerSrc: ["'self'", "blob:"],
     },
   },
   crossOriginEmbedderPolicy: false,
+  crossOriginOpenerPolicy: { policy: "same-origin" },
+  referrerPolicy: { policy: "strict-origin-when-cross-origin" },
 }));
 
 // CORS & parse JSON
@@ -81,7 +93,7 @@ app.use(express.json());
 // --- RATE LIMITERS ---
 const apiLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: isProduction ? 200 : 100,
+  max: isProduction ? 600 : 2000,
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: "Demasiadas peticiones. Intente más tarde." },
@@ -89,7 +101,7 @@ const apiLimiter = rateLimit({
 
 const uploadLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 20,
+  max: isProduction ? 30 : 100,
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: "Demasiadas subidas de archivos. Intente más tarde." },
@@ -97,7 +109,7 @@ const uploadLimiter = rateLimit({
 
 const auditoriaLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 60,
+  max: isProduction ? 60 : 300,
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: "Demasiadas consultas de auditoría. Intente más tarde." },
@@ -288,7 +300,7 @@ const upload = multer({
 
 const loginLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 10,
+  max: isProduction ? 10 : 30,
   standardHeaders: true,
   legacyHeaders: false,
   message: { success: false, error: "Demasiados intentos. Intente en 15 minutos." },

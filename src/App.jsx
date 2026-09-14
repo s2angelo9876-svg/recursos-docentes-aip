@@ -1,19 +1,28 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, lazy, Suspense } from "react";
 import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate, useLocation } from "react-router-dom";
 import { AnimatePresence, motion } from "framer-motion";
 import { AppContextProvider, useApp } from "./context/AppContext";
 import Header from "./components/Header";
-import Hero from "./components/Hero";
-import Repositorio from "./components/Repositorio";
-import Tutoriales from "./components/Tutoriales";
-import Noticias from "./components/Noticias";
-import Evidencias from "./components/Evidencias";
-import AdminPanel from "./components/AdminPanel";
-import Login from "./components/Login";
-import AdminModal from "./components/AdminModal";
-import ConfirmModal from "./components/ConfirmModal";
 import { ToastProvider } from "./components/Toast";
-import { CommandPalette } from "./components/CommandPalette";
+import ConfirmModal from "./components/ConfirmModal";
+
+const Hero = lazy(() => import("./components/Hero"));
+const Repositorio = lazy(() => import("./components/Repositorio"));
+const Tutoriales = lazy(() => import("./components/Tutoriales"));
+const Noticias = lazy(() => import("./components/Noticias"));
+const Evidencias = lazy(() => import("./components/Evidencias"));
+const AdminPanel = lazy(() => import("./components/AdminPanel"));
+const Login = lazy(() => import("./components/Login"));
+const AdminModal = lazy(() => import("./components/AdminModal"));
+const CommandPalette = lazy(() => import("./components/CommandPalette"));
+
+function RouteFallback() {
+  return (
+    <div className="flex items-center justify-center py-24" aria-busy="true" aria-live="polite">
+      <span className="inline-flex h-10 w-10 items-center justify-center rounded-full border-2 border-primary-200 border-t-primary-600 animate-spin" />
+    </div>
+  );
+}
 
 function SectionHeader({ icon, iconColor, title, onAdd }) {
   return (
@@ -37,7 +46,7 @@ function SectionHeader({ icon, iconColor, title, onAdd }) {
 }
 
 function AppContent() {
-  const { currentUser, deleteTutorial, deleteEvidencia } = useApp();
+  const { currentUser, deleteTutorial, deleteEvidencia, deleteRecurso } = useApp();
   const isAdmin = currentUser?.rol === "Administrador";
   const isDocente = currentUser?.rol === "Docente";
 
@@ -93,6 +102,8 @@ function AppContent() {
       await deleteEvidencia(pendingDelete.id);
     } else if (pendingDelete.kind === "tutorial") {
       await deleteTutorial(pendingDelete.id);
+    } else if (pendingDelete.kind === "recurso") {
+      await deleteRecurso(pendingDelete.id);
     }
     setPendingDelete(null);
   };
@@ -125,7 +136,9 @@ function AppContent() {
           <Routes location={location} key={location.pathname}>
             <Route path="/" element={
               <motion.div key="portada" initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -15 }} transition={{ duration: 0.25 }}>
-                <Hero setActiveTab={setActiveTab} />
+                <Suspense fallback={<RouteFallback />}>
+                  <Hero setActiveTab={setActiveTab} />
+                </Suspense>
               </motion.div>
             } />
             <Route path="/portada" element={<Navigate to="/" replace />} />
@@ -133,7 +146,9 @@ function AppContent() {
             <Route path="/login" element={
               currentUser ? <Navigate to="/" replace /> : (
                 <motion.div key="login" initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -15 }} transition={{ duration: 0.25 }}>
-                  <Login onLoginSuccess={() => navigate("/")} />
+                  <Suspense fallback={<RouteFallback />}>
+                    <Login onLoginSuccess={() => navigate("/")} />
+                  </Suspense>
                 </motion.div>
               )
             } />
@@ -141,7 +156,9 @@ function AppContent() {
             <Route path="/recursos" element={
               !currentUser ? (
                 <motion.div key="recursos-login" initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -15 }} transition={{ duration: 0.25 }}>
-                  <Login onLoginSuccess={() => navigate("/recursos")} />
+                  <Suspense fallback={<RouteFallback />}>
+                    <Login onLoginSuccess={() => navigate("/recursos")} />
+                  </Suspense>
                 </motion.div>
               ) : (
                 <motion.div key="recursos" initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -15 }} transition={{ duration: 0.25 }} className="space-y-6 text-left">
@@ -150,7 +167,13 @@ function AppContent() {
                     iconColor="bg-blue-50 text-blue-600 dark:bg-blue-950/30 dark:text-blue-400"
                     title="Recursos Pedagógicos"
                   />
-                  <Repositorio isAdminMode={false} />
+                  <Suspense fallback={<RouteFallback />}>
+                    <Repositorio
+                      isAdminMode={isAdmin || isDocente}
+                      onEditClick={(item) => openCmsEdit("recursos", item)}
+                      onDeleteClick={(item) => setPendingDelete({ kind: "recurso", id: item.id, titulo: item.titulo })}
+                    />
+                  </Suspense>
                 </motion.div>
               )
             } />
@@ -163,11 +186,13 @@ function AppContent() {
                   title="Evidencias por Mes"
                   onAdd={isAdmin || isDocente ? () => openCmsAdd("evidencias") : null}
                 />
-                <Evidencias
-                  isAdminMode={isAdmin || isDocente}
-                  onEditClick={(item) => openCmsEdit("evidencias", item)}
-                  onDeleteClick={(item) => setPendingDelete({ kind: "evidencia", id: item.id, titulo: item.titulo })}
-                />
+                <Suspense fallback={<RouteFallback />}>
+                  <Evidencias
+                    isAdminMode={isAdmin || isDocente}
+                    onEditClick={(item) => openCmsEdit("evidencias", item)}
+                    onDeleteClick={(item) => setPendingDelete({ kind: "evidencia", id: item.id, titulo: item.titulo })}
+                  />
+                </Suspense>
               </motion.div>
             } />
 
@@ -179,11 +204,13 @@ function AppContent() {
                   title="Tutoriales TIC"
                   onAdd={isAdmin ? () => openCmsAdd("tutoriales") : null}
                 />
-                <Tutoriales
-                  isAdminMode={isAdmin}
-                  onEditClick={(item) => openCmsEdit("tutoriales", item)}
-                  onDeleteClick={(item) => setPendingDelete({ kind: "tutorial", id: item.id, titulo: item.titulo })}
-                />
+                <Suspense fallback={<RouteFallback />}>
+                  <Tutoriales
+                    isAdminMode={isAdmin}
+                    onEditClick={(item) => openCmsEdit("tutoriales", item)}
+                    onDeleteClick={(item) => setPendingDelete({ kind: "tutorial", id: item.id, titulo: item.titulo })}
+                  />
+                </Suspense>
               </motion.div>
             } />
 
@@ -197,24 +224,28 @@ function AppContent() {
                   title="Comunicados y Talleres TIC"
                   onAdd={isAdmin ? () => openCmsAdd("noticias") : null}
                 />
-                <Noticias
-                  isAdminMode={isAdmin}
-                  onEditClick={(item) => openCmsEdit("noticias", item)}
-                />
+                <Suspense fallback={<RouteFallback />}>
+                  <Noticias
+                    isAdminMode={isAdmin}
+                    onEditClick={(item) => openCmsEdit("noticias", item)}
+                  />
+                </Suspense>
               </motion.div>
             } />
 
             <Route path="/admin" element={
               <motion.div key="admin" initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -15 }} transition={{ duration: 0.25 }}>
-                {currentUser ? (
-                  currentUser.rol === "Administrador" ? (
-                    <AdminPanel />
+                <Suspense fallback={<RouteFallback />}>
+                  {currentUser ? (
+                    currentUser.rol === "Administrador" ? (
+                      <AdminPanel />
+                    ) : (
+                      <Navigate to="/" replace />
+                    )
                   ) : (
-                    <Navigate to="/" replace />
-                  )
-                ) : (
-                  <Login onLoginSuccess={() => navigate("/admin")} />
-                )}
+                    <Login onLoginSuccess={() => navigate("/admin")} />
+                  )}
+                </Suspense>
               </motion.div>
             } />
 
@@ -224,12 +255,14 @@ function AppContent() {
       </main>
 
       {/* CMS Modal — shared across all views */}
-      <AdminModal
-        isOpen={cmsModal.open}
-        onClose={closeCms}
-        type={cmsModal.type}
-        editingItem={cmsModal.item}
-      />
+      <Suspense fallback={null}>
+        <AdminModal
+          isOpen={cmsModal.open}
+          onClose={closeCms}
+          type={cmsModal.type}
+          editingItem={cmsModal.item}
+        />
+      </Suspense>
 
       {/* Footer */}
       <footer className="bg-[#001D52] dark:bg-black text-white mt-12">
@@ -240,6 +273,10 @@ function AppContent() {
                 <img
                   src="/escudo-bandera.png"
                   alt="Escudo I.E. Bandera del Perú"
+                  width="44"
+                  height="44"
+                  loading="lazy"
+                  decoding="async"
                   className="h-10 sm:h-11 w-auto object-contain drop-shadow-[0_2px_8px_rgba(0,0,0,0.4)]"
                 />
               </div>
@@ -292,7 +329,9 @@ function AppContent() {
         </div>
       </footer>
 
-      <CommandPalette />
+      <Suspense fallback={null}>
+        <CommandPalette />
+      </Suspense>
 
       <ConfirmModal
         open={!!pendingDelete}
@@ -301,7 +340,9 @@ function AppContent() {
             ? "Eliminar evidencia"
             : pendingDelete?.kind === "tutorial"
               ? "Eliminar tutorial"
-              : "Confirmar eliminación"
+              : pendingDelete?.kind === "recurso"
+                ? "Eliminar recurso"
+                : "Confirmar eliminación"
         }
         message={
           pendingDelete?.titulo

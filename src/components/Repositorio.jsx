@@ -54,7 +54,7 @@ const easeOut = [0.16, 1, 0.3, 1];
 const PAGE_SIZE = 9;
 
 export default function Repositorio({ isAdminMode = false, onEditClick = null, onDeleteClick = null }) {
-  const { recursos, favoritos, toggleFavorito, deleteRecurso, isLoading } = useApp();
+  const { recursos, favoritos, toggleFavorito, isLoading } = useApp();
 
   const [busqueda, setBusqueda] = useState("");
   const [areaSel, setAreaSel] = useState("Todas");
@@ -320,11 +320,7 @@ export default function Repositorio({ isAdminMode = false, onEditClick = null, o
                               <i className="fas fa-pen text-[9px]" /> Editar
                             </button>
                             <button
-                              onClick={() =>
-                                onDeleteClick
-                                  ? onDeleteClick(r.id)
-                                  : window.confirm("¿Eliminar este recurso?") && deleteRecurso(r.id)
-                              }
+                              onClick={() => onDeleteClick && onDeleteClick(r)}
                               className="flex-1 h-8 rounded-btn bg-accent-50 hover:bg-accent-500 hover:text-white text-accent-600 dark:bg-accent-700/15 dark:text-accent-300 dark:hover:bg-accent-500 dark:hover:text-white text-[11px] font-semibold transition-colors inline-flex items-center justify-center gap-1.5"
                             >
                               <i className="fas fa-trash text-[9px]" /> Eliminar

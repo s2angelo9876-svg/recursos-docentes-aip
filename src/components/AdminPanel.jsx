@@ -1,11 +1,12 @@
-import { useState, useMemo, useEffect, useRef, useCallback } from "react";
+import { useState, useMemo, useEffect, useRef, useCallback, lazy, Suspense } from "react";
 import { useApp } from "../context/AppContext";
 import { API_BASE } from "../utils/api.js";
 import Repositorio from "./Repositorio";
 import Tutoriales from "./Tutoriales";
 import Noticias from "./Noticias";
 import AdminModal from "./AdminModal";
-import AuditoriaPanel from "./AuditoriaPanel";
+
+const AuditoriaPanel = lazy(() => import("./AuditoriaPanel"));
 
 const AREAS_CNEB = [
   "Matemática", "Comunicación", "Inglés", "Arte y Cultura",
@@ -523,7 +524,11 @@ export default function AdminPanel() {
             onEditClick={(item) => handleOpenEdit("noticias", item)}
           />
         )}
-        {activeSubTab === "auditoria" && <AuditoriaPanel />}
+        {activeSubTab === "auditoria" && (
+          <Suspense fallback={<div className="flex items-center justify-center py-20"><span className="inline-flex h-10 w-10 items-center justify-center rounded-full border-2 border-primary-200 border-t-primary-600 animate-spin" /></div>}>
+            <AuditoriaPanel />
+          </Suspense>
+        )}
         {activeSubTab === "usuarios" && (
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             {/* Form Column */}

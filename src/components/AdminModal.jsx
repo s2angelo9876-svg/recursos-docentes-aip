@@ -835,7 +835,7 @@ export default function AdminModal({ isOpen, onClose, type, editingItem }) {
               </div>
               {youtubePreviewId && (
                 <div className="rounded-xl overflow-hidden border border-gray-200 dark:border-dark-border">
-                  <img src={getYouTubeThumbnail(youtubePreviewId)} alt="Vista previa" className="w-full h-32 object-cover" />
+                  <img src={getYouTubeThumbnail(youtubePreviewId)} alt="Vista previa" loading="lazy" decoding="async" className="w-full h-32 object-cover" />
                 </div>
               )}
               <div className="space-y-1">
@@ -909,6 +909,8 @@ export default function AdminModal({ isOpen, onClose, type, editingItem }) {
                         <img
                           src={eviDriveCover}
                           alt="Vista previa"
+                          loading="lazy"
+                          decoding="async"
                           className="w-full h-full object-cover"
                         />
                         <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent" />
@@ -977,7 +979,7 @@ export default function AdminModal({ isOpen, onClose, type, editingItem }) {
                             <div className="grid grid-cols-4 gap-2">
                               {eviExistingImagenes.map((img, i) => (
                                 <div key={i} className="relative aspect-square rounded-lg overflow-hidden border border-gray-200 dark:border-dark-border group/preview">
-                                  <img src={img.url} alt="" className="w-full h-full object-cover" />
+                                  <img src={img.url} alt="" loading="lazy" decoding="async" className="w-full h-full object-cover" />
                                   <button
                                     type="button"
                                     onClick={() => removeEviExisting(i)}
@@ -998,7 +1000,7 @@ export default function AdminModal({ isOpen, onClose, type, editingItem }) {
                             <div className="grid grid-cols-4 gap-2">
                               {eviFiles.map((f, i) => (
                                 <div key={i} className="relative aspect-square rounded-lg overflow-hidden border border-indigo-200 dark:border-indigo-900/50 group/preview">
-                                  <img src={eviFilePreviews[i]} alt="" className="w-full h-full object-cover" />
+                                  <img src={eviFilePreviews[i]} alt="" loading="lazy" decoding="async" className="w-full h-full object-cover" />
                                   <button
                                     type="button"
                                     onClick={() => removeEviFile(i)}

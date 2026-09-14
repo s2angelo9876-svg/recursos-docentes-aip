@@ -86,6 +86,10 @@ export default function Login({ onLoginSuccess }) {
             <img
               src="/escudo-bandera.png"
               alt="Escudo I.E. Bandera del Perú"
+              width="176"
+              height="176"
+              loading="lazy"
+              decoding="async"
               className="relative w-32 sm:w-36 md:w-40 lg:w-44 h-auto object-contain drop-shadow-[0_20px_40px_rgba(0,0,0,0.35)]"
             />
           </div>
