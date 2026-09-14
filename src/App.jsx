@@ -1,18 +1,19 @@
-import { useState, useEffect, Component } from "react";
+import { useState, useEffect, lazy, Suspense, Component } from "react";
 import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate, useLocation } from "react-router-dom";
 import { AppContextProvider, useApp } from "./context/AppContext";
 import Header from "./components/Header";
 import Hero from "./components/Hero";
-import Repositorio from "./components/Repositorio";
-import Tutoriales from "./components/Tutoriales";
-import Noticias from "./components/Noticias";
-import Evidencias from "./components/Evidencias";
-import AdminPanel from "./components/AdminPanel";
-import Login from "./components/Login";
-import AdminModal from "./components/AdminModal";
-import CommandPalette from "./components/CommandPalette";
 import { ToastProvider } from "./components/Toast";
 import ConfirmModal from "./components/ConfirmModal";
+
+const Repositorio = lazy(() => import("./components/Repositorio"));
+const Tutoriales = lazy(() => import("./components/Tutoriales"));
+const Noticias = lazy(() => import("./components/Noticias"));
+const Evidencias = lazy(() => import("./components/Evidencias"));
+const AdminPanel = lazy(() => import("./components/AdminPanel"));
+const Login = lazy(() => import("./components/Login"));
+const AdminModal = lazy(() => import("./components/AdminModal"));
+const CommandPalette = lazy(() => import("./components/CommandPalette"));
 
 class RouteErrorBoundary extends Component {
   state = { hasError: false };
@@ -157,6 +158,11 @@ function AppContent() {
       {/* Dynamic Content Main area */}
       <main id="main-content" key={location.pathname} className="route-transition max-w-6xl w-full mx-auto px-4 py-8 flex-grow">
         <RouteErrorBoundary>
+          <Suspense fallback={
+            <div className="flex items-center justify-center py-24" aria-busy="true">
+              <span className="inline-flex h-10 w-10 items-center justify-center rounded-full border-2 border-primary-200 border-t-primary-600 animate-spin" />
+            </div>
+          }>
           <Routes location={location}>
             <Route path="/" element={<Hero setActiveTab={setActiveTab} />} />
             <Route path="/portada" element={<Navigate to="/" replace />} />
@@ -243,6 +249,7 @@ function AppContent() {
 
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
+          </Suspense>
         </RouteErrorBoundary>
       </main>
 
