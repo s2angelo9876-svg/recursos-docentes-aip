@@ -55,7 +55,7 @@ export default function Header({ activeTab, setActiveTab }) {
                 width="44"
                 height="44"
                 decoding="async"
-                fetchpriority="high"
+                fetchPriority="high"
                 className="h-10 w-auto sm:h-11 object-contain drop-shadow-[0_2px_8px_rgba(0,0,0,0.35)] group-hover:scale-105 transition-transform duration-200"
               />
             </span>

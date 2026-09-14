@@ -169,7 +169,7 @@ export default function Hero({ setActiveTab }) {
                 width="1200"
                 height="800"
                 decoding="async"
-                fetchpriority="high"
+                fetchPriority="high"
                 className="absolute inset-0 w-full h-full object-cover"
               />
               {/* Dark overlay gradient */}
