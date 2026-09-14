@@ -135,7 +135,7 @@ export function AppContextProvider({ children }) {
 
   // Cargar la base de datos al montar o al cambiar el token de autenticación.
   // En re-logins usa la cache si está vigente (< 5 min) para evitar 4 fetches innecesarios.
-  const lastLoadedTokenRef = useRef(null);
+  const lastLoadedTokenRef = useRef(undefined);
   useEffect(() => {
     if (lastLoadedTokenRef.current === token) return;
     lastLoadedTokenRef.current = token;
