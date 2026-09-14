@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "framer-motion";
 
 const ZOOM_MIN = 1;
@@ -397,7 +398,7 @@ export default function GaleriaModal({
     exit: (dir) => ({ x: dir > 0 ? "-100%" : "100%", opacity: 0 }),
   };
 
-  return (
+  return createPortal(
     <AnimatePresence>
       {open && (
         <motion.div
@@ -611,6 +612,7 @@ export default function GaleriaModal({
           </motion.div>
         </motion.div>
       )}
-    </AnimatePresence>
+    </AnimatePresence>,
+    document.body
   );
 }
