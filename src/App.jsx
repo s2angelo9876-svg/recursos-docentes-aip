@@ -5,15 +5,24 @@ import Header from "./components/Header";
 import { ToastProvider } from "./components/Toast";
 import ConfirmModal from "./components/ConfirmModal";
 
-const Hero = lazy(() => import("./components/Hero"));
-const Repositorio = lazy(() => import("./components/Repositorio"));
-const Tutoriales = lazy(() => import("./components/Tutoriales"));
-const Noticias = lazy(() => import("./components/Noticias"));
-const Evidencias = lazy(() => import("./components/Evidencias"));
-const AdminPanel = lazy(() => import("./components/AdminPanel"));
-const Login = lazy(() => import("./components/Login"));
-const AdminModal = lazy(() => import("./components/AdminModal"));
-const CommandPalette = lazy(() => import("./components/CommandPalette"));
+function safeLazy(importFn, name) {
+  return lazy(() =>
+    importFn().catch((err) => {
+      console.error(`[safeLazy] Fallo al cargar ${name}:`, err);
+      return { default: () => null };
+    })
+  );
+}
+
+const Hero = safeLazy(() => import("./components/Hero"), "Hero");
+const Repositorio = safeLazy(() => import("./components/Repositorio"), "Repositorio");
+const Tutoriales = safeLazy(() => import("./components/Tutoriales"), "Tutoriales");
+const Noticias = safeLazy(() => import("./components/Noticias"), "Noticias");
+const Evidencias = safeLazy(() => import("./components/Evidencias"), "Evidencias");
+const AdminPanel = safeLazy(() => import("./components/AdminPanel"), "AdminPanel");
+const Login = safeLazy(() => import("./components/Login"), "Login");
+const AdminModal = safeLazy(() => import("./components/AdminModal"), "AdminModal");
+const CommandPalette = safeLazy(() => import("./components/CommandPalette"), "CommandPalette");
 
 function RouteFallback() {
   return (
@@ -364,12 +373,14 @@ function AppContent() {
 
 export default function App() {
   return (
-    <Router>
-      <AppContextProvider>
-        <ToastProvider>
-          <AppContent />
-        </ToastProvider>
-      </AppContextProvider>
-    </Router>
+    <RouteErrorBoundary>
+      <Router>
+        <AppContextProvider>
+          <ToastProvider>
+            <AppContent />
+          </ToastProvider>
+        </AppContextProvider>
+      </Router>
+    </RouteErrorBoundary>
   );
 }

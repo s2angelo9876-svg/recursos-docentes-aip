@@ -6,7 +6,16 @@ import Tutoriales from "./Tutoriales";
 import Noticias from "./Noticias";
 import AdminModal from "./AdminModal";
 
-const AuditoriaPanel = lazy(() => import("./AuditoriaPanel"));
+function safeLazy(importFn, name) {
+  return lazy(() =>
+    importFn().catch((err) => {
+      console.error(`[safeLazy] Fallo al cargar ${name}:`, err);
+      return { default: () => null };
+    })
+  );
+}
+
+const AuditoriaPanel = safeLazy(() => import("./AuditoriaPanel"), "AuditoriaPanel");
 
 const AREAS_CNEB = [
   "Matemática", "Comunicación", "Inglés", "Arte y Cultura",

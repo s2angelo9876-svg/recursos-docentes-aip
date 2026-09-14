@@ -12,7 +12,7 @@ export default defineConfig({
       output: {
         manualChunks(id) {
           if (!id.includes('node_modules')) return;
-          if (id.includes('react-dom') || id.includes('react-router') || id.match(/[\\/]react[\\/]/)) {
+          if (id.includes('react-dom') || id.includes('react-router') || id.includes('/react/')) {
             return 'react-vendor';
           }
           if (id.includes('framer-motion')) return 'motion';
