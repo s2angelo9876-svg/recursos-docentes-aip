@@ -282,6 +282,7 @@ export default function GaleriaModal({
   const [index, setIndex] = useState(initialIndex);
   const [direction, setDirection] = useState(0);
   const [imgLoaded, setImgLoaded] = useState(false);
+  const [imgError, setImgError] = useState(false);
   const touchStart = useRef(null);
   const touchDelta = useRef(0);
 
@@ -293,6 +294,7 @@ export default function GaleriaModal({
   useEffect(() => {
     zoomReset();
     setImgLoaded(false);
+    setImgError(false);
   }, [index, zoomReset]);
 
   // Atajos de teclado para zoom: + - 0
@@ -502,9 +504,18 @@ export default function GaleriaModal({
                     transition={{ duration: 0.28, ease: [0.32, 0.72, 0, 1] }}
                     className="absolute inset-0 flex items-center justify-center px-3 sm:px-12 py-16"
                   >
-                    {!imgLoaded && !isVideo(current) && (
+                    {!imgLoaded && !imgError && !isVideo(current) && (
                       <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
                         <div className="w-8 h-8 border-4 border-white/20 border-t-white rounded-full animate-spin" />
+                      </div>
+                    )}
+                    {imgError && !isVideo(current) && (
+                      <div className="absolute inset-0 flex flex-col items-center justify-center text-white/80 gap-3 px-6 text-center">
+                        <i className="fas fa-image text-4xl text-white/40" />
+                        <p className="text-sm font-semibold">No se pudo cargar la imagen</p>
+                        <p className="text-[11px] text-white/50 max-w-xs break-all">
+                          {current?.url}
+                        </p>
                       </div>
                     )}
                     {isVideo(current) ? (
@@ -524,8 +535,8 @@ export default function GaleriaModal({
                         src={current.url}
                         alt={current.name || `Imagen ${index + 1}`}
                         loaded={imgLoaded}
-                        onLoad={() => setImgLoaded(true)}
-                        onError={() => setImgLoaded(true)}
+                        onLoad={() => { setImgLoaded(true); setImgError(false); }}
+                        onError={() => { setImgLoaded(true); setImgError(true); }}
                       />
                     )}
                   </motion.div>
