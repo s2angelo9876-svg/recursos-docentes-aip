@@ -111,7 +111,7 @@ function searchItems(items, query) {
   return scored.sort((a, b) => a.score - b.score).map((x) => x.it).slice(0, 20);
 }
 
-export function CommandPalette() {
+export default function CommandPalette() {
   const { recursos, tutoriales, noticias, evidencias } = useApp();
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");

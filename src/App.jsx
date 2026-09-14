@@ -1,36 +1,18 @@
-import { useState, useEffect, lazy, Suspense, Component } from "react";
+import { useState, useEffect, Component } from "react";
 import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate, useLocation } from "react-router-dom";
 import { AppContextProvider, useApp } from "./context/AppContext";
 import Header from "./components/Header";
+import Hero from "./components/Hero";
+import Repositorio from "./components/Repositorio";
+import Tutoriales from "./components/Tutoriales";
+import Noticias from "./components/Noticias";
+import Evidencias from "./components/Evidencias";
+import AdminPanel from "./components/AdminPanel";
+import Login from "./components/Login";
+import AdminModal from "./components/AdminModal";
+import CommandPalette from "./components/CommandPalette";
 import { ToastProvider } from "./components/Toast";
 import ConfirmModal from "./components/ConfirmModal";
-
-function safeLazy(importFn, name) {
-  return lazy(() =>
-    importFn().catch((err) => {
-      console.error(`[safeLazy] Fallo al cargar ${name}:`, err);
-      return { default: () => null };
-    })
-  );
-}
-
-const Hero = safeLazy(() => import("./components/Hero"), "Hero");
-const Repositorio = safeLazy(() => import("./components/Repositorio"), "Repositorio");
-const Tutoriales = safeLazy(() => import("./components/Tutoriales"), "Tutoriales");
-const Noticias = safeLazy(() => import("./components/Noticias"), "Noticias");
-const Evidencias = safeLazy(() => import("./components/Evidencias"), "Evidencias");
-const AdminPanel = safeLazy(() => import("./components/AdminPanel"), "AdminPanel");
-const Login = safeLazy(() => import("./components/Login"), "Login");
-const AdminModal = safeLazy(() => import("./components/AdminModal"), "AdminModal");
-const CommandPalette = safeLazy(() => import("./components/CommandPalette"), "CommandPalette");
-
-function RouteFallback() {
-  return (
-    <div className="flex items-center justify-center py-24" aria-busy="true" aria-live="polite">
-      <span className="inline-flex h-10 w-10 items-center justify-center rounded-full border-2 border-primary-200 border-t-primary-600 animate-spin" />
-    </div>
-  );
-}
 
 class RouteErrorBoundary extends Component {
   state = { hasError: false };
@@ -175,106 +157,102 @@ function AppContent() {
       {/* Dynamic Content Main area */}
       <main id="main-content" key={location.pathname} className="route-transition max-w-6xl w-full mx-auto px-4 py-8 flex-grow">
         <RouteErrorBoundary>
-          <Suspense fallback={<RouteFallback />}>
-            <Routes location={location}>
-              <Route path="/" element={<Hero setActiveTab={setActiveTab} />} />
-              <Route path="/portada" element={<Navigate to="/" replace />} />
+          <Routes location={location}>
+            <Route path="/" element={<Hero setActiveTab={setActiveTab} />} />
+            <Route path="/portada" element={<Navigate to="/" replace />} />
 
-              <Route path="/login" element={
-                currentUser ? <Navigate to="/" replace /> : <Login onLoginSuccess={() => navigate("/")} />
-              } />
+            <Route path="/login" element={
+              currentUser ? <Navigate to="/" replace /> : <Login onLoginSuccess={() => navigate("/")} />
+            } />
 
-              <Route path="/recursos" element={
-                !currentUser ? (
-                  <Login onLoginSuccess={() => navigate("/recursos")} />
-                ) : (
-                  <div className="space-y-6 text-left">
-                    <SectionHeader
-                      icon="fas fa-book"
-                      iconColor="bg-blue-50 text-blue-600 dark:bg-blue-950/30 dark:text-blue-400"
-                      title="Recursos Pedagógicos"
-                    />
-                    <Repositorio
-                      isAdminMode={isAdmin || isDocente}
-                      onEditClick={(item) => openCmsEdit("recursos", item)}
-                      onDeleteClick={(item) => setPendingDelete({ kind: "recurso", id: item.id, titulo: item.titulo })}
-                    />
-                  </div>
-                )
-              } />
-
-              <Route path="/evidencias" element={
+            <Route path="/recursos" element={
+              !currentUser ? (
+                <Login onLoginSuccess={() => navigate("/recursos")} />
+              ) : (
                 <div className="space-y-6 text-left">
                   <SectionHeader
-                    icon="fas fa-images"
-                    iconColor="bg-green-50 text-green-600 dark:bg-green-950/30 dark:text-green-400"
-                    title="Evidencias por Mes"
-                    onAdd={isAdmin || isDocente ? () => openCmsAdd("evidencias") : null}
+                    icon="fas fa-book"
+                    iconColor="bg-blue-50 text-blue-600 dark:bg-blue-950/30 dark:text-blue-400"
+                    title="Recursos Pedagógicos"
                   />
-                  <Evidencias
+                  <Repositorio
                     isAdminMode={isAdmin || isDocente}
-                    onEditClick={(item) => openCmsEdit("evidencias", item)}
-                    onDeleteClick={(item) => setPendingDelete({ kind: "evidencia", id: item.id, titulo: item.titulo })}
+                    onEditClick={(item) => openCmsEdit("recursos", item)}
+                    onDeleteClick={(item) => setPendingDelete({ kind: "recurso", id: item.id, titulo: item.titulo })}
                   />
                 </div>
-              } />
+              )
+            } />
 
-              <Route path="/tutoriales" element={
-                <div className="space-y-6 text-left">
-                  <SectionHeader
-                    icon="fab fa-youtube"
-                    iconColor="bg-red-50 text-red-600 dark:bg-red-950/30 dark:text-red-400"
-                    title="Tutoriales TIC"
-                    onAdd={isAdmin ? () => openCmsAdd("tutoriales") : null}
-                  />
-                  <Tutoriales
-                    isAdminMode={isAdmin}
-                    onEditClick={(item) => openCmsEdit("tutoriales", item)}
-                    onDeleteClick={(item) => setPendingDelete({ kind: "tutorial", id: item.id, titulo: item.titulo })}
-                  />
-                </div>
-              } />
+            <Route path="/evidencias" element={
+              <div className="space-y-6 text-left">
+                <SectionHeader
+                  icon="fas fa-images"
+                  iconColor="bg-green-50 text-green-600 dark:bg-green-950/30 dark:text-green-400"
+                  title="Evidencias por Mes"
+                  onAdd={isAdmin || isDocente ? () => openCmsAdd("evidencias") : null}
+                />
+                <Evidencias
+                  isAdminMode={isAdmin || isDocente}
+                  onEditClick={(item) => openCmsEdit("evidencias", item)}
+                  onDeleteClick={(item) => setPendingDelete({ kind: "evidencia", id: item.id, titulo: item.titulo })}
+                />
+              </div>
+            } />
 
-              <Route path="/proyectos" element={<Navigate to="/tutoriales" replace />} />
+            <Route path="/tutoriales" element={
+              <div className="space-y-6 text-left">
+                <SectionHeader
+                  icon="fab fa-youtube"
+                  iconColor="bg-red-50 text-red-600 dark:bg-red-950/30 dark:text-red-400"
+                  title="Tutoriales TIC"
+                  onAdd={isAdmin ? () => openCmsAdd("tutoriales") : null}
+                />
+                <Tutoriales
+                  isAdminMode={isAdmin}
+                  onEditClick={(item) => openCmsEdit("tutoriales", item)}
+                  onDeleteClick={(item) => setPendingDelete({ kind: "tutorial", id: item.id, titulo: item.titulo })}
+                />
+              </div>
+            } />
 
-              <Route path="/noticias" element={
-                <div className="space-y-6 text-left">
-                  <SectionHeader
-                    icon="fas fa-bullhorn"
-                    iconColor="bg-purple-50 text-purple-600 dark:bg-purple-950/30 dark:text-purple-400"
-                    title="Comunicados y Talleres TIC"
-                    onAdd={isAdmin ? () => openCmsAdd("noticias") : null}
-                  />
-                  <Noticias
-                    isAdminMode={isAdmin}
-                    onEditClick={(item) => openCmsEdit("noticias", item)}
-                  />
-                </div>
-              } />
+            <Route path="/proyectos" element={<Navigate to="/tutoriales" replace />} />
 
-              <Route path="/admin" element={
-                currentUser ? (
-                  currentUser.rol === "Administrador" ? <AdminPanel /> : <Navigate to="/" replace />
-                ) : (
-                  <Login onLoginSuccess={() => navigate("/admin")} />
-                )
-              } />
+            <Route path="/noticias" element={
+              <div className="space-y-6 text-left">
+                <SectionHeader
+                  icon="fas fa-bullhorn"
+                  iconColor="bg-purple-50 text-purple-600 dark:bg-purple-950/30 dark:text-purple-400"
+                  title="Comunicados y Talleres TIC"
+                  onAdd={isAdmin ? () => openCmsAdd("noticias") : null}
+                />
+                <Noticias
+                  isAdminMode={isAdmin}
+                  onEditClick={(item) => openCmsEdit("noticias", item)}
+                />
+              </div>
+            } />
 
-              <Route path="*" element={<Navigate to="/" replace />} />
-            </Routes>
-          </Suspense>
+            <Route path="/admin" element={
+              currentUser ? (
+                currentUser.rol === "Administrador" ? <AdminPanel /> : <Navigate to="/" replace />
+              ) : (
+                <Login onLoginSuccess={() => navigate("/admin")} />
+              )
+            } />
+
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
         </RouteErrorBoundary>
       </main>
 
       {/* CMS Modal — shared across all views */}
-      <Suspense fallback={null}>
-        <AdminModal
-          isOpen={cmsModal.open}
-          onClose={closeCms}
-          type={cmsModal.type}
-          editingItem={cmsModal.item}
-        />
-      </Suspense>
+      <AdminModal
+        isOpen={cmsModal.open}
+        onClose={closeCms}
+        type={cmsModal.type}
+        editingItem={cmsModal.item}
+      />
 
       {/* Footer */}
       <footer className="bg-[#001D52] dark:bg-black text-white mt-12">
@@ -341,9 +319,7 @@ function AppContent() {
         </div>
       </footer>
 
-      <Suspense fallback={null}>
-        <CommandPalette />
-      </Suspense>
+      <CommandPalette />
 
       <ConfirmModal
         open={!!pendingDelete}
