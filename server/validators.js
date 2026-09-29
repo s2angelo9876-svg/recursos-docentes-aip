@@ -56,6 +56,9 @@ export const MESES = [
   "Septiembre", "Octubre", "Noviembre", "Diciembre",
 ];
 
+export const MAX_IMAGENES_POR_EVIDENCIA = 35;
+export const WARN_IMAGENES_POR_EVIDENCIA = 30;
+
 export const CATEGORIAS_EVIDENCIA = [
   "Gestión", "Robótica", "Taller", "Feria", "Concurso",
   "Capacitación", "Proyecto", "Celebración", "Otro",
@@ -77,7 +80,11 @@ export const evidenciaSchema = z.object({
   tipo: z.enum(TIPOS_EVIDENCIA, { message: "Tipo de evidencia no válido" }).default("Foto"),
   desc: z.string().min(1, "La descripción es obligatoria").max(3000),
   url: z.string().min(1).max(1000).nullish(),
-  imagenes: z.array(imagenEvidenciaSchema).nullish(),
+  imagenes: z.array(imagenEvidenciaSchema)
+    .max(MAX_IMAGENES_POR_EVIDENCIA, {
+      message: `Máximo ${MAX_IMAGENES_POR_EVIDENCIA} imágenes por evidencia. Para más fotos, sube la colección a Google Drive.`,
+    })
+    .nullish(),
   driveFolderUrl: z.string().min(1).max(1000).nullish(),
   fecha: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Fecha no válida (YYYY-MM-DD)").optional(),
 }).refine(

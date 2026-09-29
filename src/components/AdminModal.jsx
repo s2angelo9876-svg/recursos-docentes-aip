@@ -15,6 +15,8 @@ const GRADOS = ["1.° Sec", "2.° Sec", "3.° Sec", "4.° Sec", "5.° Sec"];
 const TIPOS_RECURSO = ["Video", "Web / App", "PDF", "Simulación", "Juego", "Colección"];
 const MESES = ["Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
 const TIPOS_EVIDENCIA = ["Foto", "Video", "Ambos"];
+const MAX_IMAGENES_POR_EVIDENCIA = 35;
+const WARN_IMAGENES_POR_EVIDENCIA = 30;
 
 // Fusiona archivos nuevos con los existentes, descartando duplicados (mismo nombre + tamaño).
 // Sin tope de cantidad: una colección puede tener tantas fotos como el usuario necesite.
@@ -115,6 +117,9 @@ export default function AdminModal({ isOpen, onClose, type, editingItem }) {
       for (const u of eviFilePreviews) URL.revokeObjectURL(u);
     };
   }, [eviFilePreviews]);
+
+  // Total de imágenes entre las existentes (en el servidor) y las nuevas seleccionadas.
+  const totalImagenes = eviExistingImagenes.length + eviFiles.length;
 
   useEffect(() => {
     if (isOpen) {
@@ -392,6 +397,7 @@ export default function AdminModal({ isOpen, onClose, type, editingItem }) {
 
   // Maneja la selección de archivos en el modo colección: ACUMULA y descarta duplicados.
   // Resetea el input para permitir volver a elegir los mismos archivos.
+  // Respeta el límite MAX_IMAGENES_POR_EVIDENCIA contando existentes + nuevas.
   const handleEviCollectionPick = (e) => {
     const incoming = Array.from(e.target.files || []);
     if (incoming.length === 0) {
@@ -400,14 +406,27 @@ export default function AdminModal({ isOpen, onClose, type, editingItem }) {
     }
     setEviFiles((prev) => {
       const { next, dropped } = mergeEvidenceFiles(prev, incoming);
-      if (dropped.length > 0) {
+      const totalDespues = eviExistingImagenes.length + next.length;
+      let accepted = next;
+      let truncated = 0;
+      if (totalDespues > MAX_IMAGENES_POR_EVIDENCIA) {
+        const espacio = Math.max(0, MAX_IMAGENES_POR_EVIDENCIA - eviExistingImagenes.length);
+        accepted = next.slice(0, espacio);
+        truncated = next.length - accepted.length;
+      }
+      if (truncated > 0) {
+        setUploadProgressMsg(
+          `Se omitieron ${truncated} archivo(s): máximo ${MAX_IMAGENES_POR_EVIDENCIA} por evidencia. Para más, sube la colección a Google Drive.`
+        );
+        setTimeout(() => setUploadProgressMsg(""), 5500);
+      } else if (dropped.length > 0) {
         setUploadProgressMsg(`Se omitieron ${dropped.length} archivo(s) duplicado(s).`);
         setTimeout(() => setUploadProgressMsg(""), 3500);
       } else {
-        setUploadProgressMsg(`+${incoming.length} archivo(s) añadido(s)`);
+        setUploadProgressMsg(`+${accepted.length} archivo(s) añadido(s)`);
         setTimeout(() => setUploadProgressMsg(""), 2000);
       }
-      return next;
+      return accepted;
     });
     e.target.value = "";
   };
@@ -975,7 +994,12 @@ export default function AdminModal({ isOpen, onClose, type, editingItem }) {
 
                         {eviExistingImagenes.length > 0 && (
                           <div className="space-y-1.5">
-                            <p className="text-[10px] font-bold uppercase text-gray-500 dark:text-gray-400 tracking-wider">Actuales ({eviExistingImagenes.length})</p>
+                            <div className="flex items-center justify-between">
+                              <p className="text-[10px] font-bold uppercase text-gray-500 dark:text-gray-400 tracking-wider">Actuales ({eviExistingImagenes.length})</p>
+                              <span className={`text-[9px] font-bold tabular-nums ${totalImagenes >= WARN_IMAGENES_POR_EVIDENCIA ? "text-amber-600 dark:text-amber-400" : "text-gray-400"}`}>
+                                {totalImagenes} / {MAX_IMAGENES_POR_EVIDENCIA}
+                              </span>
+                            </div>
                             <div className="grid grid-cols-4 gap-2">
                               {eviExistingImagenes.map((img, i) => (
                                 <div key={i} className="relative aspect-square rounded-lg overflow-hidden border border-gray-200 dark:border-dark-border group/preview">
@@ -996,7 +1020,12 @@ export default function AdminModal({ isOpen, onClose, type, editingItem }) {
 
                         {eviFiles.length > 0 && (
                           <div className="space-y-1.5">
-                            <p className="text-[10px] font-bold uppercase text-indigo-600 dark:text-indigo-400 tracking-wider">Nuevas ({eviFiles.length})</p>
+                            <div className="flex items-center justify-between">
+                              <p className="text-[10px] font-bold uppercase text-indigo-600 dark:text-indigo-400 tracking-wider">Nuevas ({eviFiles.length})</p>
+                              <span className={`text-[9px] font-bold tabular-nums ${totalImagenes >= WARN_IMAGENES_POR_EVIDENCIA ? "text-amber-600 dark:text-amber-400" : "text-gray-400"}`}>
+                                {totalImagenes} / {MAX_IMAGENES_POR_EVIDENCIA}
+                              </span>
+                            </div>
                             <div className="grid grid-cols-4 gap-2">
                               {eviFiles.map((f, i) => (
                                 <div key={i} className="relative aspect-square rounded-lg overflow-hidden border border-indigo-200 dark:border-indigo-900/50 group/preview">
@@ -1018,10 +1047,42 @@ export default function AdminModal({ isOpen, onClose, type, editingItem }) {
                           </div>
                         )}
 
+                        {/* Aviso al acercarse al límite */}
+                        {totalImagenes >= WARN_IMAGENES_POR_EVIDENCIA && totalImagenes < MAX_IMAGENES_POR_EVIDENCIA && (
+                          <div className="flex items-start gap-2 px-3 py-2 rounded-lg bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-900/40 text-amber-800 dark:text-amber-300 text-[11px]">
+                            <i className="fas fa-triangle-exclamation mt-0.5" />
+                            <div>
+                              <p className="font-bold">Te quedan {MAX_IMAGENES_POR_EVIDENCIA - totalImagenes} espacios.</p>
+                              <p>Si necesitas más fotos, sube la colección a Google Drive y pega el enlace de la carpeta.</p>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* CTA Drive al llegar al límite */}
+                        {totalImagenes >= MAX_IMAGENES_POR_EVIDENCIA && (
+                          <div className="flex items-start gap-2 px-3 py-2.5 rounded-lg bg-indigo-50 dark:bg-indigo-950/30 border border-indigo-200 dark:border-indigo-900/40 text-indigo-800 dark:text-indigo-300 text-[11px]">
+                            <i className="fab fa-google-drive mt-0.5 text-base" />
+                            <div className="flex-1">
+                              <p className="font-bold">Has alcanzado el límite de {MAX_IMAGENES_POR_EVIDENCIA} fotos.</p>
+                              <p className="mt-0.5">Para más imágenes de esta evidencia, sube la colección a Google Drive (más rápido y sin límite) y pega el enlace de la carpeta.</p>
+                              <button
+                                type="button"
+                                onClick={() => setEviSourceType("drive")}
+                                className="mt-2 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-[10px] font-bold uppercase tracking-wider transition-colors"
+                              >
+                                <i className="fab fa-google-drive text-[10px]" />
+                                Cambiar a Drive
+                              </button>
+                            </div>
+                          </div>
+                        )}
+
                         <p className="text-[10px] text-gray-500 dark:text-gray-400 italic text-center">
                           {eviFiles.length === 0 && eviExistingImagenes.length === 0
                             ? `Puedes agregar más fotos en varias selecciones (100MB c/u)`
-                            : `Total: ${eviExistingImagenes.length + eviFiles.length} foto(s) · puedes seguir agregando`}
+                            : totalImagenes >= MAX_IMAGENES_POR_EVIDENCIA
+                              ? `Límite alcanzado (${totalImagenes} / ${MAX_IMAGENES_POR_EVIDENCIA}). Usa Drive para más fotos.`
+                              : `Total: ${totalImagenes} foto(s) · puedes seguir agregando`}
                         </p>
                       </div>
                     )}
