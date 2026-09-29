@@ -38,9 +38,7 @@ export default function Hero({ setActiveTab }) {
   const isAdmin = currentUser?.rol === "Administrador";
   const isDocente = currentUser?.rol === "Docente";
 
-  const slides = Array.isArray(heroSlides) && heroSlides.length > 0
-    ? heroSlides
-    : [{ id: "fallback", imagenUrl: "/imagen-hero-bandera.jpg", alt: "Estudiantes I.E. Emblemática Bandera del Perú" }];
+  const slides = Array.isArray(heroSlides) && heroSlides.length > 0 ? heroSlides : [];
 
   const [slideIndex, setSlideIndex] = useState(0);
   const [isPaused, setIsPaused] = useState(false);
@@ -58,7 +56,8 @@ export default function Hero({ setActiveTab }) {
   }, [slides.length, isPaused]);
 
   useEffect(() => {
-    if (slideIndex >= slides.length) setSlideIndex(0);
+    if (slides.length === 0 && slideIndex !== 0) setSlideIndex(0);
+    else if (slides.length > 0 && slideIndex >= slides.length) setSlideIndex(0);
   }, [slides.length, slideIndex]);
 
   const cardStats = [
@@ -90,7 +89,38 @@ export default function Hero({ setActiveTab }) {
 
   return (
     <div className="space-y-14">
-      <section className="relative overflow-hidden rounded-cardLg bg-gradient-to-br from-[#001D52] via-[#002670] to-[#003D9E] text-white shadow-card-hover">
+      <section
+        className="relative overflow-hidden rounded-cardLg bg-gradient-to-br from-[#001D52] via-[#002670] to-[#003D9E] text-white shadow-card-hover"
+        onMouseEnter={() => setIsPaused(true)}
+        onMouseLeave={() => setIsPaused(false)}
+        role={slides.length > 1 ? "region" : undefined}
+        aria-roledescription={slides.length > 1 ? "carrusel" : undefined}
+        aria-label={slides.length > 1 ? "Imágenes destacadas de la plataforma" : undefined}
+      >
+        {/* Carrusel de fondo (crossfade entre slides) */}
+        {slides.length > 0 && (
+          <div className="absolute inset-0" aria-hidden>
+            <AnimatePresence initial={false}>
+              <motion.div
+                key={slides[slideIndex]?.id ?? slideIndex}
+                className="absolute inset-0 bg-cover bg-center"
+                style={{ backgroundImage: `url(${slides[slideIndex]?.imagenUrl})` }}
+                initial={{ opacity: 0, scale: 1.06 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 1.1, ease: "easeOut" }}
+              />
+            </AnimatePresence>
+          </div>
+        )}
+
+        {/* Overlay oscuro para legibilidad del texto */}
+        <div
+          className="absolute inset-0 bg-gradient-to-br from-[#001D52]/85 via-[#002670]/75 to-[#003D9E]/70"
+          aria-hidden
+        />
+
+        {/* Patrón de cuadrícula */}
         <div className="absolute inset-0 opacity-[0.07] pointer-events-none" aria-hidden>
           <svg className="w-full h-full" xmlns="http://www.w3.org/2000/svg">
             <defs>
@@ -101,6 +131,8 @@ export default function Hero({ setActiveTab }) {
             <rect width="100%" height="100%" fill="url(#grid-pattern)" />
           </svg>
         </div>
+
+        {/* Blobs decorativos */}
         <div
           className="absolute -top-32 -right-24 w-[28rem] h-[28rem] rounded-full bg-accent-500/35 blur-[100px] pointer-events-none"
           aria-hidden
@@ -146,7 +178,7 @@ export default function Hero({ setActiveTab }) {
               initial={{ opacity: 0, y: 12 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.6, delay: 0.16, ease: easeOut }}
-              className="mt-5 text-[15px] sm:text-base text-white/80 max-w-xl leading-relaxed font-normal"
+              className="mt-5 text-[15px] sm:text-base text-white/85 max-w-xl leading-relaxed font-normal"
             >
               Materiales, herramientas y experiencias para potenciar el aprendizaje y la innovación en tus clases.
             </motion.p>
@@ -174,7 +206,7 @@ export default function Hero({ setActiveTab }) {
             </motion.div>
           </div>
 
-          {/* Right panel — carousel card */}
+          {/* Right panel — card estática con la imagen institucional */}
           <motion.div
             initial={{ opacity: 0, scale: 0.96 }}
             animate={{ opacity: 1, scale: 1 }}
@@ -185,29 +217,17 @@ export default function Hero({ setActiveTab }) {
               animate={{ y: [0, -5, 0] }}
               transition={{ duration: 6, repeat: Infinity, ease: "easeInOut" }}
               className="relative h-full rounded-2xl overflow-hidden shadow-glow ring-1 ring-white/20"
-              onMouseEnter={() => setIsPaused(true)}
-              onMouseLeave={() => setIsPaused(false)}
-              role="region"
-              aria-roledescription="carrusel"
-              aria-label="Imágenes destacadas de la plataforma"
+              aria-hidden
             >
-              {/* Slides */}
-              <AnimatePresence mode="wait" initial={false}>
-                <motion.img
-                  key={slides[slideIndex]?.id ?? slideIndex}
-                  src={slides[slideIndex]?.imagenUrl}
-                  alt={slides[slideIndex]?.alt || `Slide ${slideIndex + 1}`}
-                  width="1200"
-                  height="800"
-                  decoding="async"
-                  className="absolute inset-0 w-full h-full object-cover"
-                  initial={{ opacity: 0, x: 30 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  exit={{ opacity: 0, x: -30 }}
-                  transition={{ duration: 0.55, ease: easeOut }}
-                />
-              </AnimatePresence>
-
+              <img
+                src="/imagen-hero-bandera.jpg"
+                alt="Estudiantes I.E. Emblemática Bandera del Perú"
+                width="1200"
+                height="800"
+                decoding="async"
+                fetchPriority="high"
+                className="absolute inset-0 w-full h-full object-cover"
+              />
               {/* Dark overlay gradient */}
               <div className="absolute inset-0 bg-gradient-to-t from-[#0a1628]/95 via-[#0a1628]/60 to-[#0a1628]/30" />
 
@@ -252,35 +272,35 @@ export default function Hero({ setActiveTab }) {
                     </div>
                   ))}
                 </div>
-
-                {/* Dots indicator */}
-                {slides.length > 1 && (
-                  <div
-                    className="mt-4 flex items-center justify-center gap-1.5"
-                    role="tablist"
-                    aria-label="Seleccionar slide"
-                  >
-                    {slides.map((s, i) => (
-                      <button
-                        key={s.id ?? i}
-                        type="button"
-                        role="tab"
-                        aria-selected={i === slideIndex}
-                        aria-label={`Ir al slide ${i + 1}`}
-                        onClick={() => goTo(i)}
-                        className={`h-1.5 rounded-full transition-all duration-300 ${
-                          i === slideIndex
-                            ? "w-6 bg-white"
-                            : "w-1.5 bg-white/40 hover:bg-white/70"
-                        }`}
-                      />
-                    ))}
-                  </div>
-                )}
               </div>
             </motion.div>
           </motion.div>
         </div>
+
+        {/* Dots del carrusel — centrados abajo, sobre el overlay */}
+        {slides.length > 1 && (
+          <div
+            className="absolute bottom-4 left-1/2 -translate-x-1/2 z-10 flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-full bg-black/30 backdrop-blur-sm ring-1 ring-white/15"
+            role="tablist"
+            aria-label="Seleccionar imagen del fondo"
+          >
+            {slides.map((s, i) => (
+              <button
+                key={s.id ?? i}
+                type="button"
+                role="tab"
+                aria-selected={i === slideIndex}
+                aria-label={`Ir a la imagen ${i + 1} del fondo`}
+                onClick={() => goTo(i)}
+                className={`h-1.5 rounded-full transition-all duration-300 ${
+                  i === slideIndex
+                    ? "w-6 bg-white"
+                    : "w-1.5 bg-white/40 hover:bg-white/70"
+                }`}
+              />
+            ))}
+          </div>
+        )}
 
         {(isAdmin || isDocente) && (
           <div className="absolute top-4 right-4 z-10">
