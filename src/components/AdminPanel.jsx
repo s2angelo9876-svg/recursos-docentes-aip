@@ -6,6 +6,7 @@ import Tutoriales from "./Tutoriales";
 import Noticias from "./Noticias";
 import AdminModal from "./AdminModal";
 import AuditoriaPanel from "./AuditoriaPanel";
+import HeroSlidesManager from "./HeroSlidesManager";
 
 const AREAS_CNEB = [
   "Matemática", "Comunicación", "Inglés", "Arte y Cultura",
@@ -469,6 +470,7 @@ export default function AdminPanel() {
           { key: "tutoriales", label: "Tutoriales", icon: "fa-circle-play" },
           { key: "noticias", label: "Comunicados", icon: "fa-bullhorn" },
           { key: "usuarios", label: "Usuarios", icon: "fa-users" },
+          ...(currentUser?.rol === "Administrador" ? [{ key: "hero", label: "Hero", icon: "fa-panorama" }] : []),
           ...(currentUser?.rol === "Administrador" ? [{ key: "auditoria", label: "Auditoría", icon: "fa-shield-halved" }] : []),
         ].map((t) => {
           const active = activeSubTab === t.key;
@@ -490,7 +492,7 @@ export default function AdminPanel() {
       </div>
 
       {/* Adding buttons */}
-      {activeSubTab !== "usuarios" && activeSubTab !== "auditoria" && (
+      {activeSubTab !== "usuarios" && activeSubTab !== "auditoria" && activeSubTab !== "hero" && (
         <div className="flex justify-end">
           <button
             onClick={() => handleOpenAdd(activeSubTab)}
@@ -523,6 +525,7 @@ export default function AdminPanel() {
             onEditClick={(item) => handleOpenEdit("noticias", item)}
           />
         )}
+        {activeSubTab === "hero" && <HeroSlidesManager />}
         {activeSubTab === "auditoria" && <AuditoriaPanel />}
         {activeSubTab === "usuarios" && (
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

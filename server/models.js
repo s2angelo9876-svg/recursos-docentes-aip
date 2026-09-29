@@ -64,5 +64,14 @@ export function defineModels(sequelize) {
     exito: { type: DataTypes.BOOLEAN, defaultValue: true },
   });
 
-  return { Usuario, Recurso, Tutorial, Noticia, Evidencia, AuditoriaSesion };
+  const HeroSlide = sequelize.define("HeroSlide", {
+    orden: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 1 },
+    imagenUrl: { type: DataTypes.STRING, allowNull: false },
+    imagenPath: { type: DataTypes.STRING, allowNull: true },
+    activo: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: true },
+  }, {
+    indexes: [{ fields: ["activo", "orden"] }],
+  });
+
+  return { Usuario, Recurso, Tutorial, Noticia, Evidencia, AuditoriaSesion, HeroSlide };
 }

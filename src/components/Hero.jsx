@@ -1,7 +1,9 @@
 import { useApp } from "../context/AppContext";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
+import { useState, useEffect, useCallback } from "react";
 
 const easeOut = [0.16, 1, 0.3, 1];
+const AUTOPLAY_MS = 5500;
 
 
 const features = [
@@ -32,9 +34,32 @@ const features = [
 ];
 
 export default function Hero({ setActiveTab }) {
-  const { currentUser, recursos, evidencias, isLoading } = useApp();
+  const { currentUser, recursos, evidencias, heroSlides, isLoading } = useApp();
   const isAdmin = currentUser?.rol === "Administrador";
   const isDocente = currentUser?.rol === "Docente";
+
+  const slides = Array.isArray(heroSlides) && heroSlides.length > 0
+    ? heroSlides
+    : [{ id: "fallback", imagenUrl: "/imagen-hero-bandera.jpg", alt: "Estudiantes I.E. Emblemática Bandera del Perú" }];
+
+  const [slideIndex, setSlideIndex] = useState(0);
+  const [isPaused, setIsPaused] = useState(false);
+
+  const goTo = useCallback((i) => {
+    setSlideIndex(((i % slides.length) + slides.length) % slides.length);
+  }, [slides.length]);
+
+  useEffect(() => {
+    if (slides.length <= 1 || isPaused) return undefined;
+    const t = setInterval(() => {
+      setSlideIndex((i) => (i + 1) % slides.length);
+    }, AUTOPLAY_MS);
+    return () => clearInterval(t);
+  }, [slides.length, isPaused]);
+
+  useEffect(() => {
+    if (slideIndex >= slides.length) setSlideIndex(0);
+  }, [slides.length, slideIndex]);
 
   const cardStats = [
     {
@@ -149,29 +174,40 @@ export default function Hero({ setActiveTab }) {
             </motion.div>
           </div>
 
-          {/* Right panel — single unified card with background image */}
+          {/* Right panel — carousel card */}
           <motion.div
             initial={{ opacity: 0, scale: 0.96 }}
             animate={{ opacity: 1, scale: 1 }}
             transition={{ duration: 0.8, delay: 0.15, ease: easeOut }}
             className="relative hidden lg:block"
-            aria-hidden
           >
             <motion.div
               animate={{ y: [0, -5, 0] }}
               transition={{ duration: 6, repeat: Infinity, ease: "easeInOut" }}
               className="relative h-full rounded-2xl overflow-hidden shadow-glow ring-1 ring-white/20"
+              onMouseEnter={() => setIsPaused(true)}
+              onMouseLeave={() => setIsPaused(false)}
+              role="region"
+              aria-roledescription="carrusel"
+              aria-label="Imágenes destacadas de la plataforma"
             >
-              {/* Background image */}
-              <img
-                src="/imagen-hero-bandera.jpg"
-                alt="Estudiantes I.E. Emblemática Bandera del Perú"
-                width="1200"
-                height="800"
-                decoding="async"
-                fetchPriority="high"
-                className="absolute inset-0 w-full h-full object-cover"
-              />
+              {/* Slides */}
+              <AnimatePresence mode="wait" initial={false}>
+                <motion.img
+                  key={slides[slideIndex]?.id ?? slideIndex}
+                  src={slides[slideIndex]?.imagenUrl}
+                  alt={slides[slideIndex]?.alt || `Slide ${slideIndex + 1}`}
+                  width="1200"
+                  height="800"
+                  decoding="async"
+                  className="absolute inset-0 w-full h-full object-cover"
+                  initial={{ opacity: 0, x: 30 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: -30 }}
+                  transition={{ duration: 0.55, ease: easeOut }}
+                />
+              </AnimatePresence>
+
               {/* Dark overlay gradient */}
               <div className="absolute inset-0 bg-gradient-to-t from-[#0a1628]/95 via-[#0a1628]/60 to-[#0a1628]/30" />
 
@@ -216,6 +252,31 @@ export default function Hero({ setActiveTab }) {
                     </div>
                   ))}
                 </div>
+
+                {/* Dots indicator */}
+                {slides.length > 1 && (
+                  <div
+                    className="mt-4 flex items-center justify-center gap-1.5"
+                    role="tablist"
+                    aria-label="Seleccionar slide"
+                  >
+                    {slides.map((s, i) => (
+                      <button
+                        key={s.id ?? i}
+                        type="button"
+                        role="tab"
+                        aria-selected={i === slideIndex}
+                        aria-label={`Ir al slide ${i + 1}`}
+                        onClick={() => goTo(i)}
+                        className={`h-1.5 rounded-full transition-all duration-300 ${
+                          i === slideIndex
+                            ? "w-6 bg-white"
+                            : "w-1.5 bg-white/40 hover:bg-white/70"
+                        }`}
+                      />
+                    ))}
+                  </div>
+                )}
               </div>
             </motion.div>
           </motion.div>

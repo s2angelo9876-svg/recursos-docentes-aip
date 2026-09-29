@@ -114,3 +114,10 @@ export const passwordUpdateSchema = z.object({
   message: "La nueva contraseña es obligatoria y debe tener al menos 6 caracteres",
   path: ["contrasenia"],
 });
+
+export const heroSlideSchema = z.object({
+  imagenUrl: z.string().min(1, "La imagen es obligatoria").max(1000),
+  imagenPath: z.string().max(500).optional().or(z.literal("")),
+  activo: z.boolean().optional().default(true),
+  orden: z.number().int().min(1).max(99).optional(),
+});

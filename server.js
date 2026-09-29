@@ -23,6 +23,7 @@ import {
   evidenciaSchema,
   usuarioSchema,
   passwordUpdateSchema,
+  heroSlideSchema,
 } from "./server/validators.js";
 import {
   setAuditoriaModel,
@@ -152,7 +153,7 @@ const sequelize = createSequelizeInstance();
 
 // --- SEQUELIZE SCHEMA DEFINITIONS ---
 
-const { Usuario, Recurso, Tutorial, Noticia, Evidencia, AuditoriaSesion } = defineModels(sequelize);
+const { Usuario, Recurso, Tutorial, Noticia, Evidencia, AuditoriaSesion, HeroSlide } = defineModels(sequelize);
 setAuditoriaModel(AuditoriaSesion);
 
 // --- AUDITED AUTHENTICATION MIDDLEWARE ---
@@ -1250,6 +1251,198 @@ app.post("/api/uploads", authenticateToken, requireRole(["Administrador", "Docen
       res.status(500).json({ error: uploadErr.message });
     }
   });
+});
+
+// --- HERO SLIDES ENDPOINTS ---
+
+const MAX_HERO_SLIDES = 3;
+
+function sanitizeHeroSlidePublic(row) {
+  const json = row.toJSON ? row.toJSON() : row;
+  return {
+    id: json.id,
+    orden: json.orden,
+    imagenUrl: json.imagenUrl,
+    activo: json.activo,
+  };
+}
+
+app.get("/api/hero-slides", async (req, res) => {
+  try {
+    const list = await HeroSlide.findAll({
+      where: { activo: true },
+      order: [["orden", "ASC"], ["id", "ASC"]],
+    });
+    res.json(list.map(sanitizeHeroSlidePublic));
+  } catch (err) {
+    logger.error("Error al listar hero slides", { error: err.message, stack: err.stack });
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get("/api/admin/hero-slides", authenticateToken, requireRole(["Administrador"]), async (req, res) => {
+  try {
+    const list = await HeroSlide.findAll({
+      order: [["orden", "ASC"], ["id", "ASC"]],
+    });
+    res.json(list.map((row) => {
+      const json = row.toJSON ? row.toJSON() : row;
+      return {
+        id: json.id,
+        orden: json.orden,
+        imagenUrl: json.imagenUrl,
+        imagenPath: json.imagenPath,
+        activo: json.activo,
+        createdAt: json.createdAt,
+        updatedAt: json.updatedAt,
+      };
+    }));
+  } catch (err) {
+    logger.error("Error al listar hero slides (admin)", { error: err.message, stack: err.stack });
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post("/api/admin/hero-slides", authenticateToken, requireRole(["Administrador"]), validateBody(heroSlideSchema), async (req, res) => {
+  try {
+    const { imagenUrl, imagenPath, activo } = req.body;
+
+    const count = await HeroSlide.count();
+    if (count >= MAX_HERO_SLIDES) {
+      return res.status(400).json({ error: `Máximo ${MAX_HERO_SLIDES} slides permitidos. Elimina uno antes de crear otro.` });
+    }
+
+    const maxOrdenRow = await HeroSlide.findOne({ order: [["orden", "DESC"]] });
+    const nextOrden = maxOrdenRow ? maxOrdenRow.orden + 1 : 1;
+
+    const slide = await HeroSlide.create({
+      imagenUrl,
+      imagenPath: imagenPath || null,
+      activo: activo !== false,
+      orden: nextOrden,
+    });
+
+    await auditoriaFromRequest(req, {
+      usuarioId: req.user.id,
+      usuarioNombre: req.user.nombre,
+      usuario: req.user.usuario,
+      rol: req.user.rol,
+      accion: "HERO_SLIDE_CREADO",
+      entidad: "hero_slide",
+      entidadId: slide.id,
+      detalle: `Hero slide #${slide.id} creado (orden ${slide.orden})`,
+      exito: true,
+    });
+
+    res.status(201).json(slide);
+  } catch (err) {
+    logger.error("Error al crear hero slide", { error: err.message, stack: err.stack });
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.put("/api/admin/hero-slides/:id", authenticateToken, requireRole(["Administrador"]), validateBody(heroSlideSchema), async (req, res) => {
+  try {
+    const { id } = req.params;
+    const slide = await HeroSlide.findByPk(id);
+    if (!slide) return res.status(404).json({ error: "Slide no encontrado" });
+
+    const { imagenUrl, imagenPath, activo } = req.body;
+    const oldImagenPath = slide.imagenPath;
+
+    slide.imagenUrl = imagenUrl;
+    if (typeof imagenPath === "string") slide.imagenPath = imagenPath || null;
+    if (typeof activo === "boolean") slide.activo = activo;
+    await slide.save();
+
+    if (oldImagenPath && oldImagenPath !== slide.imagenPath && oldImagenPath.includes("/storage/")) {
+      const oldUrl = `${process.env.SUPABASE_URL}/storage/v1/object/public/${process.env.SUPABASE_STORAGE_BUCKET || "recursos-uploads"}/${oldImagenPath}`;
+      await deleteFile(oldUrl);
+    }
+
+    await auditoriaFromRequest(req, {
+      usuarioId: req.user.id,
+      usuarioNombre: req.user.nombre,
+      usuario: req.user.usuario,
+      rol: req.user.rol,
+      accion: "HERO_SLIDE_ACTUALIZADO",
+      entidad: "hero_slide",
+      entidadId: slide.id,
+      detalle: `Hero slide #${slide.id} actualizado (activo=${slide.activo})`,
+      exito: true,
+    });
+
+    res.json({ success: true, slide });
+  } catch (err) {
+    logger.error("Error al actualizar hero slide", { error: err.message, stack: err.stack });
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.put("/api/admin/hero-slides-reorder", authenticateToken, requireRole(["Administrador"]), async (req, res) => {
+  try {
+    const { orden } = req.body;
+    if (!Array.isArray(orden)) {
+      return res.status(400).json({ error: "El campo 'orden' debe ser un array de IDs." });
+    }
+
+    await Promise.all(
+      orden.map((id, index) =>
+        HeroSlide.update({ orden: index + 1 }, { where: { id } })
+      )
+    );
+
+    await auditoriaFromRequest(req, {
+      usuarioId: req.user.id,
+      usuarioNombre: req.user.nombre,
+      usuario: req.user.usuario,
+      rol: req.user.rol,
+      accion: "HERO_SLIDE_REORDENADO",
+      entidad: "hero_slide",
+      detalle: `Reordenados ${orden.length} hero slides`,
+      exito: true,
+    });
+
+    res.json({ success: true });
+  } catch (err) {
+    logger.error("Error al reordenar hero slides", { error: err.message, stack: err.stack });
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.delete("/api/admin/hero-slides/:id", authenticateToken, requireRole(["Administrador"]), async (req, res) => {
+  try {
+    const { id } = req.params;
+    const slide = await HeroSlide.findByPk(id);
+    if (!slide) return res.status(404).json({ error: "Slide no encontrado" });
+
+    await deleteFile(slide.imagenUrl);
+    await slide.destroy();
+
+    const remaining = await HeroSlide.findAll({ order: [["orden", "ASC"]] });
+    await Promise.all(
+      remaining.map((row, index) =>
+        row.update({ orden: index + 1 })
+      )
+    );
+
+    await auditoriaFromRequest(req, {
+      usuarioId: req.user.id,
+      usuarioNombre: req.user.nombre,
+      usuario: req.user.usuario,
+      rol: req.user.rol,
+      accion: "HERO_SLIDE_ELIMINADO",
+      entidad: "hero_slide",
+      entidadId: Number(id),
+      detalle: `Hero slide #${id} eliminado`,
+      exito: true,
+    });
+
+    res.json({ success: true });
+  } catch (err) {
+    logger.error("Error al eliminar hero slide", { error: err.message, stack: err.stack });
+    res.status(500).json({ error: err.message });
+  }
 });
 
 // --- API BACKUP EXPORT ENDPOINT (Fase 5) ---

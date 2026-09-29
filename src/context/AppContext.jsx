@@ -32,6 +32,7 @@ export function AppContextProvider({ children }) {
   const [tutoriales, setTutoriales] = useState([]);
   const [noticias, setNoticias] = useState([]);
   const [evidencias, setEvidencias] = useState([]);
+  const [heroSlides, setHeroSlides] = useState([]);
 
   // Client-specific settings kept in local browser
   const [favoritos, setFavoritos] = useState(() => {
@@ -82,6 +83,7 @@ export function AppContextProvider({ children }) {
         setTutoriales(cached.tutoriales || []);
         setNoticias(cached.noticias || []);
         setEvidencias(cached.evidencias || []);
+        setHeroSlides(cached.heroSlides || []);
         setIsLoading(false);
         return;
       }
@@ -92,11 +94,12 @@ export function AppContextProvider({ children }) {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
       try {
-        const [resRec, resTut, resNot, resEvi] = await Promise.all([
+        const [resRec, resTut, resNot, resEvi, resHero] = await Promise.all([
           fetch(`${API_BASE}/api/recursos`, { signal: controller.signal }),
           fetch(`${API_BASE}/api/tutoriales`, { signal: controller.signal }),
           fetch(`${API_BASE}/api/noticias`, { signal: controller.signal }),
           fetch(`${API_BASE}/api/evidencias`, { signal: controller.signal }),
+          fetch(`${API_BASE}/api/hero-slides`, { signal: controller.signal }),
         ]);
         clearTimeout(timeoutId);
 
@@ -109,18 +112,20 @@ export function AppContextProvider({ children }) {
           return;
         }
 
-        const [rec, tut, not, evi] = await Promise.all([
+        const [rec, tut, not, evi, hero] = await Promise.all([
           resRec.ok ? resRec.json() : [],
           resTut.ok ? resTut.json() : [],
           resNot.ok ? resNot.json() : [],
           resEvi.ok ? resEvi.json() : [],
+          resHero.ok ? resHero.json() : [],
         ]);
 
         setRecursos(rec);
         setTutoriales(tut);
         setNoticias(not);
         setEvidencias(evi);
-        writeCache({ recursos: rec, tutoriales: tut, noticias: not, evidencias: evi });
+        setHeroSlides(hero);
+        writeCache({ recursos: rec, tutoriales: tut, noticias: not, evidencias: evi, heroSlides: hero });
         setIsLoading(false);
         return;
       } catch {
@@ -581,6 +586,7 @@ export function AppContextProvider({ children }) {
       tutoriales,
       noticias,
       evidencias,
+      heroSlides,
       favoritos,
       darkMode,
       setDarkMode,
@@ -614,6 +620,7 @@ export function AppContextProvider({ children }) {
       tutoriales,
       noticias,
       evidencias,
+      heroSlides,
       favoritos,
       darkMode,
       token,
