@@ -8,16 +8,22 @@ const CACHE_TTL_MS = 5 * 60 * 1000; // 5 min en sessionStorage
 //           https://xxx.supabase.co/storage/v1/object/sign/<bucket>/<path>?token=...
 //           /storage/v1/object/public/<bucket>/<path>  (relativa, no debería ocurrir)
 const SUPABASE_STORAGE_RE = /\/storage\/v1\/object\/(?:public|sign)\/([^?]+)/;
+const BUCKET_NAME = "recursos-uploads"; // debe coincidir con SUPABASE_STORAGE_BUCKET
 
 function isSupabaseStorageUrl(url) {
   return typeof url === "string" && SUPABASE_STORAGE_RE.test(url);
 }
 
+// Devuelve el path DENTRO del bucket (sin "recursos-uploads/" delante).
+// Esto debe coincidir con lo que el backend espera en createSignedUrl.
 function extractStoragePath(url) {
   const m = url.match(SUPABASE_STORAGE_RE);
   if (!m) return null;
   try {
-    return decodeURIComponent(m[1]);
+    const raw = decodeURIComponent(m[1]);
+    if (raw === BUCKET_NAME) return "";
+    if (raw.startsWith(BUCKET_NAME + "/")) return raw.slice(BUCKET_NAME.length + 1);
+    return raw;
   } catch {
     return m[1];
   }

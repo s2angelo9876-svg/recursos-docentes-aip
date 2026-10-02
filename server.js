@@ -1537,7 +1537,9 @@ app.delete("/api/admin/hero-slides/:id", authenticateToken, requireRole(["Admini
 // --- SIGNED URL ENDPOINTS (imágenes con acceso protegido) ---
 
 // Extrae el path del Storage a partir de una URL completa o un path relativo.
-// Acepta: "foto.jpg", "/recursos-uploads/foto.jpg", "https://xxx.supabase.co/storage/v1/object/public/recursos-uploads/foto.jpg"
+// Acepta: "foto.jpg", "recursos-uploads/foto.jpg", "https://xxx.supabase.co/storage/v1/object/public/recursos-uploads/foto.jpg"
+// Devuelve SIEMPRE el path DENTRO del bucket (sin el prefijo "recursos-uploads/")
+// porque Supabase createSignedUrl() opera con path relativo al bucket.
 function extractStoragePath(input) {
   if (!input || typeof input !== "string") return null;
   const trimmed = input.trim();
@@ -1545,11 +1547,20 @@ function extractStoragePath(input) {
   // URL pública absoluta
   if (trimmed.includes("/storage/v1/object/")) {
     const match = trimmed.match(/\/storage\/v1\/object\/(?:public|sign)\/([^?]+)/);
-    return match ? decodeURIComponent(match[1]) : null;
+    if (!match) return null;
+    const raw = decodeURIComponent(match[1]);
+    return stripBucketPrefix(raw);
   }
-  // Path relativo: "recursos-uploads/foto.jpg" o "/recursos-uploads/foto.jpg"
-  if (trimmed.startsWith("/")) return trimmed.slice(1);
-  return trimmed;
+  // Path relativo: "recursos-uploads/foto.jpg" o "/recursos-uploads/foto.jpg" o "foto.jpg"
+  if (trimmed.startsWith("/")) return stripBucketPrefix(trimmed.slice(1));
+  return stripBucketPrefix(trimmed);
+}
+
+function stripBucketPrefix(p) {
+  const bucket = process.env.SUPABASE_STORAGE_BUCKET || "recursos-uploads";
+  if (p === bucket) return "";
+  if (p.startsWith(bucket + "/")) return p.slice(bucket.length + 1);
+  return p;
 }
 
 app.get("/api/storage/sign", signedUrlLimiter, async (req, res) => {
