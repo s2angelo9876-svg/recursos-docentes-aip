@@ -5,6 +5,7 @@ import { getYouTubeId, getYouTubeThumbnail } from "../utils/youtube";
 import { listDriveImages, DriveGalleryError } from "../services/googleDrive";
 import GaleriaModal from "./GaleriaModal";
 import { SkeletonStats, SkeletonGrid } from "./Skeleton";
+import SignedImage from "./SignedImage";
 
 const MESES = [
   "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto",
@@ -103,13 +104,12 @@ function EvidenciaMedia({ evidencia, onOpen }) {
       );
     }
     return (
-      <img
+      <SignedImage
         src={firstItem?.url || ""}
         alt={evidencia.titulo}
         loading="lazy"
         decoding="async"
         className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
-        onError={(e) => { e.currentTarget.style.display = "none"; }}
       />
     );
   };
@@ -152,7 +152,7 @@ function EvidenciaMedia({ evidencia, onOpen }) {
                         <i className="fas fa-play text-[9px]" />
                       </div>
                     ) : (
-                      <img src={img.url} alt="" loading="lazy" decoding="async" className="w-full h-full object-cover" />
+                      <SignedImage src={img.url} alt="" loading="lazy" decoding="async" className="w-full h-full object-cover" />
                     )}
                   </div>
                 );

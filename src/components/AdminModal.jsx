@@ -3,6 +3,7 @@ import { useApp } from "../context/AppContext";
 import { API_BASE } from "../utils/api.js";
 import { getYouTubeId, getYouTubeThumbnail, isValidYouTubeUrl } from "../utils/youtube";
 import { listDriveImages } from "../services/googleDrive";
+import SignedImage from "./SignedImage";
 
 const AREAS_CNEB = [
   "Matemática", "Comunicación", "Inglés", "Arte y Cultura",
@@ -1003,7 +1004,7 @@ export default function AdminModal({ isOpen, onClose, type, editingItem }) {
                             <div className="grid grid-cols-4 gap-2">
                               {eviExistingImagenes.map((img, i) => (
                                 <div key={i} className="relative aspect-square rounded-lg overflow-hidden border border-gray-200 dark:border-dark-border group/preview">
-                                  <img src={img.url} alt="" loading="lazy" decoding="async" className="w-full h-full object-cover" />
+                                  <SignedImage src={img.url} alt="" loading="lazy" decoding="async" className="w-full h-full object-cover" />
                                   <button
                                     type="button"
                                     onClick={() => removeEviExisting(i)}

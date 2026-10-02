@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "framer-motion";
+import { resolveImageUrl } from "../services/imageUrl";
 
 const ZOOM_MIN = 1;
 const ZOOM_MAX = 5;
@@ -35,6 +36,18 @@ function ZoomableImage({ src, alt, loaded, onLoad, onError }) {
   const { scale, tx, ty, setScale, setTx, setTy, reset } = useZoom();
   const lastTouchDist = useRef(0);
   const dragRef = useRef({ active: false, startX: 0, startY: 0, baseTx: 0, baseTy: 0 });
+  const [resolvedSrc, setResolvedSrc] = useState(src);
+
+  // Resuelve a una URL firmada (Supabase Storage) o deja la URL tal cual (YouTube/Drive).
+  useEffect(() => {
+    let cancelled = false;
+    resolveImageUrl(src).then((u) => {
+      if (!cancelled) setResolvedSrc(u);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [src]);
 
   // Wheel zoom
   const onWheel = useCallback(
@@ -159,7 +172,7 @@ function ZoomableImage({ src, alt, loaded, onLoad, onError }) {
 
   return (
     <img
-      src={src}
+      src={resolvedSrc}
       alt={alt}
       loading="eager"
       onLoad={onLoad}
@@ -392,6 +405,22 @@ export default function GaleriaModal({
   const showDots = images.length > 1 && images.length <= 15;
   const showCounter = images.length > 15;
 
+  // Resuelve la URL del item actual a una signed URL (Supabase Storage).
+  const [resolvedCurrentUrl, setResolvedCurrentUrl] = useState(current?.url || "");
+  useEffect(() => {
+    let cancelled = false;
+    if (!current?.url) {
+      setResolvedCurrentUrl("");
+      return;
+    }
+    resolveImageUrl(current.url).then((u) => {
+      if (!cancelled) setResolvedCurrentUrl(u);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [current?.url]);
+
   const slideVariants = {
     enter: (dir) => ({ x: dir > 0 ? "100%" : "-100%", opacity: 0 }),
     center: { x: 0, opacity: 1 },
@@ -521,8 +550,8 @@ export default function GaleriaModal({
                     )}
                     {isVideo(current) ? (
                       <video
-                        key={current.url}
-                        src={current.url}
+                        key={current.id || resolvedCurrentUrl}
+                        src={resolvedCurrentUrl}
                         controls
                         autoPlay={false}
                         playsInline
@@ -533,7 +562,7 @@ export default function GaleriaModal({
                     ) : (
                       <ZoomableImage
                         key={current.id}
-                        src={current.url}
+                        src={resolvedCurrentUrl || current.url}
                         alt={current.name || `Imagen ${index + 1}`}
                         loaded={imgLoaded}
                         onLoad={() => { setImgLoaded(true); setImgError(false); }}
