@@ -1,6 +1,7 @@
 import { createContext, useContext, useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { API_BASE } from "../utils/api.js";
 import { dispatchToast } from "../components/Toast";
+import { clearImageUrlCache } from "../services/imageUrl";
 
 const AppContext = createContext();
 const CACHE_KEY = "innova_db_cache";
@@ -198,6 +199,7 @@ export function AppContextProvider({ children }) {
   const logout = useCallback(() => {
     localStorage.removeItem("innova_token");
     localStorage.removeItem("innova_user");
+    clearImageUrlCache();
     setToken(null);
     setCurrentUser(null);
   }, []);

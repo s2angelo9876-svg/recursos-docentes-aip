@@ -4,6 +4,7 @@ import { API_BASE } from "../utils/api.js";
 import { useApp } from "../context/AppContext";
 import { dispatchToast } from "./Toast";
 import ConfirmModal from "./ConfirmModal";
+import SignedImage from "./SignedImage";
 
 const MAX_SLIDES = 3;
 const ACCEPTED_MIMES = ["image/jpeg", "image/png", "image/webp", "image/avif"];
@@ -149,11 +150,11 @@ function SlideFormModal({ open, slide, onClose, onSaved }) {
                   className="relative w-full aspect-video rounded-xl border-2 border-dashed border-line dark:border-dark-border bg-gray-50 dark:bg-dark-bg hover:border-primary-400 hover:bg-primary-50/30 dark:hover:bg-primary-900/10 transition-colors cursor-pointer overflow-hidden flex items-center justify-center"
                 >
                   {preview ? (
-                    <img
-                      src={preview}
-                      alt="Preview"
-                      className="absolute inset-0 w-full h-full object-cover"
-                    />
+<SignedImage
+                  src={preview}
+                  alt="Preview"
+                  className="absolute inset-0 w-full h-full object-cover"
+                />
                   ) : (
                     <div className="text-center text-ink-subtle dark:text-ink-meta">
                       <i className="fas fa-cloud-arrow-up text-2xl mb-2 block" />
@@ -412,7 +413,7 @@ export default function HeroSlidesManager() {
               className="group relative rounded-2xl overflow-hidden bg-white dark:bg-dark-card border border-line dark:border-dark-border shadow-sm hover:shadow-card-hover transition-all"
             >
               <div className="aspect-video bg-gray-100 dark:bg-dark-bg overflow-hidden">
-                <img
+                <SignedImage
                   src={s.imagenUrl}
                   alt={`Slide ${i + 1}`}
                   className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-[1.03]"

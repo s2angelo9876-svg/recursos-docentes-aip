@@ -1,6 +1,7 @@
 import { useApp } from "../context/AppContext";
 import { motion, AnimatePresence } from "framer-motion";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
+import { resolveImageUrl } from "../services/imageUrl";
 
 const easeOut = [0.16, 1, 0.3, 1];
 const AUTOPLAY_MS = 5500;
@@ -38,10 +39,13 @@ export default function Hero({ setActiveTab }) {
   const isAdmin = currentUser?.rol === "Administrador";
   const isDocente = currentUser?.rol === "Docente";
 
-  const slides = Array.isArray(heroSlides) && heroSlides.length > 0 ? heroSlides : [];
-
+  const slides = useMemo(
+    () => (Array.isArray(heroSlides) && heroSlides.length > 0 ? heroSlides : []),
+    [heroSlides]
+  );
   const [slideIndex, setSlideIndex] = useState(0);
   const [isPaused, setIsPaused] = useState(false);
+  const [resolvedBg, setResolvedBg] = useState(null);
 
   const goTo = useCallback((i) => {
     setSlideIndex(((i % slides.length) + slides.length) % slides.length);
@@ -59,6 +63,22 @@ export default function Hero({ setActiveTab }) {
     if (slides.length === 0 && slideIndex !== 0) setSlideIndex(0);
     else if (slides.length > 0 && slideIndex >= slides.length) setSlideIndex(0);
   }, [slides.length, slideIndex]);
+
+  // Resuelve la URL del slide activo a una versión firmada (Supabase signed URL).
+  useEffect(() => {
+    let cancelled = false;
+    const url = slides[slideIndex]?.imagenUrl;
+    if (!url) {
+      setResolvedBg(null);
+      return;
+    }
+    resolveImageUrl(url).then((u) => {
+      if (!cancelled) setResolvedBg(u);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [slides, slideIndex]);
 
   const cardStats = [
     {
@@ -98,13 +118,13 @@ export default function Hero({ setActiveTab }) {
         aria-label={slides.length > 1 ? "Imágenes destacadas de la plataforma" : undefined}
       >
         {/* Carrusel de fondo (crossfade entre slides) */}
-        {slides.length > 0 && (
+        {slides.length > 0 && resolvedBg && (
           <div className="absolute inset-0" aria-hidden>
             <AnimatePresence initial={false}>
               <motion.div
                 key={slides[slideIndex]?.id ?? slideIndex}
                 className="absolute inset-0 bg-cover bg-center"
-                style={{ backgroundImage: `url(${slides[slideIndex]?.imagenUrl})` }}
+                style={{ backgroundImage: `url(${resolvedBg})` }}
                 initial={{ opacity: 0, scale: 1.06 }}
                 animate={{ opacity: 1, scale: 1 }}
                 exit={{ opacity: 0 }}

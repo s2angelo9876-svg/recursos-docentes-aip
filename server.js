@@ -13,7 +13,12 @@ import sharp from "sharp";
 import { Sequelize, Op, DataTypes } from "sequelize";
 import { defineModels } from "./server/models.js";
 import * as XLSX from "xlsx";
-import { uploadFile, deleteFile } from "./server/services/storage.js";
+import {
+  uploadFile,
+  deleteFile,
+  getSignedUrlSafe,
+  getSignedUrls,
+} from "./server/services/storage.js";
 import logger from "./server/services/logger.js";
 import { validateBody } from "./server/middleware.js";
 import {
@@ -280,6 +285,58 @@ async function convertToAvifIfImage(buffer, mimetype) {
     // caemos al archivo original para no romper el upload.
     logger.warn(`[AVIF] Conversión falló para mimetype ${mimetype}: ${err.message}. Se sube original.`);
     return { buffer, mimetype, converted: false };
+  }
+}
+
+const WATERMARK_TEXT = "I.E. Bandera del Perú · AIP";
+const WATERMARKABLE_MIMES = new Set([
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+  "image/avif",
+]);
+
+// Aplica una marca de agua diagonal repetida sobre la imagen usando sharp + SVG.
+// Devuelve { buffer, applied: true } si pudo, o { buffer, applied: false } si falla.
+async function applyWatermarkToBuffer(buffer, mimetype) {
+  if (!WATERMARKABLE_MIMES.has(mimetype)) {
+    return { buffer, applied: false };
+  }
+  try {
+    const meta = await sharp(buffer).metadata();
+    const w = meta.width || 1200;
+    const h = meta.height || 800;
+    const fontSize = Math.max(18, Math.round(w / 35));
+    const charW = fontSize * 0.55;
+    const textWidth = WATERMARK_TEXT.length * charW;
+    const stepX = textWidth + 80;
+    const stepY = 220;
+    const cols = Math.ceil(w / stepX) + 1;
+    const rows = Math.ceil(h / stepY) + 1;
+
+    const texts = [];
+    for (let r = 0; r < rows; r++) {
+      for (let c = 0; c < cols; c++) {
+        const x = c * stepX - textWidth / 2;
+        const y = r * stepY + fontSize;
+        texts.push(
+          `<text x="${x}" y="${y}" font-family="Inter, Arial, sans-serif" font-size="${fontSize}" font-weight="700" fill="white" fill-opacity="0.30" stroke="black" stroke-opacity="0.18" stroke-width="1" transform="rotate(-28 ${x} ${y})">${WATERMARK_TEXT}</text>`
+        );
+      }
+    }
+
+    const svgOverlay = Buffer.from(
+      `<svg width="${w}" height="${h}" xmlns="http://www.w3.org/2000/svg">${texts.join("")}</svg>`
+    );
+
+    const watermarked = await sharp(buffer)
+      .composite([{ input: svgOverlay, top: 0, left: 0 }])
+      .toBuffer();
+
+    return { buffer: watermarked, applied: true };
+  } catch (err) {
+    logger.warn(`[WATERMARK] No se pudo aplicar watermark a ${mimetype}: ${err.message}. Se sube sin marca.`);
+    return { buffer, applied: false };
   }
 }
 
@@ -1179,14 +1236,32 @@ app.post("/api/uploads", authenticateToken, requireRole(["Administrador", "Docen
       let totalOriginalBytes = 0;
       let totalCompressedBytes = 0;
       let totalConverted = 0;
+      let totalWatermarked = 0;
+
+      // El cliente puede omitir el watermark pasando `applyWatermark: "false"`
+      // en el body multipart. Por defecto, se aplica a todas las imágenes (fotos).
+      const applyWatermark = req.body?.applyWatermark !== "false";
 
       for (const f of files) {
         try {
-          // Convertir imagen a AVIF si aplica (reduce ~70% del tamaño)
-          const { buffer: fileBuffer, mimetype: fileMime, converted } = await convertToAvifIfImage(
+          // 1) Convertir imagen a AVIF si aplica (reduce ~70% del tamaño)
+          let { buffer: fileBuffer, mimetype: fileMime, converted } = await convertToAvifIfImage(
             f.buffer,
             f.mimetype
           );
+
+          // 2) Aplicar watermark a fotos (no a videos ni PDFs).
+          //    Se aplica DESPUÉS de la conversión AVIF para que el texto
+          //    quede incrustado en la imagen final que se servirá.
+          let watermarked = false;
+          if (applyWatermark && (fileMime || "").startsWith("image/")) {
+            const wm = await applyWatermarkToBuffer(fileBuffer, fileMime);
+            if (wm.applied) {
+              fileBuffer = wm.buffer;
+              watermarked = true;
+              totalWatermarked += 1;
+            }
+          }
 
           const baseName = converted
             ? f.originalname.replace(/\.[^.]+$/, "") + ".avif"
@@ -1213,6 +1288,7 @@ app.post("/api/uploads", authenticateToken, requireRole(["Administrador", "Docen
             originalSize: converted ? originalSize : undefined,
             compressionPct: converted ? compressionPct : undefined,
             mimetype: fileMime,
+            watermarked,
           });
         } catch (fileErr) {
           logger.error(`[AUDIT] Fallo al subir ${f.originalname}:`, { error: fileErr.message });
@@ -1228,6 +1304,7 @@ app.post("/api/uploads", authenticateToken, requireRole(["Administrador", "Docen
       logger.info(
         `[AUDIT] Subida múltiple: ${uploaded.length} OK, ${failed.length} fallidos de ${files.length} ` +
         `| ${totalConverted} convertidas a AVIF ` +
+        `| ${totalWatermarked} con watermark ` +
         `| ${(totalOriginalBytes / 1024 / 1024).toFixed(2)} MB → ${(totalCompressedBytes / 1024 / 1024).toFixed(2)} MB (-${overallPct}%)`
       );
 
@@ -1240,6 +1317,7 @@ app.post("/api/uploads", authenticateToken, requireRole(["Administrador", "Docen
         stats: {
           totalFiles: files.length,
           convertedToAvif: totalConverted,
+          watermarked: totalWatermarked,
           originalSizeMB: +(totalOriginalBytes / 1024 / 1024).toFixed(2),
           compressedSizeMB: +(totalCompressedBytes / 1024 / 1024).toFixed(2),
           savedMB: +(totalSaved / 1024 / 1024).toFixed(2),
@@ -1442,6 +1520,60 @@ app.delete("/api/admin/hero-slides/:id", authenticateToken, requireRole(["Admini
   } catch (err) {
     logger.error("Error al eliminar hero slide", { error: err.message, stack: err.stack });
     res.status(500).json({ error: err.message });
+  }
+});
+
+// --- SIGNED URL ENDPOINTS (imágenes con acceso protegido) ---
+
+// Extrae el path del Storage a partir de una URL completa o un path relativo.
+// Acepta: "foto.jpg", "/recursos-uploads/foto.jpg", "https://xxx.supabase.co/storage/v1/object/public/recursos-uploads/foto.jpg"
+function extractStoragePath(input) {
+  if (!input || typeof input !== "string") return null;
+  const trimmed = input.trim();
+  if (!trimmed) return null;
+  // URL pública absoluta
+  if (trimmed.includes("/storage/v1/object/")) {
+    const match = trimmed.match(/\/storage\/v1\/object\/(?:public|sign)\/([^?]+)/);
+    return match ? decodeURIComponent(match[1]) : null;
+  }
+  // Path relativo: "recursos-uploads/foto.jpg" o "/recursos-uploads/foto.jpg"
+  if (trimmed.startsWith("/")) return trimmed.slice(1);
+  return trimmed;
+}
+
+app.get("/api/storage/sign", authenticateToken, async (req, res) => {
+  try {
+    const path = extractStoragePath(req.query.path);
+    if (!path) {
+      return res.status(400).json({ error: "Parámetro 'path' requerido" });
+    }
+    const url = await getSignedUrlSafe(path);
+    res.json({ url, expiresIn: 600 });
+  } catch (err) {
+    logger.error("Error al firmar URL", { error: err.message });
+    res.status(500).json({ error: "No se pudo firmar la URL" });
+  }
+});
+
+app.post("/api/storage/sign-batch", authenticateToken, async (req, res) => {
+  try {
+    const { paths } = req.body || {};
+    if (!Array.isArray(paths) || paths.length === 0) {
+      return res.status(400).json({ error: "El campo 'paths' debe ser un array" });
+    }
+    if (paths.length > 200) {
+      return res.status(400).json({ error: "Máximo 200 paths por request" });
+    }
+    const cleanPaths = paths.map(extractStoragePath).filter(Boolean);
+    const urls = await getSignedUrls(cleanPaths);
+    const result = {};
+    for (let i = 0; i < cleanPaths.length; i++) {
+      result[cleanPaths[i]] = urls[i];
+    }
+    res.json({ urls: result, expiresIn: 600 });
+  } catch (err) {
+    logger.error("Error al firmar URLs en batch", { error: err.message });
+    res.status(500).json({ error: "No se pudieron firmar las URLs" });
   }
 });
 
