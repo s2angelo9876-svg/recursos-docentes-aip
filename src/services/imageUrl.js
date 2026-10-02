@@ -73,14 +73,14 @@ async function fetchSignedUrl(path) {
 // Resuelve una URL de imagen. Si es de Supabase Storage, devuelve una
 // versión firmada (cacheada). Si es externa, la devuelve tal cual.
 export async function resolveImageUrl(url) {
-  if (!url) return "";
+  if (!url) return null;
   if (!isSupabaseStorageUrl(url)) return url;
   const path = extractStoragePath(url);
   if (!path) return url;
   try {
     return await fetchSignedUrl(path);
   } catch {
-    return url; // fallback a la URL original si falla
+    return null; // null = no se pudo resolver
   }
 }
 

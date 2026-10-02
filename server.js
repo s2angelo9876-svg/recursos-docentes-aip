@@ -121,6 +121,17 @@ const auditoriaLimiter = rateLimit({
   message: { error: "Demasiadas consultas de auditoría. Intente más tarde." },
 });
 
+// Firmar URLs de Storage: endpoint público (necesario para que los visitantes
+// anónimos puedan ver imágenes de la web). Es permisivo porque las URLs
+// igual expiran en 10 min y el backend cachea 1 min.
+const signedUrlLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: isProduction ? 3000 : 10000,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "Demasiadas solicitudes de imágenes. Intente más tarde." },
+});
+
 app.use("/api/", apiLimiter);
 app.use("/api/upload", uploadLimiter);
 app.use("/api/uploads", uploadLimiter);
@@ -1541,7 +1552,7 @@ function extractStoragePath(input) {
   return trimmed;
 }
 
-app.get("/api/storage/sign", authenticateToken, async (req, res) => {
+app.get("/api/storage/sign", signedUrlLimiter, async (req, res) => {
   try {
     const path = extractStoragePath(req.query.path);
     if (!path) {
@@ -1555,7 +1566,7 @@ app.get("/api/storage/sign", authenticateToken, async (req, res) => {
   }
 });
 
-app.post("/api/storage/sign-batch", authenticateToken, async (req, res) => {
+app.post("/api/storage/sign-batch", signedUrlLimiter, async (req, res) => {
   try {
     const { paths } = req.body || {};
     if (!Array.isArray(paths) || paths.length === 0) {

@@ -36,18 +36,23 @@ function ZoomableImage({ src, alt, loaded, onLoad, onError }) {
   const { scale, tx, ty, setScale, setTx, setTy, reset } = useZoom();
   const lastTouchDist = useRef(0);
   const dragRef = useRef({ active: false, startX: 0, startY: 0, baseTx: 0, baseTy: 0 });
-  const [resolvedSrc, setResolvedSrc] = useState(src);
+  const isStorage = src?.includes("/storage/v1/object/");
+  const [resolvedSrc, setResolvedSrc] = useState(isStorage ? null : src);
 
   // Resuelve a una URL firmada (Supabase Storage) o deja la URL tal cual (YouTube/Drive).
   useEffect(() => {
     let cancelled = false;
+    if (!isStorage) {
+      setResolvedSrc(src);
+      return;
+    }
     resolveImageUrl(src).then((u) => {
       if (!cancelled) setResolvedSrc(u);
     });
     return () => {
       cancelled = true;
     };
-  }, [src]);
+  }, [src, isStorage]);
 
   // Wheel zoom
   const onWheel = useCallback(
@@ -406,11 +411,16 @@ export default function GaleriaModal({
   const showCounter = images.length > 15;
 
   // Resuelve la URL del item actual a una signed URL (Supabase Storage).
-  const [resolvedCurrentUrl, setResolvedCurrentUrl] = useState(current?.url || "");
+  const curIsStorage = current?.url?.includes("/storage/v1/object/");
+  const [resolvedCurrentUrl, setResolvedCurrentUrl] = useState(curIsStorage ? null : current?.url || null);
   useEffect(() => {
     let cancelled = false;
     if (!current?.url) {
-      setResolvedCurrentUrl("");
+      setResolvedCurrentUrl(null);
+      return;
+    }
+    if (!curIsStorage) {
+      setResolvedCurrentUrl(current.url);
       return;
     }
     resolveImageUrl(current.url).then((u) => {
@@ -419,7 +429,7 @@ export default function GaleriaModal({
     return () => {
       cancelled = true;
     };
-  }, [current?.url]);
+  }, [current?.url, curIsStorage]);
 
   const slideVariants = {
     enter: (dir) => ({ x: dir > 0 ? "100%" : "-100%", opacity: 0 }),
@@ -548,26 +558,28 @@ export default function GaleriaModal({
                         </p>
                       </div>
                     )}
-                    {isVideo(current) ? (
-                      <video
-                        key={current.id || resolvedCurrentUrl}
-                        src={resolvedCurrentUrl}
-                        controls
-                        autoPlay={false}
-                        playsInline
-                        className="max-w-full max-h-full object-contain"
-                        onLoadedData={() => setImgLoaded(true)}
-                        onError={() => setImgLoaded(true)}
-                      />
-                    ) : (
-                      <ZoomableImage
-                        key={current.id}
-                        src={resolvedCurrentUrl || current.url}
-                        alt={current.name || `Imagen ${index + 1}`}
-                        loaded={imgLoaded}
-                        onLoad={() => { setImgLoaded(true); setImgError(false); }}
-                        onError={() => { setImgLoaded(true); setImgError(true); }}
-                      />
+                    {resolvedCurrentUrl && (
+                      isVideo(current) ? (
+                        <video
+                          key={current.id || resolvedCurrentUrl}
+                          src={resolvedCurrentUrl}
+                          controls
+                          autoPlay={false}
+                          playsInline
+                          className="max-w-full max-h-full object-contain"
+                          onLoadedData={() => setImgLoaded(true)}
+                          onError={() => setImgLoaded(true)}
+                        />
+                      ) : (
+                        <ZoomableImage
+                          key={current.id}
+                          src={resolvedCurrentUrl}
+                          alt={current.name || `Imagen ${index + 1}`}
+                          loaded={imgLoaded}
+                          onLoad={() => { setImgLoaded(true); setImgError(false); }}
+                          onError={() => { setImgLoaded(true); setImgError(true); }}
+                        />
+                      )
                     )}
                   </motion.div>
                 </AnimatePresence>

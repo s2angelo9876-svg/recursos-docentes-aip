@@ -4,19 +4,23 @@ import { resolveImageUrl } from "../services/imageUrl";
 /**
  * <SignedImage> reemplaza <img> para imágenes que viven en Supabase Storage.
  * Resuelve la URL a una versión firmada (con cache en sessionStorage).
+ * Mientras resuelve, no renderiza nada (evita el warning de React por src="").
  *
  * Props: hereda todas las de <img> + `src` que puede ser URL pública de Supabase.
  */
-export default function SignedImage({ src, alt, onClick, className, loading, decoding, draggable, ...rest }) {
-  const [resolved, setResolved] = useState(
-    src && !src.includes("/storage/v1/object/") ? src : ""
-  );
+export default function SignedImage({ src, alt, onClick, className, decoding, draggable, ...rest }) {
+  const isStorage = src?.includes("/storage/v1/object/");
+  const [resolved, setResolved] = useState(isStorage ? null : src);
   const [error, setError] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
     if (!src) {
-      setResolved("");
+      setResolved(null);
+      return;
+    }
+    if (!isStorage) {
+      setResolved(src);
       return;
     }
     resolveImageUrl(src)
@@ -35,7 +39,7 @@ export default function SignedImage({ src, alt, onClick, className, loading, dec
     return () => {
       cancelled = true;
     };
-  }, [src]);
+  }, [src, isStorage]);
 
   if (error) {
     return (
@@ -48,12 +52,15 @@ export default function SignedImage({ src, alt, onClick, className, loading, dec
     );
   }
 
+  // Si es una imagen de Storage que aún no resolvió, no renderizamos nada
+  // para evitar el warning "An empty string was passed to src".
+  if (!resolved) return null;
+
   return (
     <img
       src={resolved}
       alt={alt || ""}
       className={className}
-      loading={loading}
       decoding={decoding}
       draggable={draggable}
       onClick={onClick}
