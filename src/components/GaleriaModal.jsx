@@ -1,3 +1,4 @@
+import { useModalFocus } from "../hooks/useModalFocus";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "framer-motion";
@@ -205,7 +206,7 @@ function ZoomControls({ onPrev, onReset, onNext, scale }) {
       <button
         type="button"
         onClick={onPrev}
-        aria-label="Zoom out"
+        aria-label="Alejar imagen"
         title="Zoom out (-)"
         className="w-9 h-9 rounded-full text-white/85 hover:bg-white/15 hover:text-white flex items-center justify-center transition-colors disabled:opacity-30"
         disabled={scale <= ZOOM_MIN}
@@ -215,7 +216,7 @@ function ZoomControls({ onPrev, onReset, onNext, scale }) {
       <button
         type="button"
         onClick={onReset}
-        aria-label="Resetear zoom"
+        aria-label="Restablecer zoom"
         title="Resetear zoom (0)"
         className="h-7 px-1.5 rounded-full text-[10px] font-bold text-white/85 hover:bg-white/15 hover:text-white transition-colors tabular-nums"
       >
@@ -224,7 +225,7 @@ function ZoomControls({ onPrev, onReset, onNext, scale }) {
       <button
         type="button"
         onClick={onNext}
-        aria-label="Zoom in"
+        aria-label="Acercar imagen"
         title="Zoom in (+)"
         className="w-9 h-9 rounded-full text-white/85 hover:bg-white/15 hover:text-white flex items-center justify-center transition-colors disabled:opacity-30"
         disabled={scale >= ZOOM_MAX}
@@ -298,6 +299,7 @@ export default function GaleriaModal({
   onRefresh = null,
   title = "Galería",
 }) {
+  const dialogRef = useModalFocus(open, { onClose });
   const [index, setIndex] = useState(initialIndex);
   const [direction, setDirection] = useState(0);
   const [imgLoaded, setImgLoaded] = useState(false);
@@ -379,13 +381,12 @@ export default function GaleriaModal({
   useEffect(() => {
     if (!open) return;
     const onKey = (e) => {
-      if (e.key === "Escape") onClose();
-      else if (e.key === "ArrowLeft") goPrev();
+      if (e.key === "ArrowLeft") goPrev();
       else if (e.key === "ArrowRight") goNext();
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [open, onClose, goPrev, goNext]);
+  }, [open, goPrev, goNext]);
 
   const handleTouchStart = (e) => {
     if (images.length < 2) return;
@@ -448,6 +449,8 @@ export default function GaleriaModal({
           transition={{ duration: 0.2 }}
           onClick={onClose}
           className="fixed inset-0 z-[100] bg-black flex flex-col"
+          ref={dialogRef}
+          tabIndex={-1}
           role="dialog"
           aria-modal="true"
           aria-label={title}

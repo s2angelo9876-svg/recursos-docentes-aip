@@ -1,17 +1,26 @@
-import { useState, useMemo, useEffect, useRef, useCallback } from "react";
+import { Link, useSearchParams } from "react-router-dom";
+import { useModalFocus } from "../hooks/useModalFocus";
+import { csvCell } from "../../shared/csv";
+import { useState, useEffect, useRef, useCallback, lazy, Suspense } from "react";
 import { useApp } from "../context/AppContext";
 import { API_BASE } from "../utils/api.js";
 import Repositorio from "./Repositorio";
 import Tutoriales from "./Tutoriales";
 import Noticias from "./Noticias";
 import AdminModal from "./AdminModal";
-import AuditoriaPanel from "./AuditoriaPanel";
+import ConfirmModal from "./ConfirmModal";
 import HeroSlidesManager from "./HeroSlidesManager";
 
-const AREAS_CNEB = [
-  "Matemática", "Comunicación", "Inglés", "Arte y Cultura",
-  "Ciencias Sociales", "DPCC", "Educación Física", "Educación Religiosa",
-  "Ciencia y Tecnología", "Educación para el Trabajo"
+const AuditoriaPanel = lazy(() => import("./AuditoriaPanel"));
+
+const SECTIONS = [
+  ["resumen", "Resumen", "fa-chart-simple"],
+  ["recursos", "Recursos", "fa-book-open"],
+  ["tutoriales", "Tutoriales", "fa-circle-play"],
+  ["noticias", "Comunicados", "fa-bullhorn"],
+  ["usuarios", "Usuarios", "fa-users"],
+  ["hero", "Portada", "fa-image"],
+  ["auditoria", "Auditoría", "fa-shield-halved"],
 ];
 
 export default function AdminPanel() {
@@ -19,15 +28,17 @@ export default function AdminPanel() {
     recursos,
     tutoriales,
     noticias,
-    exportData,
     importData,
-    token,
     currentUser,
     register,
+    deleteRecurso,
     deleteTutorial,
   } = useApp();
 
-  const [activeSubTab, setActiveSubTab] = useState("recursos");
+  const [params] = useSearchParams();
+  const [activeSubTab, activeLabel] = SECTIONS.find(([key]) => key === params.get("seccion")) || SECTIONS[0];
+  const [confirmation, setConfirmation] = useState(null);
+  const [confirming, setConfirming] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
   const [editingItem, setEditingItem] = useState(null);
   const [modalType, setModalType] = useState("recursos");
@@ -52,7 +63,7 @@ export default function AdminPanel() {
       const response = await fetch(`${API_BASE}/api/auth/users`, {
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`
+
         }
       });
       if (response.ok) {
@@ -64,7 +75,7 @@ export default function AdminPanel() {
     } finally {
       setLoadingUsers(false);
     }
-  }, [token]);
+  }, []);
 
   useEffect(() => {
     if (activeSubTab === "usuarios") {
@@ -78,8 +89,8 @@ export default function AdminPanel() {
       setUserError("Todos los campos son obligatorios.");
       return;
     }
-    if (formContrasenia.length < 6) {
-      setUserError("La contraseña debe tener al menos 6 caracteres.");
+    if (formContrasenia.length < 12) {
+      setUserError("La contraseña debe tener al menos 12 caracteres.");
       return;
     }
     try {
@@ -121,7 +132,7 @@ export default function AdminPanel() {
       const response = await fetch(`${API_BASE}/api/docentes/bulk-upload`, {
         method: "POST",
         headers: {
-          Authorization: `Bearer ${token}`
+
         },
         body: formData
       });
@@ -151,14 +162,7 @@ export default function AdminPanel() {
 
   const handleDeleteUser = async (userId, userUsername) => {
     if (userUsername === currentUser?.usuario) {
-      alert("No puedes eliminar tu propio usuario administrador.");
-      return;
-    }
-    if (userUsername === "admin") {
-      alert("No se puede eliminar el usuario administrador principal.");
-      return;
-    }
-    if (!window.confirm(`¿Estás seguro de que deseas eliminar al usuario "${userUsername}"?`)) {
+      setUserError("No puedes eliminar tu propia cuenta.");
       return;
     }
     try {
@@ -168,7 +172,7 @@ export default function AdminPanel() {
         method: "DELETE",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`
+
         }
       });
       if (response.ok) {
@@ -189,6 +193,18 @@ export default function AdminPanel() {
   const [passError, setPassError] = useState("");
   const [passSuccess, setPassSuccess] = useState("");
   const [savingPass, setSavingPass] = useState(false);
+  const closePassword = () => {
+    setEditingPasswordUser(null);
+    setNewPassword("");
+    setPassError("");
+    setPassSuccess("");
+    setShowPass(false);
+    setShowNewPass(false);
+  };
+  const passwordDialog = useModalFocus(Boolean(editingPasswordUser), {
+    onClose: savingPass ? undefined : closePassword,
+    initialFocus: "[data-password-field]",
+  });
 
   const handleUpdatePassword = async (e) => {
     e.preventDefault();
@@ -196,8 +212,8 @@ export default function AdminPanel() {
       setPassError("La nueva contraseña no puede estar vacía.");
       return;
     }
-    if (newPassword.length < 6) {
-      setPassError("La contraseña debe tener al menos 6 caracteres.");
+    if (newPassword.length < 12) {
+      setPassError("La contraseña debe tener al menos 12 caracteres.");
       return;
     }
     try {
@@ -208,7 +224,7 @@ export default function AdminPanel() {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`
+
         },
         body: JSON.stringify({ contrasenia: newPassword })
       });
@@ -232,50 +248,23 @@ export default function AdminPanel() {
 
   const generateServerBackup = async () => {
     try {
-      setImportStatus("Generando copia de seguridad física en el servidor...");
-      const response = await fetch(`${API_BASE}/api/admin/backup`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...(token ? { "Authorization": `Bearer ${token}` } : {})
-        }
-      });
-      const data = await response.json();
-      if (response.ok && data.success) {
-        setImportStatus(`¡Copia de seguridad física creada con éxito! Carpeta en el servidor: ${data.folder}`);
-        setTimeout(() => setImportStatus(""), 6000);
-      } else {
-        setImportStatus(`Error al generar copia: ${data.error || "No autorizado o error del servidor."}`);
-        setTimeout(() => setImportStatus(""), 4000);
-      }
-    } catch (_err) {
-      console.error(_err);
-      setImportStatus("Error de conexión al generar copia de seguridad.");
-      setTimeout(() => setImportStatus(""), 4000);
+      setImportStatus("Preparando respaldo…");
+      const response = await fetch(`${API_BASE}/api/admin/backup`, { method: "POST" });
+      if (!response.ok) throw new Error("No se pudo descargar el respaldo.");
+      const url = URL.createObjectURL(await response.blob());
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `innova-bandera-${new Date().toISOString().slice(0, 10)}.json`;
+      link.click();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+      setImportStatus("Respaldo descargado.");
+    } catch (error) {
+      setImportStatus(error.message);
     }
+
   };
 
   const isInvitado = currentUser?.rol === "Invitado";
-
-  // Compute Dashboard Statistics (Fase 4)
-  const stats = useMemo(() => {
-    const resourcesByArea = {};
-    AREAS_CNEB.forEach(area => {
-      resourcesByArea[area] = recursos.filter(r => r.area === area).length;
-    });
-
-    const tutorialesDocente = tutoriales.filter(p => p.audiencia === "docente" || p.audiencia === "ambos").length;
-    const tutorialesEstudiante = tutoriales.filter(p => p.audiencia === "estudiante" || p.audiencia === "ambos").length;
-
-    return {
-      totalRecursos: recursos.length,
-      resourcesByArea,
-      totalTutoriales: tutoriales.length,
-      tutorialesDocente,
-      tutorialesEstudiante,
-      totalNoticias: noticias.length
-    };
-  }, [recursos, tutoriales, noticias]);
 
   if (isInvitado) {
     return (
@@ -303,203 +292,94 @@ export default function AdminPanel() {
     setModalOpen(true);
   };
 
-  const handleImportFile = (e) => {
-    const file = e.target.files[0];
+  const handleImportFile = (event) => {
+    const file = event.target.files[0];
+    event.target.value = "";
     if (!file) return;
-
-    const reader = new FileReader();
-    reader.onload = async (event) => {
-      const content = event.target.result;
-      const res = await importData(content);
-      if (res.success) {
-        setImportStatus("¡Datos importados con éxito!");
-        setTimeout(() => setImportStatus(""), 3000);
-      } else {
-        setImportStatus(`Error al importar: ${res.error}`);
-      }
-    };
-    reader.readAsText(file);
+    setConfirmation({
+      title: "¿Restaurar el catálogo?",
+      label: `“${file.name}” reemplazará los recursos, tutoriales, comunicados y evidencias del catálogo.`,
+      confirmText: "Restaurar",
+      action: async () => {
+        try {
+          const result = await importData(await file.text());
+          setImportStatus(result.success ? "Catálogo restaurado." : result.error);
+        } catch {
+          setImportStatus("No se pudo leer el archivo seleccionado.");
+        }
+      },
+    });
   };
 
-  const exportResourcesToCSV = () => {
-    const headers = ["ID", "Titulo", "Area Curricular", "Grados", "Tipo", "Descripcion", "URL"];
-    const rows = recursos.map(r => [
-      r.id,
-      `"${r.titulo.replace(/"/g, '""')}"`,
-      `"${r.area.replace(/"/g, '""')}"`,
-      `"${r.grados.join(", ")}"`,
-      `"${r.tipo}"`,
-      `"${r.desc.replace(/"/g, '""')}"`,
-      `"${r.url}"`
-    ]);
-    const csvContent = "data:text/csv;charset=utf-8,\uFEFF"
-      + [headers.join(","), ...rows.map(e => e.join(","))].join("\n");
-    const encodedUri = encodeURI(csvContent);
+  function downloadCsv(name, headers, rows) {
+    const content = "\uFEFF" + [headers.join(","), ...rows.map((row) => row.map(csvCell).join(","))].join("\n");
+    const url = URL.createObjectURL(new Blob([content], { type: "text/csv;charset=utf-8" }));
     const link = document.createElement("a");
-    link.setAttribute("href", encodedUri);
-    link.setAttribute("download", `InnovaBandera_Recursos_${new Date().toISOString().split('T')[0]}.csv`);
-    document.body.appendChild(link);
+    link.href = url;
+    link.download = `innova-${name}-${new Date().toISOString().slice(0, 10)}.csv`;
     link.click();
-    document.body.removeChild(link);
-  };
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
 
-  const exportTutorialesToCSV = () => {
-    const headers = ["ID", "Titulo", "Area Curricular", "Descripcion", "URL YouTube", "Audiencia"];
-    const rows = tutoriales.map(p => [
-      p.id,
-      `"${p.titulo.replace(/"/g, '""')}"`,
-      `"${p.area.replace(/"/g, '""')}"`,
-      `"${p.desc.replace(/"/g, '""')}"`,
-      `"${p.url || ""}"`,
-      `"${p.audiencia || "ambos"}"`
-    ]);
-    const csvContent = "data:text/csv;charset=utf-8,\uFEFF"
-      + [headers.join(","), ...rows.map(e => e.join(","))].join("\n");
-    const encodedUri = encodeURI(csvContent);
-    const link = document.createElement("a");
-    link.setAttribute("href", encodedUri);
-    link.setAttribute("download", `InnovaBandera_Tutoriales_${new Date().toISOString().split('T')[0]}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  };
+  const exportResourcesToCSV = () => downloadCsv(
+    "recursos", ["ID", "Título", "Área", "Grados", "Tipo", "Descripción", "URL"],
+    recursos.map((r) => [r.id, r.titulo, r.area, r.grados?.join(", "), r.tipo, r.desc, r.url]),
+  );
+
+  const exportTutorialesToCSV = () => downloadCsv(
+    "tutoriales", ["ID", "Título", "Área", "Descripción", "URL", "Audiencia"],
+    tutoriales.map((p) => [p.id, p.titulo, p.area, p.desc, p.url, p.audiencia || "ambos"]),
+  );
 
   return (
-    <div className="space-y-6 text-left">
-      {/* Management Toolbar */}
-      <div className="rounded-cardLg border border-line dark:border-dark-border bg-white dark:bg-dark-card shadow-card p-5 flex flex-col md:flex-row md:items-center justify-between gap-4 transition-colors">
-        <div>
-          <p className="text-[11px] font-semibold tracking-[0.18em] uppercase text-primary-600 dark:text-primary-300">
-            Centro de control
-          </p>
-          <h2 className="mt-1 text-xl sm:text-2xl font-bold tracking-tight text-ink dark:text-white">
-            Panel de Administración
-          </h2>
-          <p className="mt-1 text-[12.5px] text-ink-subtle">
-            Gestión en tiempo real de recursos, tutoriales y comunicados.
-          </p>
-        </div>
+    <div className="admin-workspace">
+      <aside className="admin-sidebar">
+        <p>Gestión del portal</p>
+        <nav aria-label="Secciones de administración">
+          {SECTIONS.map(([key, label, icon]) => (
+            <Link key={key} to={{ search: key === "resumen" ? "" : `?seccion=${key}` }} aria-current={key === activeSubTab ? "page" : undefined}>
+              <i className={`fas ${icon}`} aria-hidden="true" /> {label}
+            </Link>
+          ))}
+        </nav>
+      </aside>
 
-        <div className="flex flex-wrap gap-2">
-          <button
-            onClick={generateServerBackup}
-            className="h-10 px-3.5 rounded-btn bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white text-[12px] font-semibold transition-all flex items-center gap-1.5 shadow-sm"
-            title="Generar copia física de base de datos y archivos en el servidor"
-          >
-            <i className="fas fa-hdd text-[11px]" />
-            <span className="hidden sm:inline">Backup</span>
-          </button>
-          <button
-            onClick={exportData}
-            className="h-10 px-3.5 rounded-btn border border-line dark:border-dark-border bg-white dark:bg-dark-card hover:bg-surface-alt dark:hover:bg-dark-hover text-ink dark:text-white text-[12px] font-semibold transition-all flex items-center gap-1.5"
-          >
-            <i className="fas fa-download text-[11px] text-primary-600 dark:text-primary-300" />
-            <span className="hidden sm:inline">Exportar</span>
-          </button>
-          <label className="h-10 px-3.5 rounded-btn border border-line dark:border-dark-border bg-white dark:bg-dark-card hover:bg-surface-alt dark:hover:bg-dark-hover text-ink dark:text-white text-[12px] font-semibold transition-all flex items-center gap-1.5 cursor-pointer">
-            <i className="fas fa-upload text-[11px] text-amber-500" />
-            <span className="hidden sm:inline">Importar</span>
-            <input type="file" accept=".json" onChange={handleImportFile} className="hidden" />
-          </label>
-        </div>
-      </div>
-
-      {importStatus && (
-        <div className="p-3 bg-primary-50 border border-primary-100 dark:bg-primary-600/15 dark:border-primary-500/30 text-primary-700 dark:text-primary-300 rounded-btn text-[12.5px] font-medium text-center inline-flex items-center justify-center gap-2 w-full">
-          <i className="fas fa-circle-info" />
-          {importStatus}
-        </div>
-      )}
-
-      {/* DASHBOARD STATISTICS WIDGET */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-        <AdminStat
-          icon="fa-book"
-          accent="from-primary-500/20 to-primary-600/5 text-primary-300"
-          label="Total Recursos"
-          value={stats.totalRecursos}
-        />
-        <AdminStat
-          icon="fa-circle-play"
-          accent="from-accent-500/20 to-accent-600/5 text-accent-300"
-          label="Tutoriales"
-          value={stats.totalTutoriales}
-          meta={`${stats.tutorialesDocente} doc · ${stats.tutorialesEstudiante} est`}
-        />
-        <AdminStat
-          icon="fa-bullhorn"
-          accent="from-violet-500/20 to-violet-600/5 text-violet-300"
-          label="Comunicados"
-          value={stats.totalNoticias}
-        />
-        <div className="relative overflow-hidden rounded-cardLg border border-line dark:border-dark-border bg-white dark:bg-dark-card p-4 flex flex-col gap-2">
-          <div className="absolute -top-12 -right-12 w-32 h-32 rounded-full bg-gradient-to-br from-emerald-500/20 to-emerald-600/5 blur-2xl opacity-50 pointer-events-none" />
-          <div className="relative flex items-center justify-between gap-2">
-            <p className="text-[10.5px] font-semibold text-ink-subtle uppercase tracking-wider">
-              Exportar CSV
-            </p>
-            <span className="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-surface-sunk dark:bg-dark-elev text-emerald-600">
-              <i className="fas fa-file-csv text-sm" />
-            </span>
+      <div className="admin-content">
+        <header className="admin-heading">
+          <div>
+            <p className="school-kicker">Administración</p>
+            <h1>{activeSubTab === "resumen" ? "Panel de administración" : activeLabel}</h1>
           </div>
-          <div className="relative flex gap-2 mt-auto">
-            <button
-              onClick={exportResourcesToCSV}
-              className="flex-1 h-8 rounded-btn bg-surface-alt dark:bg-dark-elev hover:bg-emerald-600 hover:text-white text-ink-subtle text-[11px] font-semibold transition-colors inline-flex items-center justify-center gap-1.5"
-              title="Descargar recursos en formato CSV"
-            >
-              <i className="fas fa-file-csv text-[10px]" />
-              Recursos
-            </button>
-            <button
-              onClick={exportTutorialesToCSV}
-              className="flex-1 h-8 rounded-btn bg-surface-alt dark:bg-dark-elev hover:bg-emerald-600 hover:text-white text-ink-subtle text-[11px] font-semibold transition-colors inline-flex items-center justify-center gap-1.5"
-              title="Descargar tutoriales en formato CSV"
-            >
-              <i className="fas fa-file-csv text-[10px]" />
-              Tutoriales
-            </button>
-          </div>
-        </div>
-      </div>
-
-      {/* Tabs list inside Panel */}
-      <div className="rounded-cardLg border border-line dark:border-dark-border bg-white dark:bg-dark-card shadow-card p-1.5 flex flex-wrap gap-1">
-        {[
-          { key: "recursos", label: "Recursos", icon: "fa-book-open" },
-          { key: "tutoriales", label: "Tutoriales", icon: "fa-circle-play" },
-          { key: "noticias", label: "Comunicados", icon: "fa-bullhorn" },
-          { key: "usuarios", label: "Usuarios", icon: "fa-users" },
-          ...(currentUser?.rol === "Administrador" ? [{ key: "hero", label: "Hero", icon: "fa-panorama" }] : []),
-          ...(currentUser?.rol === "Administrador" ? [{ key: "auditoria", label: "Auditoría", icon: "fa-shield-halved" }] : []),
-        ].map((t) => {
-          const active = activeSubTab === t.key;
-          return (
-            <button
-              key={t.key}
-              onClick={() => setActiveSubTab(t.key)}
-              className={`h-10 px-4 rounded-btn text-[12.5px] font-semibold transition-all duration-200 inline-flex items-center gap-2 ${
-                active
-                  ? "bg-primary-600 text-white shadow-sm"
-                  : "text-ink-subtle hover:text-ink dark:hover:text-white hover:bg-surface-alt dark:hover:bg-dark-hover"
-              }`}
-            >
-              <i className={`fas ${t.icon} text-[11px]`} />
-              {t.label}
-            </button>
-          );
-        })}
-      </div>
-
+          {activeSubTab === "resumen" && <div className="admin-backup">
+            <button type="button" className="school-secondary" onClick={generateServerBackup}>Descargar respaldo</button>
+            <label className="school-secondary">Restaurar catálogo<input className="sr-only" type="file" accept=".json" aria-label="Importar respaldo del catálogo" onChange={handleImportFile} /></label>
+          </div>}
+        </header>
+        {importStatus && <p className="admin-message" role="status">{importStatus}</p>}
+        {activeSubTab === "resumen" && (
+          <>
+            <div className="admin-metrics">
+              {[
+                ["recursos", "Recursos", recursos.length],
+                ["tutoriales", "Tutoriales", tutoriales.length],
+                ["noticias", "Comunicados", noticias.length],
+              ].map(([key, label, total]) => <Link key={key} to={{ search: `?seccion=${key}` }}><span>{label}</span><strong>{total}</strong><i className="fas fa-arrow-right" aria-hidden="true" /></Link>)}
+            </div>
+            <section className="admin-tools">
+              <div><h2>Publicar contenido</h2><button type="button" onClick={() => handleOpenAdd("recursos")}>Nuevo recurso <i className="fas fa-plus" aria-hidden="true" /></button><button type="button" onClick={() => handleOpenAdd("tutoriales")}>Nuevo tutorial <i className="fas fa-plus" aria-hidden="true" /></button><button type="button" onClick={() => handleOpenAdd("noticias")}>Nuevo comunicado <i className="fas fa-plus" aria-hidden="true" /></button></div>
+              <div><h2>Exportar catálogo</h2><button type="button" onClick={exportResourcesToCSV}>Recursos en CSV <i className="fas fa-download" aria-hidden="true" /></button><button type="button" onClick={exportTutorialesToCSV}>Tutoriales en CSV <i className="fas fa-download" aria-hidden="true" /></button></div>
+            </section>
+          </>
+        )}
       {/* Adding buttons */}
-      {activeSubTab !== "usuarios" && activeSubTab !== "auditoria" && activeSubTab !== "hero" && (
+      {["recursos", "tutoriales", "noticias"].includes(activeSubTab) && (
         <div className="flex justify-end">
           <button
             onClick={() => handleOpenAdd(activeSubTab)}
-            className="h-10 px-4 rounded-btn bg-primary-600 hover:bg-primary-700 text-white text-[12.5px] font-semibold transition-all flex items-center gap-2 shadow-sm hover:shadow"
+            className="school-button"
           >
             <i className="fas fa-plus text-[11px]" />
-            Nuevo elemento
+            {({ recursos: "Nuevo recurso", tutoriales: "Nuevo tutorial", noticias: "Nuevo comunicado" })[activeSubTab]}
           </button>
         </div>
       )}
@@ -510,13 +390,14 @@ export default function AdminPanel() {
           <Repositorio
             isAdminMode={true}
             onEditClick={(item) => handleOpenEdit("recursos", item)}
+            onDeleteClick={(item) => setConfirmation({ label: item.titulo, action: () => deleteRecurso(item.id) })}
           />
         )}
         {activeSubTab === "tutoriales" && (
           <Tutoriales
             isAdminMode={true}
             onEditClick={(item) => handleOpenEdit("tutoriales", item)}
-            onDeleteClick={(id) => { if (window.confirm("¿Eliminar este tutorial?")) deleteTutorial(id); }}
+            onDeleteClick={(item) => setConfirmation({ label: item.titulo, action: () => deleteTutorial(item.id) })}
           />
         )}
         {activeSubTab === "noticias" && (
@@ -526,25 +407,26 @@ export default function AdminPanel() {
           />
         )}
         {activeSubTab === "hero" && <HeroSlidesManager />}
-        {activeSubTab === "auditoria" && <AuditoriaPanel />}
+        {activeSubTab === "auditoria" && (
+          <Suspense fallback={<p role="status" className="p-4 text-ink-subtle">Cargando auditoría…</p>}>
+            <AuditoriaPanel />
+          </Suspense>
+        )}
         {activeSubTab === "usuarios" && (
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
             {/* Form Column */}
-            <div className="lg:col-span-1 bg-white dark:bg-dark-card border border-gray-150 dark:border-dark-border rounded-2xl p-6 shadow-sm h-fit">
-              <h3 className="font-bold text-sm text-gray-900 dark:text-white uppercase tracking-tight mb-4 flex items-center gap-2">
-                <i className="fas fa-user-plus text-primary dark:text-dark-accent"></i>
-                Crear Nuevo Docente
-              </h3>
+            <div className="school-content-card min-w-0 h-fit p-5">
+              <h2 className="school-card-title mb-4">Registrar docente</h2>
 
               {userError && (
-                <div className="mb-4 p-3 rounded-xl bg-red-50 border border-red-200 dark:bg-red-950/20 dark:border-red-900/50 text-red-600 dark:text-red-400 text-xs font-bold flex items-center gap-2">
+                <div role="alert" className="mb-4 p-3 rounded-xl bg-red-50 border border-red-200 dark:bg-red-950/20 dark:border-red-900/50 text-red-700 dark:text-red-400 text-xs font-bold flex items-center gap-2">
                   <i className="fas fa-exclamation-circle flex-shrink-0"></i>
                   <span>{userError}</span>
                 </div>
               )}
 
               {userSuccess && (
-                <div className="mb-4 p-3 rounded-xl bg-emerald-50 border border-emerald-250 dark:bg-emerald-950/20 dark:border-emerald-900/40 text-emerald-700 dark:text-emerald-400 text-xs font-bold flex items-center gap-2">
+                <div role="status" className="mb-4 p-3 rounded-xl bg-emerald-50 border border-emerald-250 dark:bg-emerald-950/20 dark:border-emerald-900/40 text-emerald-700 dark:text-emerald-400 text-xs font-bold flex items-center gap-2">
                   <i className="fas fa-check-circle flex-shrink-0"></i>
                   <span>{userSuccess}</span>
                 </div>
@@ -552,81 +434,77 @@ export default function AdminPanel() {
 
               <form onSubmit={handleCreateUser} className="space-y-4">
                 <div className="space-y-1.5">
-                  <label className="text-[10px] font-black uppercase text-gray-400 dark:text-gray-500 tracking-wider">
-                    Nombre Completo
+                  <label htmlFor="teacher-name" className="text-[13px] font-semibold text-ink-subtle">
+                    Nombre completo
                   </label>
                   <input
+                    id="teacher-name"
                     type="text"
                     required
                     placeholder="Ej. Juan Pérez"
-                    className="w-full px-3.5 py-2 border border-gray-200 dark:border-dark-border bg-white dark:bg-dark-card rounded-xl text-xs text-gray-800 dark:text-gray-100 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary dark:focus:ring-dark-accent"
+                    className="school-field"
                     value={formNombre}
                     onChange={(e) => setFormNombre(e.target.value)}
                   />
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="text-[10px] font-black uppercase text-gray-400 dark:text-gray-500 tracking-wider">
+                  <label htmlFor="teacher-username" className="text-[13px] font-semibold text-ink-subtle">
                     Usuario
                   </label>
                   <input
+                    id="teacher-username"
                     type="text"
                     required
                     placeholder="Ej. jperez"
-                    className="w-full px-3.5 py-2 border border-gray-200 dark:border-dark-border bg-white dark:bg-dark-card rounded-xl text-xs text-gray-800 dark:text-gray-100 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary dark:focus:ring-dark-accent"
+                    className="school-field"
                     value={formUsuario}
                     onChange={(e) => setFormUsuario(e.target.value.toLowerCase().trim())}
                   />
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="text-[10px] font-black uppercase text-gray-400 dark:text-gray-500 tracking-wider">
-                    Contraseña
+                  <label htmlFor="teacher-password" className="text-[13px] font-semibold text-ink-subtle">
+                    Contraseña inicial
                   </label>
                   <div className="relative">
                     <input
+                      id="teacher-password"
                       type={showPass ? "text" : "password"}
                       required
-                      placeholder="Mínimo 6 caracteres"
-                      className="w-full pl-3.5 pr-10 py-2 border border-gray-200 dark:border-dark-border bg-white dark:bg-dark-card rounded-xl text-xs text-gray-800 dark:text-gray-100 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary dark:focus:ring-dark-accent"
+                      placeholder="Mínimo 12 caracteres"
+                      className="school-field school-field-with-action"
+                      autoComplete="new-password"
+                      minLength={12}
                       value={formContrasenia}
                       onChange={(e) => setFormContrasenia(e.target.value)}
                     />
                     <button
                       type="button"
+                      aria-label={showPass ? "Ocultar contraseña inicial" : "Mostrar contraseña inicial"}
                       onClick={() => setShowPass(!showPass)}
-                      className="absolute right-3 top-2 text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 p-0.5"
+                      className="school-icon absolute right-0 top-0"
                     >
                       <i className={`fas ${showPass ? "fa-eye-slash" : "fa-eye"} text-xs`}></i>
                     </button>
                   </div>
                 </div>
 
-                <div className="space-y-1.5">
-                  <label className="text-[10px] font-black uppercase text-gray-400 dark:text-gray-500 tracking-wider">
-                    Rol Asignado
-                  </label>
-                  <div className="w-full px-3.5 py-2 border border-gray-150 dark:border-dark-border bg-gray-50 dark:bg-dark-border/40 rounded-xl text-xs text-gray-500 dark:text-gray-400 font-bold flex items-center gap-2">
-                    <i className="fas fa-graduation-cap"></i>
-                    Docente
-                  </div>
-                </div>
-
                 <button
                   type="submit"
                   disabled={creatingUser}
-                  className="w-full py-2.5 bg-gradient-to-r from-primary to-blue-700 dark:from-dark-accent dark:to-blue-600 hover:from-blue-800 hover:to-primary text-white rounded-xl text-xs font-black uppercase tracking-wider transition-all shadow-md disabled:opacity-50 flex items-center justify-center gap-2 cursor-pointer"
+                  className="school-button w-full disabled:opacity-50"
                 >
                   {creatingUser ? (
                     <><i className="fas fa-spinner fa-spin"></i> Registrando...</>
                   ) : (
-                    <><i className="fas fa-plus-circle"></i> Registrar Docente</>
+                    <><i className="fas fa-plus-circle" aria-hidden="true" /> Registrar docente</>
                   )}
                 </button>
 
                 <div className="relative flex py-2 items-center">
                   <div className="flex-grow border-t border-gray-150 dark:border-dark-border"></div>
-                  <span className="flex-shrink mx-3 text-[10px] text-gray-400 dark:text-gray-550 font-bold uppercase tracking-wider">o</span>
+                  <span className="flex-shrink mx-3 text-[12px] text-ink-subtle">o</span>
                   <div className="flex-grow border-t border-gray-150 dark:border-dark-border"></div>
                 </div>
 
@@ -642,7 +520,7 @@ export default function AdminPanel() {
                   type="button"
                   disabled={importingExcel}
                   onClick={() => excelInputRef.current?.click()}
-                  className="w-full py-2.5 bg-white dark:bg-dark-card border border-gray-250 dark:border-dark-border hover:bg-gray-50 dark:hover:bg-dark-border/20 text-gray-700 dark:text-gray-200 rounded-xl text-xs font-black uppercase tracking-wider transition-all disabled:opacity-50 flex items-center justify-center gap-2 cursor-pointer"
+                  className="school-secondary w-full"
                 >
                   {importingExcel ? (
                     <><i className="fas fa-spinner fa-spin text-primary dark:text-dark-accent"></i> Procesando...</>
@@ -654,21 +532,18 @@ export default function AdminPanel() {
             </div>
 
             {/* List Column */}
-            <div className="lg:col-span-2 bg-white dark:bg-dark-card border border-gray-150 dark:border-dark-border rounded-2xl p-6 shadow-sm">
-              <h3 className="font-bold text-sm text-gray-900 dark:text-white uppercase tracking-tight mb-4 flex items-center gap-2">
-                <i className="fas fa-users text-primary dark:text-dark-accent"></i>
-                Docentes y Usuarios Registrados
-              </h3>
+            <div className="school-content-card min-w-0 lg:col-span-2 p-5">
+              <h2 className="school-card-title mb-4">Usuarios registrados</h2>
 
               {loadingUsers ? (
                 <div className="py-12 text-center text-xs text-gray-400">
                   <i className="fas fa-spinner fa-spin mr-2"></i> Cargando usuarios...
                 </div>
               ) : usuarios.length > 0 ? (
-                <div className="overflow-x-auto">
+                <div role="region" aria-label="Lista de usuarios" tabIndex={0} className="overflow-x-auto">
                   <table className="w-full text-left border-collapse">
                     <thead>
-                      <tr className="border-b border-gray-150 dark:border-dark-border text-[10px] font-black uppercase text-gray-400 dark:text-gray-500 tracking-wider">
+                      <tr className="border-b border-gray-150 dark:border-dark-border text-[10px] font-black uppercase text-ink-subtle tracking-wider">
                         <th className="pb-3 pl-2">Nombre</th>
                         <th className="pb-3">Usuario</th>
                         <th className="pb-3">Rol</th>
@@ -686,10 +561,10 @@ export default function AdminPanel() {
                           </td>
                           <td className="py-3">
                             <span className={`px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider ${user.rol === "Administrador"
-                                ? "bg-amber-500 text-white"
+                                ? "bg-amber-100 text-amber-900 dark:bg-amber-950 dark:text-amber-200"
                                 : user.rol === "Docente"
-                                  ? "bg-blue-500 text-white"
-                                  : "bg-gray-400 text-white"
+                                  ? "bg-primary-50 text-primary-700 dark:bg-dark-elev dark:text-primary-100"
+                                  : "bg-surface-sunk text-ink dark:bg-dark-elev dark:text-white"
                               }`}>
                               {user.rol}
                             </span>
@@ -704,16 +579,16 @@ export default function AdminPanel() {
                                 <i className="fas fa-key text-[10px]"></i>
                               </button>
                             )}
-                            {user.usuario !== currentUser?.usuario && user.usuario !== "admin" ? (
+                            {user.usuario !== currentUser?.usuario ? (
                               <button
-                                onClick={() => handleDeleteUser(user.id, user.usuario)}
+                                onClick={() => setConfirmation({ label: user.usuario, action: () => handleDeleteUser(user.id, user.usuario) })}
                                 className="p-1.5 text-red-500 hover:bg-red-50 dark:hover:bg-red-950/20 rounded-lg transition-colors cursor-pointer"
                                 title="Eliminar usuario"
                               >
                                 <i className="fas fa-trash-alt"></i>
                               </button>
                             ) : (
-                              <span className="text-[10px] text-gray-300 dark:text-gray-600 font-semibold italic">
+                              <span className="text-[10px] text-ink-subtle font-semibold italic">
                                 Fijo
                               </span>
                             )}
@@ -736,7 +611,7 @@ export default function AdminPanel() {
       {/* Modal para ver datos y editar contraseña */}
       {editingPasswordUser && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/55 backdrop-blur-sm p-4">
-          <div className="bg-white dark:bg-dark-card border border-gray-250 dark:border-dark-border w-full max-w-md rounded-3xl shadow-2xl overflow-hidden transition-all duration-300">
+          <div ref={passwordDialog} role="dialog" aria-modal="true" aria-label="Editar contraseña" tabIndex={-1} className="bg-white dark:bg-dark-card border border-gray-250 dark:border-dark-border w-full max-w-md rounded-3xl shadow-2xl overflow-hidden transition-all duration-300">
             {/* Top decorative bar */}
             <div className="h-1.5 bg-gradient-to-r from-amber-500 to-orange-500"></div>
 
@@ -764,15 +639,15 @@ export default function AdminPanel() {
                 {/* Info Fields (Read Only) */}
                 <div className="grid grid-cols-2 gap-3 bg-gray-50 dark:bg-dark-border/30 p-3.5 rounded-xl border border-gray-150 dark:border-dark-border">
                   <div>
-                    <span className="text-[9px] font-black uppercase text-gray-400 dark:text-gray-500 block">Nombre Completo</span>
+                    <span className="text-[9px] font-black uppercase text-ink-subtle block">Nombre Completo</span>
                     <span className="text-xs font-bold text-gray-800 dark:text-gray-200 truncate block">{editingPasswordUser.nombre}</span>
                   </div>
                   <div>
-                    <span className="text-[9px] font-black uppercase text-gray-400 dark:text-gray-500 block">Usuario</span>
+                    <span className="text-[9px] font-black uppercase text-ink-subtle block">Usuario</span>
                     <span className="text-xs font-bold text-gray-800 dark:text-gray-200 truncate block">@{editingPasswordUser.usuario}</span>
                   </div>
                   <div className="col-span-2">
-                    <span className="text-[9px] font-black uppercase text-gray-400 dark:text-gray-500 block">Rol</span>
+                    <span className="text-[9px] font-black uppercase text-ink-subtle block">Rol</span>
                     <span className="text-xs font-bold text-gray-800 dark:text-gray-200 block">{editingPasswordUser.rol}</span>
                   </div>
                 </div>
@@ -780,23 +655,27 @@ export default function AdminPanel() {
                 {/* Change Password Form */}
                 <form onSubmit={handleUpdatePassword} className="space-y-4 pt-2 border-t border-gray-150 dark:border-dark-border">
                   <div className="space-y-1.5">
-                    <label className="text-[10px] font-black uppercase text-gray-450 dark:text-gray-500 tracking-wider">
+                    <label className="text-[10px] font-black uppercase text-ink-subtle tracking-wider">
                       Nueva Contraseña
                     </label>
                     <div className="relative">
                       <input
                         type={showNewPass ? "text" : "password"}
                         required
-                        autoFocus
-                        placeholder="Cambiar a una nueva (mínimo 6 caracteres)"
+                        data-password-field
+                        placeholder="Cambiar a una nueva (mínimo 12 caracteres)"
                         className="w-full pl-3.5 pr-10 py-2 border border-gray-200 dark:border-dark-border bg-white dark:bg-dark-card rounded-xl text-xs text-gray-800 dark:text-gray-100 placeholder-gray-450 focus:outline-none focus:ring-2 focus:ring-primary dark:focus:ring-dark-accent transition-all"
+                        aria-label="Nueva contraseña"
+                        autoComplete="new-password"
+                        minLength={12}
                         value={newPassword}
                         onChange={(e) => setNewPassword(e.target.value)}
                       />
                       <button
                         type="button"
+                        aria-label={showNewPass ? "Ocultar contraseña" : "Mostrar contraseña"}
                         onClick={() => setShowNewPass(!showNewPass)}
-                        className="absolute right-3 top-2.5 text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 p-0.5"
+                        className="absolute right-3 top-2.5 text-ink-subtle hover:text-gray-600 dark:hover:text-gray-300 p-0.5"
                       >
                         <i className={`fas ${showNewPass ? "fa-eye-slash" : "fa-eye"} text-xs`}></i>
                       </button>
@@ -806,14 +685,8 @@ export default function AdminPanel() {
                   <div className="flex gap-2 pt-2">
                     <button
                       type="button"
-                      onClick={() => {
-                        setEditingPasswordUser(null);
-                        setNewPassword("");
-                        setPassError("");
-                        setPassSuccess("");
-                        setShowPass(false);
-                        setShowNewPass(false);
-                      }}
+                      onClick={closePassword}
+                      disabled={savingPass}
                       className="flex-1 py-2 bg-gray-50 dark:bg-dark-border border border-gray-250 dark:border-dark-border text-gray-500 dark:text-gray-400 rounded-xl text-xs font-bold uppercase hover:bg-gray-100 dark:hover:bg-dark-hover transition-all cursor-pointer animate-none"
                     >
                       Cerrar
@@ -837,6 +710,25 @@ export default function AdminPanel() {
         </div>
       )}
 
+      </div>
+
+      <ConfirmModal
+        open={Boolean(confirmation)}
+        title={confirmation?.title ?? "¿Eliminar este elemento?"}
+        message={confirmation?.label}
+        confirmText={confirmation?.confirmText ?? "Eliminar"}
+        loading={confirming}
+        onClose={() => setConfirmation(null)}
+        onConfirm={async () => {
+          setConfirming(true);
+          try { await confirmation.action(); }
+          finally {
+            setConfirming(false);
+            setConfirmation(null);
+          }
+        }}
+      />
+
       {/* Render Unified Modal for CMS actions (replaces duplicate modals) */}
       <AdminModal
         isOpen={modalOpen}
@@ -844,29 +736,6 @@ export default function AdminPanel() {
         type={modalType}
         editingItem={editingItem}
       />
-    </div>
-  );
-}
-function AdminStat({ icon, accent, label, value, meta }) {
-  return (
-    <div className="relative overflow-hidden rounded-cardLg border border-line dark:border-dark-border bg-white dark:bg-dark-card p-4">
-      <div className={`absolute -top-12 -right-12 w-32 h-32 rounded-full bg-gradient-to-br ${accent} blur-2xl opacity-50 pointer-events-none`} />
-      <div className="relative flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <p className="text-[10.5px] font-semibold text-ink-subtle uppercase tracking-wider">
-            {label}
-          </p>
-          <p className="mt-1 text-2xl font-bold tabular-nums text-ink dark:text-white">
-            {value}
-          </p>
-          {meta && (
-            <p className="mt-1 text-[10.5px] text-ink-subtle">{meta}</p>
-          )}
-        </div>
-        <span className="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-surface-sunk dark:bg-dark-elev text-ink-subtle">
-          <i className={`fas ${icon} text-sm`} />
-        </span>
-      </div>
     </div>
   );
 }

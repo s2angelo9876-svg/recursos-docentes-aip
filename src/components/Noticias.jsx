@@ -1,21 +1,12 @@
+import { useModalFocus } from "../hooks/useModalFocus";
 import { useState, useEffect, useMemo } from "react";
 import { useApp } from "../context/AppContext";
 import { motion, AnimatePresence } from "framer-motion";
 import ConfirmModal from "./ConfirmModal";
-import { SkeletonStats, SkeletonList } from "./Skeleton";
+import { SkeletonList } from "./Skeleton";
+import { fechaComunicado, formatFechaComunicado } from "../utils/comunicados";
 
 const easeOut = [0.16, 1, 0.3, 1];
-
-const formatFecha = (fecha) => {
-  if (!fecha) return "Sin fecha";
-  const d = new Date(fecha);
-  if (isNaN(d.getTime())) return fecha;
-  return d.toLocaleDateString("es-PE", {
-    day: "numeric",
-    month: "long",
-    year: "numeric",
-  });
-};
 
 function NewsCard({ n, lastVisit, isAdmin, onOpen, onEdit, onDelete }) {
   const createdTime = n.createdAt ? new Date(n.createdAt).getTime() : 0;
@@ -28,7 +19,7 @@ function NewsCard({ n, lastVisit, isAdmin, onOpen, onEdit, onDelete }) {
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, scale: 0.96 }}
       transition={{ duration: 0.35, ease: easeOut }}
-      className="group relative flex flex-col sm:flex-row items-start gap-5 rounded-cardLg bg-white dark:bg-dark-card border border-line dark:border-dark-border shadow-card hover:shadow-card-hover hover:border-primary-200 dark:hover:border-primary-500/40 transition-all duration-300 p-5 sm:p-6"
+      className="school-news-card group relative flex flex-col sm:flex-row items-start sm:items-center gap-4 p-5 sm:p-6"
     >
       {isNew && (
         <span className="absolute -top-2 right-4 inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-accent-600 text-white text-[10px] font-semibold shadow-sm">
@@ -41,7 +32,7 @@ function NewsCard({ n, lastVisit, isAdmin, onOpen, onEdit, onDelete }) {
         <div className="flex flex-wrap items-center gap-2 mb-2.5">
           <span className="inline-flex items-center gap-1.5 text-[11px] font-medium text-ink-subtle">
             <i className="far fa-calendar text-[10px]" />
-            {formatFecha(n.fecha)}
+            {formatFechaComunicado(n.fecha)}
           </span>
           <span className="text-ink-meta">·</span>
           <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[11px] font-medium bg-surface-alt dark:bg-dark-elev text-ink-subtle">
@@ -50,9 +41,9 @@ function NewsCard({ n, lastVisit, isAdmin, onOpen, onEdit, onDelete }) {
           </span>
         </div>
 
-        <h3 className="text-[16px] sm:text-[17px] font-semibold tracking-tight text-ink dark:text-white leading-snug group-hover:text-primary-600 dark:group-hover:text-primary-300 transition-colors">
+        <h2 className="school-card-title text-ink dark:text-white">
           {n.titulo}
-        </h3>
+        </h2>
         <p className="mt-2 text-[13px] text-ink-subtle leading-relaxed line-clamp-2">
           {n.desc}
         </p>
@@ -61,7 +52,7 @@ function NewsCard({ n, lastVisit, isAdmin, onOpen, onEdit, onDelete }) {
       <div className="flex sm:flex-col gap-2 w-full sm:w-auto shrink-0">
         <button
           onClick={() => onOpen(n)}
-          className="flex-1 sm:flex-none h-9 px-4 inline-flex items-center justify-center gap-1.5 rounded-btn bg-primary-600 hover:bg-primary-700 text-white text-[12px] font-semibold transition-colors"
+          className="school-secondary flex-1 sm:flex-none"
         >
           Leer completo
           <i className="fas fa-arrow-right text-[10px]" />
@@ -92,14 +83,13 @@ function NewsCard({ n, lastVisit, isAdmin, onOpen, onEdit, onDelete }) {
 }
 
 function NewsModal({ news, onClose }) {
+  const dialogRef = useModalFocus(Boolean(news), { onClose });
   useEffect(() => {
     if (!news) return;
-    const onKey = (e) => e.key === "Escape" && onClose();
-    document.addEventListener("keydown", onKey);
+    const previous = document.body.style.overflow;
     document.body.style.overflow = "hidden";
     return () => {
-      document.removeEventListener("keydown", onKey);
-      document.body.style.overflow = "";
+      document.body.style.overflow = previous;
     };
   }, [news, onClose]);
 
@@ -113,8 +103,11 @@ function NewsModal({ news, onClose }) {
           transition={{ duration: 0.18 }}
           className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-sm"
           onClick={onClose}
+          ref={dialogRef}
+          tabIndex={-1}
           role="dialog"
           aria-modal="true"
+          aria-label={news.titulo}
         >
           <motion.div
             initial={{ opacity: 0, scale: 0.96, y: 8 }}
@@ -146,7 +139,7 @@ function NewsModal({ news, onClose }) {
               <div className="flex flex-wrap items-center gap-2 mb-4 text-[11px] text-ink-subtle font-medium">
                 <span className="inline-flex items-center gap-1.5">
                   <i className="far fa-calendar text-[10px]" />
-                  {formatFecha(news.fecha)}
+                  {formatFechaComunicado(news.fecha)}
                 </span>
                 <span className="text-ink-meta">·</span>
                 <span className="inline-flex items-center gap-1.5">
@@ -186,67 +179,14 @@ export default function Noticias({ isAdminMode = false, onEditClick = null }) {
     localStorage.setItem("innova_last_noticias_visit", String(Date.now()));
   }, []);
 
-  const ordenadas = useMemo(() => {
-    return [...noticias].sort((a, b) => {
-      const da = a.fecha ? new Date(a.fecha).getTime() : 0;
-      const db = b.fecha ? new Date(b.fecha).getTime() : 0;
-      return db - da;
-    });
-  }, [noticias]);
-
-  const stats = useMemo(() => {
-    const list = noticias || [];
-    const total = list.length;
-    // eslint-disable-next-line react-hooks/purity -- intentionally time-dependent; refreshed on each render
-    const now = Date.now();
-    const last7Days = list.filter((n) => {
-      const t = n.fecha ? new Date(n.fecha).getTime() : 0;
-      return t > now - 7 * 24 * 60 * 60 * 1000;
-    }).length;
-    const autores = new Set(list.map((n) => n.autor).filter(Boolean));
-    return { total, last7Days, autores: autores.size, now };
-  }, [noticias]);
+  const ordenadas = useMemo(() => [...noticias].sort((a, b) => fechaComunicado(b) - fechaComunicado(a)), [noticias]);
 
   if (isLoading) {
-    return (
-      <div className="space-y-6">
-        <SkeletonStats count={4} />
-        <SkeletonList items={5} />
-      </div>
-    );
+    return <SkeletonList items={5} />;
   }
 
   return (
     <div className="space-y-6">
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        {[
-          { icon: "fa-bullhorn",         value: stats.total,     label: "Comunicados",     accent: "from-violet-500/20 to-violet-600/5 text-violet-300" },
-          { icon: "fa-calendar-week",   value: stats.last7Days, label: "Últimos 7 días",  accent: "from-emerald-500/20 to-emerald-600/5 text-emerald-300" },
-          { icon: "fa-user-edit",        value: stats.autores,   label: "Autores",         accent: "from-primary-500/20 to-primary-600/5 text-primary-300" },
-          { icon: "fa-bell",             value: lastVisit ? Math.max(0, Math.ceil((stats.now - lastVisit) / (24 * 60 * 60 * 1000))) : 0, label: "Días sin visita", accent: "from-amber-500/20 to-amber-600/5 text-amber-300" },
-        ].map((s) => (
-          <div
-            key={s.label}
-            className="relative overflow-hidden rounded-cardLg border border-line dark:border-dark-border bg-white dark:bg-dark-card p-4"
-          >
-            <div className={`absolute -top-12 -right-12 w-32 h-32 rounded-full bg-gradient-to-br ${s.accent} blur-2xl opacity-50 pointer-events-none`} />
-            <div className="relative flex items-start justify-between gap-3">
-              <div>
-                <p className="text-[10.5px] font-semibold text-ink-subtle uppercase tracking-wider">
-                  {s.label}
-                </p>
-                <p className="mt-1 text-2xl font-bold tabular-nums text-ink dark:text-white">
-                  {s.value}
-                </p>
-              </div>
-              <span className="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-surface-sunk dark:bg-dark-elev text-ink-subtle">
-                <i className={`fas ${s.icon} text-sm`} />
-              </span>
-            </div>
-          </div>
-        ))}
-      </div>
-
       {ordenadas.length > 0 ? (
         <div className="space-y-4">
           <AnimatePresence mode="popLayout">
@@ -265,13 +205,9 @@ export default function Noticias({ isAdminMode = false, onEditClick = null }) {
         </div>
       ) : (
         <div className="rounded-cardLg border border-dashed border-line dark:border-dark-border bg-surface-alt/50 dark:bg-dark-card/40 py-20 px-6 text-center">
-          <div className="relative inline-flex h-20 w-20 items-center justify-center rounded-2xl bg-gradient-to-br from-violet-50 to-violet-100 dark:from-violet-600/15 dark:to-violet-700/5 text-violet-500 mb-5">
-            <i className="fas fa-bullhorn text-3xl" />
-            <span className="absolute -top-1 -right-1 inline-flex h-5 w-5 items-center justify-center rounded-full bg-amber-400 text-white text-[10px] font-bold">!</span>
-          </div>
-          <h3 className="text-[16px] font-semibold text-ink dark:text-white">
+          <h2 className="school-card-title text-ink dark:text-white">
             Sin comunicados publicados
-          </h3>
+          </h2>
           <p className="mt-1.5 text-[13px] text-ink-subtle max-w-sm mx-auto">
             Cuando el AIP publique avisos oficiales aparecerán aquí.
             {isAdminMode && " Usa el botón + Nuevo para crear el primero."}

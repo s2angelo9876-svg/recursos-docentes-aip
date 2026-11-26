@@ -4,6 +4,10 @@ Plataforma web institucional para la **I.E. Emblemática Bandera del Perú – P
 
 El sistema está orientado a docentes, estudiantes y administradores, con control de acceso mediante roles, almacenamiento de archivos, auditoría de operaciones y persistencia en PostgreSQL mediante Sequelize.
 
+El rediseño incluye 22 capturas tomadas con datos de demostración. [Web pública](docs/capturas/publico) · [Biblioteca](docs/capturas/biblioteca) · [Administración](docs/capturas/administracion)
+
+[Auditoría](AUDITORIA-FINAL.md) · [Guía de despliegue](DESPLIEGUE.md) · [Propuestas de diseño](PROPUESTAS-DISENO.md)
+
 ---
 
 ## 📚 Características principales
@@ -129,7 +133,7 @@ Espacio destinado a publicar información institucional relacionada con:
 
 ### 🔐 6. Autenticación y control de acceso
 
-El sistema utiliza autenticación mediante **JWT (JSON Web Tokens)**.
+El sistema utiliza sesiones revocables almacenadas en PostgreSQL y cookies HttpOnly.
 
 Los perfiles definidos actualmente son:
 
@@ -143,7 +147,7 @@ Los perfiles definidos actualmente son:
 
 El sistema utiliza:
 
-* JWT.
+* Sesiones revocables en PostgreSQL.
 * bcryptjs para hash de contraseñas.
 * Middleware de autenticación.
 * Control de permisos por rol.
@@ -194,7 +198,7 @@ El backend está construido con:
 * Express 5.
 * Sequelize.
 * PostgreSQL.
-* JWT.
+* Sesiones revocables en PostgreSQL.
 * bcryptjs.
 * Helmet.
 * CORS.
@@ -363,11 +367,7 @@ Endpoint:
 POST /api/admin/backup
 ```
 
-Los respaldos se almacenan en:
-
-```text
-backups/
-```
+Los respaldos del catálogo se descargan como JSON desde el panel de administración. Para guardar los archivos y la base completa, consulta [Despliegue y recuperación](DESPLIEGUE.md).
 
 También existe un mecanismo de importación:
 
@@ -377,7 +377,7 @@ POST /api/import
 
 Estas operaciones están protegidas y solamente pueden ser ejecutadas por administradores autenticados.
 
-> Los directorios de respaldo pueden contener archivos grandes y no deben considerarse parte necesaria del despliegue de producción.
+
 
 ---
 
@@ -396,7 +396,7 @@ POST /api/docentes/bulk-upload
 La funcionalidad utiliza:
 
 ```text
-xlsx
+read-excel-file y csv-parse
 ```
 
 para procesar archivos de Excel.
@@ -514,7 +514,7 @@ La información de producción se gestiona mediante PostgreSQL/Sequelize.
 
 Para ejecutar el proyecto localmente se recomienda:
 
-* Node.js 18 o superior.
+* Node.js 22.13 o superior.
 * npm.
 * PostgreSQL o una instancia de PostgreSQL compatible.
 * Cuenta de Supabase para almacenamiento/base de datos si se utiliza esa infraestructura.
@@ -540,7 +540,7 @@ cd recursos-docentes-aip
 Instalar dependencias:
 
 ```bash
-npm install
+npm ci
 ```
 
 Crear el archivo de variables de entorno:
@@ -584,7 +584,7 @@ Backend:
 http://localhost:5000
 ```
 
-El frontend utiliza el proxy de Vite para las peticiones `/api` cuando `VITE_API_URL` está vacío.
+El frontend utiliza el proxy de Vite para las peticiones `/api`. Los servicios de producción usan el mismo origen mediante Vercel.
 
 ---
 
@@ -609,6 +609,7 @@ dist/
 Para ejecutar el sistema en producción:
 
 ```bash
+npm run migrate
 npm run start
 ```
 
@@ -626,7 +627,7 @@ NODE_ENV=production
 
 y ejecuta el servidor Express.
 
-En producción se debe configurar obligatoriamente un `JWT_SECRET` seguro.
+Antes de iniciar producción, ejecuta `npm run migrate` y configura un bucket privado. Consulta [Despliegue y recuperación](DESPLIEGUE.md).
 
 ---
 
@@ -675,7 +676,6 @@ dist
 Variable:
 
 ```env
-VITE_API_URL=https://recursos-docentes.onrender.com
 ```
 
 El archivo `vercel.json` contiene la configuración necesaria para el funcionamiento de React Router como SPA.
@@ -703,7 +703,6 @@ Variables principales:
 ```env
 NODE_ENV=production
 PORT=10000
-JWT_SECRET=TU_SECRETO_SEGURO
 DATABASE_URL=TU_URL_POSTGRESQL
 SUPABASE_URL=TU_URL_SUPABASE
 SUPABASE_SERVICE_ROLE_KEY=TU_SERVICE_ROLE_KEY
@@ -726,13 +725,11 @@ CORS_ORIGIN=https://recursos-docentes-aip.vercel.app,http://localhost:5173
 Ejemplo:
 
 ```env
-JWT_SECRET=cambiar-por-un-secreto-seguro
 PORT=5000
 NODE_ENV=development
 
 CORS_ORIGIN=https://recursos-docentes-aip.vercel.app,http://localhost:5173
 
-VITE_API_URL=
 
 DATABASE_URL=postgresql://usuario:password@host:6543/postgres
 
@@ -749,11 +746,9 @@ LOG_LEVEL=info
 
 | Variable                    | Función                                      |
 | --------------------------- | -------------------------------------------- |
-| `JWT_SECRET`                | Secreto utilizado para firmar los tokens JWT |
 | `PORT`                      | Puerto del servidor Express                  |
 | `NODE_ENV`                  | Entorno de ejecución                         |
 | `CORS_ORIGIN`               | Orígenes permitidos                          |
-| `VITE_API_URL`              | URL del backend utilizada por Vercel         |
 | `DATABASE_URL`              | Conexión a PostgreSQL                        |
 | `SUPABASE_URL`              | URL del proyecto Supabase                    |
 | `SUPABASE_SERVICE_ROLE_KEY` | Credencial de servidor para Storage          |
@@ -761,31 +756,13 @@ LOG_LEVEL=info
 | `VITE_GOOGLE_API_KEY`       | API Key opcional para Google Drive           |
 | `LOG_LEVEL`                 | Nivel de detalle de los logs                 |
 
-> **Nunca publiques las claves de Supabase, secretos JWT, contraseñas ni otras credenciales en GitHub.**
+> **Nunca publiques las claves de Supabase, contraseñas ni otras credenciales en GitHub.**
 
 ---
 
 # 👤 Usuario administrador inicial
 
-Cuando la base de datos se encuentra vacía, el servidor puede crear automáticamente un usuario administrador inicial.
-
-Credenciales iniciales configuradas actualmente por el backend:
-
-```text
-Usuario: admin
-Contraseña: admin123
-Rol: Administrador
-```
-
-### ⚠️ Seguridad
-
-Estas credenciales son únicamente de inicialización.
-
-**Debe cambiarse inmediatamente la contraseña antes de utilizar la plataforma en un entorno real.**
-
-No se deben documentar ni distribuir credenciales reales de docentes o usuarios finales dentro del repositorio público.
-
-Los usuarios docentes pueden gestionarse posteriormente desde el panel administrativo.
+Provisiona una cuenta explícitamente mediante `npm run admin:provision` con `ADMIN_USERNAME` y `ADMIN_PASSWORD`. Consulta [Despliegue y recuperación](DESPLIEGUE.md) para rotar cuentas existentes.
 
 ---
 
@@ -826,7 +803,7 @@ Esto permite detectar problemas de estilo y posibles errores en el código JavaS
 | Comando           | Descripción                             |
 | ----------------- | --------------------------------------- |
 | `npm run dev`     | Inicia frontend y backend en desarrollo |
-| `npm run server`  | Inicia solamente el backend con Nodemon |
+| `npm run server`  | Inicia solamente el backend con el modo watch de Node.js |
 | `npm run build`   | Genera el build de producción           |
 | `npm run start`   | Ejecuta el servidor en producción       |
 | `npm run prod`    | Compila y ejecuta producción            |
@@ -957,7 +934,7 @@ El proyecto incorpora diferentes mecanismos de protección:
 * Helmet.
 * CORS.
 * Rate limiting.
-* JWT.
+* Sesiones revocables en PostgreSQL.
 * bcryptjs.
 * Validación mediante Zod.
 * Middleware de autenticación.
@@ -971,7 +948,7 @@ El proyecto incorpora diferentes mecanismos de protección:
 Antes de publicar:
 
 1. Cambiar la contraseña del administrador.
-2. Utilizar un `JWT_SECRET` largo y aleatorio.
+2. Provisionar una contraseña única mediante `npm run admin:provision`.
 3. No subir `.env` a GitHub.
 4. No publicar `SUPABASE_SERVICE_ROLE_KEY`.
 5. Restringir la API Key de Google.
@@ -1023,7 +1000,7 @@ El proyecto cuenta actualmente con:
 * ✅ Evidencias organizadas por mes.
 * ✅ Galería de evidencias.
 * ✅ Integración opcional con Google Drive.
-* ✅ Autenticación JWT.
+* ✅ Sesiones revocables y cookies HttpOnly.
 * ✅ Roles de usuario.
 * ✅ Gestión administrativa.
 * ✅ Gestión de docentes.

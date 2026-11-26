@@ -1,10 +1,11 @@
+import { storageLink } from "../services/imageUrl";
 import { useState, useMemo } from "react";
 import { useApp } from "../context/AppContext";
 import { motion, AnimatePresence } from "framer-motion";
 import { getYouTubeId, getYouTubeThumbnail } from "../utils/youtube";
 import { listDriveImages, DriveGalleryError } from "../services/googleDrive";
 import GaleriaModal from "./GaleriaModal";
-import { SkeletonStats, SkeletonGrid } from "./Skeleton";
+import { SkeletonGrid } from "./Skeleton";
 import SignedImage from "./SignedImage";
 
 const MESES = [
@@ -24,7 +25,7 @@ const MES_INICIAL = mesActual >= 2 ? MESES[mesActual - 2] : "Marzo";
 const TIPO_META = {
   Foto:  { icon: "fa-image",      cls: "bg-primary-500",  label: "Foto" },
   Video: { icon: "fa-video",      cls: "bg-accent-500",   label: "Video" },
-  Ambos: { icon: "fa-photo-film", cls: "bg-violet-500",   label: "Mixto" },
+  Ambos: { icon: "fa-photo-film", cls: "bg-violet-700",   label: "Mixto" },
 };
 
 const easeOut = [0.16, 1, 0.3, 1];
@@ -46,39 +47,6 @@ function normalizeImgs(ev) {
   return [];
 }
 
-function StatsHeader({ total, totalFotos, totalVideos }) {
-  const stats = [
-    { icon: "fa-calendar-check", value: total, label: "Actividades", accent: "from-primary-500/20 to-primary-600/5 text-primary-300" },
-    { icon: "fa-image",           value: totalFotos, label: "Fotografías", accent: "from-cyan-500/20 to-cyan-600/5 text-cyan-300" },
-    { icon: "fa-video",           value: totalVideos, label: "Videos",     accent: "from-accent-500/20 to-accent-600/5 text-accent-300" },
-  ];
-  return (
-    <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
-      {stats.map((s) => (
-        <div
-          key={s.label}
-          className="relative overflow-hidden rounded-cardLg border border-line dark:border-dark-border bg-white dark:bg-dark-card p-4"
-        >
-          <div className={`absolute -top-12 -right-12 w-32 h-32 rounded-full bg-gradient-to-br ${s.accent} blur-2xl opacity-50 pointer-events-none`} />
-          <div className="relative flex items-start justify-between gap-3">
-            <div>
-              <p className="text-[10.5px] font-semibold text-ink-subtle uppercase tracking-wider">
-                {s.label}
-              </p>
-              <p className="mt-1 text-2xl font-bold tabular-nums text-ink dark:text-white">
-                {s.value}
-              </p>
-            </div>
-            <span className="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-surface-sunk dark:bg-dark-elev text-ink-subtle">
-              <i className={`fas ${s.icon} text-sm`} />
-            </span>
-          </div>
-        </div>
-      ))}
-    </div>
-  );
-}
-
 function EvidenciaMedia({ evidencia, onOpen }) {
   const imgs = normalizeImgs(evidencia);
   const ytId = evidencia.tipo === "Video" && imgs.length === 1
@@ -95,7 +63,7 @@ function EvidenciaMedia({ evidencia, onOpen }) {
     if (isFirstVideo) {
       return (
         <video
-          src={firstItem.url}
+          src={storageLink(firstItem.url) || undefined}
           muted
           playsInline
           preload="metadata"
@@ -118,6 +86,7 @@ function EvidenciaMedia({ evidencia, onOpen }) {
     <button
       type="button"
       onClick={onOpen}
+      aria-label={`Abrir ${evidencia.titulo}`}
       className="relative block w-full overflow-hidden rounded-t-cardLg aspect-video bg-gradient-to-br from-surface-sunk to-surface-alt dark:from-dark-elev dark:to-dark-card group"
     >
       {renderCover()}
@@ -170,7 +139,7 @@ function EvidenciaMedia({ evidencia, onOpen }) {
   );
 }
 
-function EvidenciaCard({ ev, onOpen, isAdmin, onEdit, onDelete }) {
+function EvidenciaCard({ ev, onOpen, isAdmin, onEdit, onDelete, titleAs: Title = "h2" }) {
   const imgs = normalizeImgs(ev);
   const ytId = ev.tipo === "Video" && imgs.length === 1 ? getYouTubeId(imgs[0]?.url) : null;
   const isVideoOnly = ev.tipo === "Video" && imgs.length === 1 && !ytId && isVideoItem(imgs[0]);
@@ -185,7 +154,7 @@ function EvidenciaCard({ ev, onOpen, isAdmin, onEdit, onDelete }) {
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, scale: 0.95 }}
       transition={{ duration: 0.35, ease: easeOut }}
-      className="group relative flex flex-col rounded-cardLg bg-white dark:bg-dark-card border border-line dark:border-dark-border shadow-card hover:shadow-card-hover hover:-translate-y-1 hover:border-primary-200 dark:hover:border-primary-500/40 transition-all duration-300 overflow-hidden"
+      className="school-content-card group relative flex flex-col overflow-hidden"
     >
       <EvidenciaMedia evidencia={ev} onOpen={onOpen} />
 
@@ -207,9 +176,9 @@ function EvidenciaCard({ ev, onOpen, isAdmin, onEdit, onDelete }) {
           )}
         </div>
 
-        <h3 className="text-[15px] font-semibold tracking-tight text-ink dark:text-white leading-snug line-clamp-2">
+        <Title className="school-card-title text-ink dark:text-white">
           {ev.titulo}
-        </h3>
+        </Title>
         <p className="mt-1.5 text-[12.5px] text-ink-subtle leading-relaxed line-clamp-3 flex-1">
           {ev.desc}
         </p>
@@ -219,7 +188,7 @@ function EvidenciaCard({ ev, onOpen, isAdmin, onEdit, onDelete }) {
             <button
               type="button"
               onClick={onOpen}
-              className="w-full h-9 inline-flex items-center justify-center gap-2 rounded-btn bg-indigo-600 hover:bg-indigo-700 text-white text-[12px] font-semibold transition-colors"
+              className="school-secondary w-full"
             >
               <i className={`${isDriveFolder ? "fab fa-google-drive" : "fas fa-images"} text-[11px]`} />
               {isDriveFolder ? "Abrir carpeta" : `Ver galería (${imgs.length})`}
@@ -229,7 +198,7 @@ function EvidenciaCard({ ev, onOpen, isAdmin, onEdit, onDelete }) {
               href={imgs[0].url}
               target="_blank"
               rel="noopener noreferrer"
-              className="w-full h-9 inline-flex items-center justify-center gap-2 rounded-btn bg-accent-600 hover:bg-accent-700 text-white text-[12px] font-semibold transition-colors"
+              className="school-secondary w-full"
             >
               <i className="fab fa-youtube text-[11px]" />
               Ver en YouTube
@@ -238,7 +207,7 @@ function EvidenciaCard({ ev, onOpen, isAdmin, onEdit, onDelete }) {
             <button
               type="button"
               onClick={onOpen}
-              className="w-full h-9 inline-flex items-center justify-center gap-2 rounded-btn bg-accent-600 hover:bg-accent-700 text-white text-[12px] font-semibold transition-colors"
+              className="school-secondary w-full"
             >
               <i className="fas fa-play text-[10px]" />
               Reproducir video
@@ -247,7 +216,7 @@ function EvidenciaCard({ ev, onOpen, isAdmin, onEdit, onDelete }) {
             <button
               type="button"
               onClick={onOpen}
-              className="w-full h-9 inline-flex items-center justify-center gap-2 rounded-btn bg-primary-600 hover:bg-primary-700 text-white text-[12px] font-semibold transition-colors"
+              className="school-secondary w-full"
             >
               <i className="fas fa-expand text-[10px]" />
               Ver foto
@@ -276,12 +245,14 @@ function EvidenciaCard({ ev, onOpen, isAdmin, onEdit, onDelete }) {
   );
 }
 
-function FilterChip({ active, onClick, children, count }) {
+function FilterChip({ active, onClick, children, label = children, count }) {
   return (
     <button
       type="button"
       onClick={onClick}
-      className={`inline-flex items-center gap-1.5 h-8 px-3 rounded-full text-[11.5px] font-medium transition-all duration-200 ${
+      aria-label={`${label}, ${count} ${count === 1 ? "evidencia" : "evidencias"}`}
+      aria-pressed={active}
+      className={`inline-flex items-center gap-1.5 min-h-10 px-3 rounded-full text-[12px] font-medium transition-colors ${
         active
           ? "bg-primary-600 text-white shadow-sm"
           : "bg-surface-sunk dark:bg-dark-elev text-ink-subtle hover:text-ink dark:hover:text-white hover:bg-line dark:hover:bg-dark-border"
@@ -301,7 +272,10 @@ function FilterChip({ active, onClick, children, count }) {
 
 export default function Evidencias({ isAdminMode = false, onEditClick = null, onDeleteClick = null }) {
   const { evidencias, isLoading } = useApp();
-  const [mesSel, setMesSel] = useState(MES_INICIAL);
+  const [selectedMonth, setSelectedMonth] = useState(null);
+  const initialMonth = evidencias.some((e) => e.mes === MES_INICIAL) ? MES_INICIAL : MES_TODOS;
+  const mesSel = selectedMonth ?? initialMonth;
+  const total = evidencias.length;
   const [busqueda, setBusqueda] = useState("");
   const [galeria, setGaleria] = useState({
     open: false,
@@ -311,20 +285,6 @@ export default function Evidencias({ isAdminMode = false, onEditClick = null, on
     loading: false,
     error: null,
   });
-
-  const stats = useMemo(() => {
-    const list = evidencias || [];
-    let fotos = 0;
-    let videos = 0;
-    for (const e of list) {
-      const imgs = normalizeImgs(e);
-      for (const img of imgs) {
-        if (isVideoItem(img)) videos += 1;
-        else fotos += 1;
-      }
-    }
-    return { total: list.length, totalFotos: fotos, totalVideos: videos };
-  }, [evidencias]);
 
   const countsByMonth = useMemo(() => {
     const map = new Map();
@@ -366,7 +326,7 @@ export default function Evidencias({ isAdminMode = false, onEditClick = null, on
     return map;
   }, [filtradas, mesSel]);
 
-  const hasActiveFilters = busqueda || mesSel !== MES_INICIAL;
+  const hasActiveFilters = busqueda || mesSel !== initialMonth;
 
   const openEvidenciaGaleria = async (ev) => {
     if (ev.driveFolderUrl) {
@@ -422,7 +382,7 @@ export default function Evidencias({ isAdminMode = false, onEditClick = null, on
 
   const closeGaleria = () => setGaleria((g) => ({ ...g, open: false }));
   const clearFilters = () => {
-    setMesSel(MES_INICIAL);
+    setSelectedMonth(null);
     setBusqueda("");
   };
 
@@ -477,6 +437,7 @@ export default function Evidencias({ isAdminMode = false, onEditClick = null, on
                           <EvidenciaCard
                             key={e.id}
                             ev={e}
+                            titleAs="h4"
                             onOpen={() => openEvidenciaGaleria(e)}
                             isAdmin={isAdminMode}
                             onEdit={() => onEditClick && onEditClick(e)}
@@ -497,17 +458,13 @@ export default function Evidencias({ isAdminMode = false, onEditClick = null, on
 
   const renderEmpty = () => (
     <div className="rounded-cardLg border border-dashed border-line dark:border-dark-border bg-surface-alt/50 dark:bg-dark-card/40 py-20 px-6 text-center">
-      <div className="relative inline-flex h-20 w-20 items-center justify-center rounded-2xl bg-gradient-to-br from-primary-50 to-primary-100 dark:from-primary-600/15 dark:to-primary-700/10 text-primary-500 mb-5">
-        <i className="far fa-image text-3xl" />
-        <span className="absolute -top-1 -right-1 inline-flex h-5 w-5 items-center justify-center rounded-full bg-amber-400 text-white text-[10px] font-bold">!</span>
-      </div>
-      <h3 className="text-[16px] font-semibold text-ink dark:text-white">
-        {stats.total === 0 ? "Aún no hay evidencias registradas" : "Sin coincidencias"}
-      </h3>
+      <h2 className="school-card-title text-ink dark:text-white">
+        {total === 0 ? "Aún no hay evidencias registradas" : "Sin coincidencias"}
+      </h2>
       <p className="mt-1.5 text-[13px] text-ink-subtle max-w-sm mx-auto">
-        {stats.total === 0
-          ? "Sube la primera actividad usando el botón + Nuevo en la cabecera."
-          : "Prueba con otro mes o limpia los filtros para ver más resultados."}
+        {total > 0 ? "Prueba con otro mes o limpia los filtros para ver más resultados."
+          : isAdminMode ? "Usa el botón Nuevo para publicar la primera actividad."
+            : "Las actividades del aula se mostrarán aquí cuando se publiquen."}
       </p>
       {hasActiveFilters && (
         <button
@@ -522,29 +479,18 @@ export default function Evidencias({ isAdminMode = false, onEditClick = null, on
   );
 
   if (isLoading) {
-    return (
-      <div className="space-y-6">
-        <SkeletonStats count={4} />
-        <SkeletonGrid items={6} />
-      </div>
-    );
+    return <SkeletonGrid items={6} />;
   }
 
   return (
     <div className="space-y-6">
-      <StatsHeader
-        total={stats.total}
-        totalFotos={stats.totalFotos}
-        totalVideos={stats.totalVideos}
-      />
-
-      <div className="rounded-cardLg border border-line dark:border-dark-border bg-white dark:bg-dark-card shadow-card overflow-hidden">
+      <div className="school-content-card">
         <div className="p-5 space-y-4">
           <div className="flex flex-col md:flex-row gap-3">
             <div className="relative flex-1">
               <i className="fas fa-magnifying-glass absolute left-3.5 top-1/2 -translate-y-1/2 text-ink-meta text-sm pointer-events-none" />
               <input
-                type="text"
+                type="search"
                 className="w-full pl-10 pr-4 h-11 rounded-btn border border-line dark:border-dark-border bg-white dark:bg-dark-input text-[13.5px] text-ink dark:text-white placeholder:text-ink-meta focus:outline-none focus:ring-2 focus:ring-primary-500/30 focus:border-primary-500 transition-all"
                 placeholder="Buscar por título o descripción…"
                 value={busqueda}
@@ -554,15 +500,21 @@ export default function Evidencias({ isAdminMode = false, onEditClick = null, on
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
-            <span className="text-[10px] font-semibold text-ink-meta uppercase tracking-wider w-20 flex-shrink-0">
+          <label className="school-select-filter block sm:hidden">Mes
+            <select value={mesSel} onChange={(event) => setSelectedMonth(event.target.value)}>
+              <option value={MES_TODOS}>Todos los meses</option>
+              {MESES.map((m) => <option key={m} value={m}>{m}</option>)}
+            </select>
+          </label>
+          <div className="hidden sm:flex items-center gap-3" role="group" aria-label="Mes">
+            <span className="text-[12px] font-semibold text-ink-meta shrink-0">
               Mes
             </span>
             <div className="flex flex-wrap items-center gap-1.5">
               <FilterChip
                 active={mesSel === MES_TODOS}
-                onClick={() => setMesSel(MES_TODOS)}
-                count={stats.total}
+                onClick={() => setSelectedMonth(MES_TODOS)}
+                count={total}
               >
                 Todas
               </FilterChip>
@@ -570,7 +522,8 @@ export default function Evidencias({ isAdminMode = false, onEditClick = null, on
                 <FilterChip
                   key={m}
                   active={mesSel === m}
-                  onClick={() => setMesSel(m)}
+                  onClick={() => setSelectedMonth(m)}
+                  label={m}
                   count={countsByMonth.get(m) || 0}
                 >
                   {MES_ABREV[m] || m}
@@ -581,14 +534,14 @@ export default function Evidencias({ isAdminMode = false, onEditClick = null, on
         </div>
 
         <div className="px-5 py-3 bg-surface-alt/60 dark:bg-dark-elev/40 border-t border-line dark:border-dark-border flex items-center justify-between text-[12px] text-ink-subtle">
-          <span>
+          <span role="status">
             Mostrando{" "}
             <span className="font-semibold text-ink dark:text-white tabular-nums">
               {filtradas.length}
             </span>{" "}
             de{" "}
-            <span className="font-semibold tabular-nums">{stats.total}</span>{" "}
-            {stats.total === 1 ? "evidencia" : "evidencias"}
+            <span className="font-semibold tabular-nums">{total}</span>{" "}
+            {total === 1 ? "evidencia" : "evidencias"}
           </span>
           {hasActiveFilters && (
             <button

@@ -4,29 +4,7 @@ import { dispatchToast } from "../components/Toast";
 import { clearImageUrlCache } from "../services/imageUrl";
 
 const AppContext = createContext();
-const CACHE_KEY = "innova_db_cache";
-const CACHE_TTL_MS = 5 * 60 * 1000;
 const FETCH_TIMEOUT_MS = 8000;
-
-function readCache() {
-  try {
-    const raw = localStorage.getItem(CACHE_KEY);
-    if (!raw) return null;
-    const parsed = JSON.parse(raw);
-    if (!parsed?.ts || Date.now() - parsed.ts > CACHE_TTL_MS) return null;
-    return parsed;
-  } catch {
-    return null;
-  }
-}
-
-function writeCache(data) {
-  try {
-    localStorage.setItem(CACHE_KEY, JSON.stringify({ ...data, ts: Date.now() }));
-  } catch {
-    /* quota o no storage disponible: ignoramos */
-  }
-}
 
 export function AppContextProvider({ children }) {
   const [recursos, setRecursos] = useState([]);
@@ -46,15 +24,23 @@ export function AppContextProvider({ children }) {
     return local === "true";
   });
 
-  // --- SESSION AUTH STATES ---
-  const [token, setToken] = useState(() => {
-    return localStorage.getItem("innova_token") || null;
-  });
+  const [currentUser, setCurrentUser] = useState(null);
+  const [sessionReady, setSessionReady] = useState(false);
+  const signedIn = Boolean(currentUser);
 
-  const [currentUser, setCurrentUser] = useState(() => {
-    const local = localStorage.getItem("innova_user");
-    return local ? JSON.parse(local) : null;
-  });
+  useEffect(() => {
+    let active = true;
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+    for (const key of ["innova_token", "innova_user", "innova_db_cache"]) localStorage.removeItem(key);
+    clearImageUrlCache();
+    fetch(`${API_BASE}/api/auth/session`, { signal: controller.signal })
+      .then((response) => response.ok ? response.json() : null)
+      .then((data) => { if (active) setCurrentUser(data?.user ?? null); })
+      .catch(() => {})
+      .finally(() => { clearTimeout(timeout); if (active) setSessionReady(true); });
+    return () => { active = false; clearTimeout(timeout); controller.abort(); };
+  }, []);
 
   const [tutorialAccess, setTutorialAccess] = useState(null);
 
@@ -75,79 +61,59 @@ export function AppContextProvider({ children }) {
     }
   }, [darkMode]);
 
-  // --- FETCH CENTRAL DATABASE FROM EXPRESS API (con cache, timeout, reintentos) ---
-  const loadDatabase = useCallback(async ({ retries = 3, delayMs = 1500, force = false } = {}) => {
-    if (!force) {
-      const cached = readCache();
-      if (cached) {
-        setRecursos(cached.recursos || []);
-        setTutoriales(cached.tutoriales || []);
-        setNoticias(cached.noticias || []);
-        setEvidencias(cached.evidencias || []);
-        setHeroSlides(cached.heroSlides || []);
-        setIsLoading(false);
-        return;
-      }
-    }
+  const [failedSections, setFailedSections] = useState([]);
+  const loadSequence = useRef(0);
+
+  const loadDatabase = useCallback(async ({ retries = 3, delayMs = 1500 } = {}) => {
+    const sequence = ++loadSequence.current;
+    const sections = [
+      { key: "recursos", label: "recursos", set: setRecursos },
+      { key: "tutoriales", label: "tutoriales", set: setTutoriales },
+      { key: "noticias", label: "noticias", set: setNoticias },
+      { key: "evidencias", label: "evidencias", set: setEvidencias },
+      { key: "heroSlides", path: "hero-slides", label: "imágenes de portada", set: setHeroSlides },
+    ];
 
     setIsLoading(true);
-    for (let attempt = 1; attempt <= retries; attempt++) {
+    let pending = sections.filter(({ key }) => key !== "recursos" || signedIn);
+    for (let attempt = 1; attempt <= retries && pending.length; attempt++) {
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
-      try {
-        const [resRec, resTut, resNot, resEvi, resHero] = await Promise.all([
-          fetch(`${API_BASE}/api/recursos`, { signal: controller.signal }),
-          fetch(`${API_BASE}/api/tutoriales`, { signal: controller.signal }),
-          fetch(`${API_BASE}/api/noticias`, { signal: controller.signal }),
-          fetch(`${API_BASE}/api/evidencias`, { signal: controller.signal }),
-          fetch(`${API_BASE}/api/hero-slides`, { signal: controller.signal }),
-        ]);
-        clearTimeout(timeoutId);
-
-        if (resRec.status === 503 || resTut.status === 503 || resNot.status === 503 || resEvi.status === 503) {
-          if (attempt < retries) {
-            await new Promise((r) => setTimeout(r, delayMs * attempt));
-            continue;
-          }
-          setIsLoading(false);
-          return;
+      const timeout = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+      const results = await Promise.allSettled(pending.map(async ({ key, path }) => {
+        const response = await fetch(`${API_BASE}/api/${path || key}`, { signal: controller.signal });
+        if (key === "recursos" && response.status === 401) {
+          setCurrentUser(null);
+          clearImageUrlCache();
+          return [];
         }
+        if (!response.ok) throw new Error(`Error HTTP ${response.status}`);
+        const data = await response.json();
+        if (!Array.isArray(data)) throw new Error("Respuesta inválida");
+        return data;
+      }));
+      clearTimeout(timeout);
+      if (sequence !== loadSequence.current) return;
 
-        const [rec, tut, not, evi, hero] = await Promise.all([
-          resRec.ok ? resRec.json() : [],
-          resTut.ok ? resTut.json() : [],
-          resNot.ok ? resNot.json() : [],
-          resEvi.ok ? resEvi.json() : [],
-          resHero.ok ? resHero.json() : [],
-        ]);
+      pending = pending.filter(({ set }, index) => {
+        const result = results[index];
+        if (result.status === "rejected") return true;
+        set(result.value);
+        return false;
+      });
 
-        setRecursos(rec);
-        setTutoriales(tut);
-        setNoticias(not);
-        setEvidencias(evi);
-        setHeroSlides(hero);
-        writeCache({ recursos: rec, tutoriales: tut, noticias: not, evidencias: evi, heroSlides: hero });
-        setIsLoading(false);
-        return;
-      } catch {
-        clearTimeout(timeoutId);
-        if (attempt < retries) {
-          await new Promise((r) => setTimeout(r, delayMs * attempt));
-        }
+      if (pending.length && attempt < retries) {
+        await new Promise((resolve) => setTimeout(resolve, delayMs * attempt));
+        if (sequence !== loadSequence.current) return;
       }
     }
+
+    setFailedSections(pending.map(({ label }) => label));
     setIsLoading(false);
-  }, []);
+  }, [signedIn]);
 
-  // Cargar la base de datos al montar o al cambiar el token de autenticación.
-  // En re-logins usa la cache si está vigente (< 5 min) para evitar 4 fetches innecesarios.
-  const lastLoadedTokenRef = useRef(undefined);
   useEffect(() => {
-    if (lastLoadedTokenRef.current === token) return;
-    lastLoadedTokenRef.current = token;
-    loadDatabase();
-  }, [token, loadDatabase]);
-
+    if (sessionReady) loadDatabase();
+  }, [sessionReady, loadDatabase]);
 
   // --- AUTHENTICATION METHODS ---
   const login = useCallback(async (usuario, contrasenia) => {
@@ -159,10 +125,7 @@ export function AppContextProvider({ children }) {
       });
       const data = await response.json();
       if (response.ok && data.success) {
-        localStorage.setItem("innova_token", data.token);
-        localStorage.setItem("innova_user", JSON.stringify(data.user));
-
-        setToken(data.token);
+        clearImageUrlCache();
         setCurrentUser(data.user);
         return { success: true };
       } else {
@@ -180,7 +143,6 @@ export function AppContextProvider({ children }) {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
         body: JSON.stringify({ nombre, usuario, contrasenia, rol })
       });
@@ -194,26 +156,37 @@ export function AppContextProvider({ children }) {
       console.error("Register error:", _err);
       return { success: false, error: "Error de servidor en el registro." };
     }
-  }, [token]);
+  }, []);
 
-  const logout = useCallback(() => {
-    localStorage.removeItem("innova_token");
-    localStorage.removeItem("innova_user");
+  const clearSession = useCallback(() => {
+    loadSequence.current++;
     clearImageUrlCache();
-    setToken(null);
+    setRecursos([]);
     setCurrentUser(null);
   }, []);
 
+  const logout = useCallback(async () => {
+    try {
+      const response = await fetch(`${API_BASE}/api/auth/logout`, { method: "POST" });
+      if (!response.ok && response.status !== 401) throw new Error("Error al cerrar sesión");
+      clearSession();
+      return true;
+    } catch {
+      dispatchToast({ tone: "error", message: "No se pudo cerrar la sesión. Vuelve a intentarlo." });
+      return false;
+    }
+  }, [clearSession]);
+
   // --- AUTO-LOGOUT ON INACTIVITY (15 min) ---
   useEffect(() => {
-    if (!token) return;
+    if (!signedIn) return;
     let timeoutId;
     let lastReset = 0;
     const INACTIVITY_MS = 15 * 60 * 1000;
     const THROTTLE_MS = 30 * 1000;
 
-    const triggerLogout = () => {
-      logout();
+    const triggerLogout = async () => {
+      if (!await logout()) return;
       dispatchToast({
         tone: "warning",
         title: "Sesión expirada",
@@ -239,31 +212,24 @@ export function AppContextProvider({ children }) {
       if (timeoutId) clearTimeout(timeoutId);
       events.forEach((event) => document.removeEventListener(event, resetTimer));
     };
-  }, [token, logout]);
+  }, [signedIn, logout]);
 
-  // Helper auth headers
-  const getAuthHeaders = useCallback(() => {
-    const activeToken = token || localStorage.getItem("innova_token");
-    return {
-      "Content-Type": "application/json",
-      ...(activeToken ? { "Authorization": `Bearer ${activeToken}` } : {})
-    };
-  }, [token]);
+  const getAuthHeaders = useCallback(() => ({ "Content-Type": "application/json" }), []);
 
   // Interceptor para peticiones no autorizadas
   const handleApiResponse = useCallback(async (response) => {
-    if (response.status === 401 || response.status === 403) {
-      logout();
+    if (response.status === 401) {
+      clearSession();
       dispatchToast({
         tone: "warning",
         title: "Sesión expirada",
-        message: "Tu sesión ha expirado o no tienes permisos para esta acción. Por favor, inicia sesión de nuevo.",
+        message: "Tu sesión ha expirado. Inicia sesión de nuevo.",
         duration: 6000,
       });
       return false;
     }
     return true;
-  }, [logout]);
+  }, [clearSession]);
 
   // --- CRUD ACTIONS FOR RECURSOS ---
   const addRecurso = useCallback(async (item) => {
@@ -547,20 +513,6 @@ export function AppContextProvider({ children }) {
   }, [getAuthHeaders, handleApiResponse]);
 
   // --- EXPORT AND IMPORT DATABASE ---
-  const exportData = useCallback(() => {
-    const data = { recursos, tutoriales, noticias, evidencias };
-    const blob = new Blob([JSON.stringify(data, null, 2)], {
-      type: "application/json",
-    });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = `InnovaBandera_Respaldo_${new Date().toISOString().split('T')[0]}.json`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  }, [recursos, tutoriales, noticias, evidencias]);
-
   const importData = useCallback(async (jsonData) => {
     try {
       const parsed = JSON.parse(jsonData);
@@ -592,7 +544,7 @@ export function AppContextProvider({ children }) {
       favoritos,
       darkMode,
       setDarkMode,
-      token,
+      sessionReady,
       currentUser,
       login,
       register,
@@ -610,11 +562,11 @@ export function AppContextProvider({ children }) {
       addEvidencia,
       updateEvidencia,
       deleteEvidencia,
-      exportData,
       importData,
       tutorialAccess,
       setTutorialAccess,
       isLoading,
+      failedSections,
       loadDatabase,
     }),
     [
@@ -625,10 +577,11 @@ export function AppContextProvider({ children }) {
       heroSlides,
       favoritos,
       darkMode,
-      token,
+      sessionReady,
       currentUser,
       tutorialAccess,
       isLoading,
+      failedSections,
       login,
       register,
       logout,
@@ -645,7 +598,6 @@ export function AppContextProvider({ children }) {
       addEvidencia,
       updateEvidencia,
       deleteEvidencia,
-      exportData,
       importData,
       loadDatabase,
     ]

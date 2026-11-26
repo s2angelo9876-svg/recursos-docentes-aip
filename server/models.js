@@ -73,5 +73,12 @@ export function defineModels(sequelize) {
     indexes: [{ fields: ["activo", "orden"] }],
   });
 
-  return { Usuario, Recurso, Tutorial, Noticia, Evidencia, AuditoriaSesion, HeroSlide };
+  const Sesion = sequelize.define("Sesion", {
+    id: { type: DataTypes.STRING(64), primaryKey: true },
+    userId: { type: DataTypes.INTEGER, allowNull: false },
+    credentialVersion: { type: DataTypes.STRING(64), allowNull: false },
+    expiresAt: { type: DataTypes.DATE, allowNull: false },
+  }, { indexes: [{ fields: ["expiresAt"] }] });
+
+  return { Sesion, Usuario, Recurso, Tutorial, Noticia, Evidencia, AuditoriaSesion, HeroSlide };
 }

@@ -4,7 +4,9 @@ FROM node:22-alpine AS build
 WORKDIR /app
 
 COPY package*.json ./
-RUN npm ci
+RUN --mount=type=secret,id=proxy_ca,target=/run/secrets/proxy-ca.pem \
+    if [ -f /run/secrets/proxy-ca.pem ]; then export NODE_EXTRA_CA_CERTS=/run/secrets/proxy-ca.pem; fi && \
+    npm ci
 
 COPY . .
 RUN npm run build
@@ -14,16 +16,19 @@ FROM node:22-alpine
 
 WORKDIR /app
 
-COPY package*.json ./
-RUN npm ci --omit=dev
+COPY --chown=node:node package*.json ./
+RUN --mount=type=secret,id=proxy_ca,target=/run/secrets/proxy-ca.pem \
+    if [ -f /run/secrets/proxy-ca.pem ]; then export NODE_EXTRA_CA_CERTS=/run/secrets/proxy-ca.pem; fi && \
+    npm ci --omit=dev
 
-COPY --from=build /app/dist ./dist
-COPY server.js db.json ./
-COPY server ./server
-COPY scripts ./scripts
+COPY --from=build --chown=node:node /app/dist ./dist
+COPY --chown=node:node server.js db.json ./
+COPY --chown=node:node server ./server
+COPY --chown=node:node scripts ./scripts
+COPY --chown=node:node shared ./shared
 
-# Asegurar que existan las carpetas necesarias
-RUN mkdir -p backups
+RUN mkdir -p logs && chown node:node logs
+USER node
 
 ENV NODE_ENV=production
 

@@ -1,398 +1,58 @@
+import { useState } from "react";
+import { Link } from "react-router-dom";
+import { ArrowRight, BookOpen, Images, PlayCircle } from "lucide-react";
 import { useApp } from "../context/AppContext";
-import { motion, AnimatePresence } from "framer-motion";
-import { useState, useEffect, useCallback, useMemo } from "react";
-import { resolveImageUrl } from "../services/imageUrl";
+import { storageLink } from "../services/imageUrl";
+import { fechaComunicado, formatFechaComunicado } from "../utils/comunicados";
 
-const easeOut = [0.16, 1, 0.3, 1];
-const AUTOPLAY_MS = 5500;
-
-
-const features = [
-  {
-    key: "recursos",
-    icon: "fa-book-open",
-    accent: "from-primary-500 to-primary-700",
-    chipBg: "bg-primary-50 text-primary-600 dark:bg-primary-600/10 dark:text-primary-300",
-    title: "Recursos por área",
-    desc: "Guías, simuladores y materiales pedagógicos organizados por competencia, área curricular y grado.",
-  },
-  {
-    key: "tutoriales",
-    icon: "fa-circle-play",
-    accent: "from-accent-500 to-accent-700",
-    chipBg: "bg-accent-50 text-accent-600 dark:bg-accent-700/15 dark:text-accent-300",
-    title: "Tutoriales paso a paso",
-    desc: "Capacitación audiovisual para docentes y estudiantes, filtrada por audiencia y nivel.",
-  },
-  {
-    key: "evidencias",
-    icon: "fa-images",
-    accent: "from-emerald-500 to-emerald-700",
-    chipBg: "bg-emerald-50 text-emerald-600 dark:bg-emerald-700/15 dark:text-emerald-300",
-    title: "Evidencias mensuales",
-    desc: "Registro fotográfico de actividades, talleres y logros institucionales del aula AIP.",
-  },
+const sections = [
+  { path: "/recursos", title: "Biblioteca pedagógica", description: "Encuentra recursos por área, grado o formato.", icon: BookOpen },
+  { path: "/tutoriales", title: "Tutoriales TIC", description: "Aprende a utilizar herramientas digitales paso a paso.", icon: PlayCircle },
+  { path: "/evidencias", title: "Evidencias del aula", description: "Explora actividades y proyectos del AIP.", icon: Images },
 ];
 
-export default function Hero({ setActiveTab }) {
-  const { currentUser, recursos, evidencias, heroSlides, isLoading } = useApp();
-  const isAdmin = currentUser?.rol === "Administrador";
-  const isDocente = currentUser?.rol === "Docente";
-
-  const slides = useMemo(
-    () => (Array.isArray(heroSlides) && heroSlides.length > 0 ? heroSlides : []),
-    [heroSlides]
-  );
-  const [slideIndex, setSlideIndex] = useState(0);
-  const [isPaused, setIsPaused] = useState(false);
-  const [resolvedBg, setResolvedBg] = useState(null);
-
-  const goTo = useCallback((i) => {
-    setSlideIndex(((i % slides.length) + slides.length) % slides.length);
-  }, [slides.length]);
-
-  useEffect(() => {
-    if (slides.length <= 1 || isPaused) return undefined;
-    const t = setInterval(() => {
-      setSlideIndex((i) => (i + 1) % slides.length);
-    }, AUTOPLAY_MS);
-    return () => clearInterval(t);
-  }, [slides.length, isPaused]);
-
-  useEffect(() => {
-    if (slides.length === 0 && slideIndex !== 0) setSlideIndex(0);
-    else if (slides.length > 0 && slideIndex >= slides.length) setSlideIndex(0);
-  }, [slides.length, slideIndex]);
-
-  // Resuelve la URL del slide activo a una versión firmada (Supabase signed URL).
-  useEffect(() => {
-    let cancelled = false;
-    const url = slides[slideIndex]?.imagenUrl;
-    if (!url) {
-      setResolvedBg(null);
-      return;
-    }
-    resolveImageUrl(url).then((u) => {
-      if (!cancelled) setResolvedBg(u);
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [slides, slideIndex]);
-
-  const cardStats = [
-    {
-      icon: "fa-book-open",
-      value: isLoading ? "..." : (recursos?.length ?? 0),
-      label: "Recursos\ndisponibles",
-      tab: "recursos",
-    },
-    {
-      icon: "fa-chalkboard-user",
-      value: "23",
-      label: "Docentes\nque comparten",
-      tab: null,
-    },
-    {
-      icon: "fa-layer-group",
-      value: "10",
-      label: "Áreas\nrepresentadas",
-      tab: "recursos",
-    },
-    {
-      icon: "fa-images",
-      value: isLoading ? "..." : (evidencias?.length ?? 0),
-      label: "Evidencias\nsubidas",
-      tab: "evidencias",
-    },
-  ];
-
+export default function Hero() {
+  const { heroSlides, noticias, currentUser } = useApp();
+  const [index, setIndex] = useState(0);
+  const active = heroSlides[index] ? index : 0;
+  const image = storageLink(heroSlides[active]?.imagenUrl);
+  const latest = [...noticias].sort((a, b) => fechaComunicado(b) - fechaComunicado(a)).slice(0, 3);
   return (
-    <div className="space-y-14">
-      <section
-        className="relative overflow-hidden rounded-cardLg bg-gradient-to-br from-[#001D52] via-[#002670] to-[#003D9E] text-white shadow-card-hover"
-        onMouseEnter={() => setIsPaused(true)}
-        onMouseLeave={() => setIsPaused(false)}
-        role={slides.length > 1 ? "region" : undefined}
-        aria-roledescription={slides.length > 1 ? "carrusel" : undefined}
-        aria-label={slides.length > 1 ? "Imágenes destacadas de la plataforma" : undefined}
-      >
-        {/* Carrusel de fondo (crossfade entre slides) */}
-        {slides.length > 0 && resolvedBg && (
-          <div className="absolute inset-0" aria-hidden>
-            <AnimatePresence initial={false}>
-              <motion.div
-                key={slides[slideIndex]?.id ?? slideIndex}
-                className="absolute inset-0 bg-cover bg-center"
-                style={{ backgroundImage: `url(${resolvedBg})` }}
-                initial={{ opacity: 0, scale: 1.06 }}
-                animate={{ opacity: 1, scale: 1 }}
-                exit={{ opacity: 0 }}
-                transition={{ duration: 1.1, ease: "easeOut" }}
-              />
-            </AnimatePresence>
+    <div className="school-home">
+      <section className="school-hero">
+        <div className="school-hero-copy">
+          <p className="school-kicker">Aula de Innovación Pedagógica</p>
+          <h1>Ideas para<br className="hidden sm:block" /> <em>cada clase.</em></h1>
+          <p>Materiales, tutoriales y proyectos del Aula de Innovación Pedagógica de la I.E. Bandera del Perú.</p>
+          <div className="school-hero-actions">
+            <Link to="/recursos" className="school-button">{currentUser ? "Explorar biblioteca" : "Acceder a la biblioteca"}<ArrowRight size={17} /></Link>
+            <Link to="/tutoriales" className="school-text-link">Ver tutoriales</Link>
           </div>
-        )}
-
-        {/* Overlay oscuro para legibilidad del texto */}
-        <div
-          className="absolute inset-0 bg-gradient-to-br from-[#001D52]/85 via-[#002670]/75 to-[#003D9E]/70"
-          aria-hidden
-        />
-
-        {/* Patrón de cuadrícula */}
-        <div className="absolute inset-0 opacity-[0.07] pointer-events-none" aria-hidden>
-          <svg className="w-full h-full" xmlns="http://www.w3.org/2000/svg">
-            <defs>
-              <pattern id="grid-pattern" width="48" height="48" patternUnits="userSpaceOnUse">
-                <path d="M 48 0 L 0 0 0 48" fill="none" stroke="white" strokeWidth="0.5" />
-              </pattern>
-            </defs>
-            <rect width="100%" height="100%" fill="url(#grid-pattern)" />
-          </svg>
+          {!currentUser && <p className="school-note">Inicia sesión para consultar los materiales de la biblioteca.</p>}
         </div>
-
-        {/* Blobs decorativos */}
-        <div
-          className="absolute -top-32 -right-24 w-[28rem] h-[28rem] rounded-full bg-accent-500/35 blur-[100px] pointer-events-none"
-          aria-hidden
-        />
-        <div
-          className="absolute -bottom-32 -left-16 w-96 h-96 rounded-full bg-primary-400/30 blur-[100px] pointer-events-none"
-          aria-hidden
-        />
-        <div
-          className="absolute top-1/3 left-1/4 w-72 h-72 rounded-full bg-rose-500/25 blur-[100px] pointer-events-none"
-          aria-hidden
-        />
-        <div
-          className="absolute top-1/4 right-1/3 w-64 h-64 rounded-full bg-accent-700/20 blur-[80px] pointer-events-none"
-          aria-hidden
-        />
-
-        <div className="relative grid lg:grid-cols-[1.1fr_1fr] gap-10 px-6 sm:px-10 lg:px-14 py-12 lg:py-16">
-          <div>
-            <motion.span
-              initial={{ opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5, ease: easeOut }}
-              className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 ring-1 ring-white/20 backdrop-blur text-[11px] font-medium tracking-wide"
-            >
-              <span className="h-1.5 w-1.5 rounded-full bg-accent-400 animate-pulse" />
-              Plataforma Institucional · AIP
-            </motion.span>
-
-            <motion.h1
-              initial={{ opacity: 0, y: 12 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.6, delay: 0.08, ease: easeOut }}
-              className="mt-6 text-4xl sm:text-5xl lg:text-[56px] font-black tracking-tight leading-[1.05]"
-            >
-              Innova{" "}
-              <span className="bg-gradient-to-r from-red-500 via-rose-500 to-red-600 bg-clip-text text-transparent drop-shadow-[0_0_25px_rgba(239,68,68,0.4)]">
-                Bandera
-              </span>
-            </motion.h1>
-
-            <motion.p
-              initial={{ opacity: 0, y: 12 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.6, delay: 0.16, ease: easeOut }}
-              className="mt-5 text-[15px] sm:text-base text-white/85 max-w-xl leading-relaxed font-normal"
-            >
-              Materiales, herramientas y experiencias para potenciar el aprendizaje y la innovación en tus clases.
-            </motion.p>
-
-            <motion.div
-              initial={{ opacity: 0, y: 12 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.6, delay: 0.24, ease: easeOut }}
-              className="mt-7 flex flex-wrap gap-3"
-            >
-            <button
-              onClick={() => setActiveTab("recursos")}
-              className="group inline-flex items-center gap-2 h-11 px-5 rounded-btn bg-accent-600 hover:bg-accent-700 text-white font-semibold text-[13px] transition-colors shadow-sm hover:shadow"
-            >
-              Explorar recursos
-              <i className="fas fa-arrow-right text-[11px] transition-transform group-hover:translate-x-0.5" />
-            </button>
-              <button
-                onClick={() => setActiveTab("evidencias")}
-                className="inline-flex items-center gap-2 h-11 px-5 rounded-btn bg-white/10 ring-1 ring-white/25 text-white font-semibold text-[13px] hover:bg-white/15 transition-colors backdrop-blur"
-              >
-                <i className="fas fa-play text-[10px]" />
-                Ver evidencias
-              </button>
-            </motion.div>
-          </div>
-
-          {/* Right panel — card estática con la imagen institucional */}
-          <motion.div
-            initial={{ opacity: 0, scale: 0.96 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ duration: 0.8, delay: 0.15, ease: easeOut }}
-            className="relative hidden lg:block"
-          >
-            <motion.div
-              animate={{ y: [0, -5, 0] }}
-              transition={{ duration: 6, repeat: Infinity, ease: "easeInOut" }}
-              className="relative h-full rounded-2xl overflow-hidden shadow-glow ring-1 ring-white/20"
-              aria-hidden
-            >
-              <img
-                src="/imagen-hero-bandera.jpg"
-                alt="Estudiantes I.E. Emblemática Bandera del Perú"
-                width="1200"
-                height="800"
-                decoding="async"
-                fetchPriority="high"
-                className="absolute inset-0 w-full h-full object-cover"
-              />
-              {/* Dark overlay gradient */}
-              <div className="absolute inset-0 bg-gradient-to-t from-[#0a1628]/95 via-[#0a1628]/60 to-[#0a1628]/30" />
-
-              {/* Content */}
-              <div className="relative flex flex-col h-full min-h-[340px] p-5">
-                {/* Top: Brand pill */}
-                <div className="flex items-center gap-3">
-                  <span className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-white/20 ring-1 ring-white/30 backdrop-blur-sm">
-                    <i className="fas fa-graduation-cap text-sm text-white" />
-                  </span>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-[14px] font-bold text-white">Aula de Innovación Pedagógica</p>
-                    <p className="text-[11px] text-white/75">I.E. Bandera del Perú · Pisco</p>
-                  </div>
-                  <span className="inline-flex h-6 items-center gap-1 rounded-full bg-white px-2.5 text-[10px] font-bold text-accent-700 shadow-sm">
-                    <span className="h-1.5 w-1.5 rounded-full bg-accent-600 animate-soft-pulse" />
-                    Activa
-                  </span>
-                </div>
-
-                {/* Spacer */}
-                <div className="flex-1" />
-
-                {/* Bottom: Stats row */}
-                <div className="grid grid-cols-4 gap-3">
-                  {cardStats.map((s) => (
-                    <div
-                      key={s.label}
-                      onClick={() => s.tab && setActiveTab && setActiveTab(s.tab)}
-                      className={`flex flex-col items-center text-center rounded-xl bg-white/[0.08] backdrop-blur-sm ring-1 ring-white/10 py-3 px-1 transition-all group/item ${
-                        s.tab ? "cursor-pointer hover:bg-white/[0.15] hover:-translate-y-0.5" : ""
-                      }`}
-                      title={s.tab ? `Ver ${s.label.replace("\n", " ").toLowerCase()}` : undefined}
-                    >
-                      <i className={`fas ${s.icon} text-sm text-white/70 group-hover/item:text-accent-300 transition-colors mb-2`} />
-                      <p className="text-xl font-bold text-white tabular-nums leading-none group-hover/item:text-accent-300 transition-colors">
-                        {s.value}
-                      </p>
-                      <p className="mt-1.5 text-[9px] text-white/60 group-hover/item:text-white/80 uppercase tracking-wider leading-tight whitespace-pre-line transition-colors">
-                        {s.label}
-                      </p>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </motion.div>
-          </motion.div>
-        </div>
-
-        {/* Dots del carrusel — centrados abajo, sobre el overlay */}
-        {slides.length > 1 && (
-          <div
-            className="absolute bottom-4 left-1/2 -translate-x-1/2 z-10 flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-full bg-black/30 backdrop-blur-sm ring-1 ring-white/15"
-            role="tablist"
-            aria-label="Seleccionar imagen del fondo"
-          >
-            {slides.map((s, i) => (
-              <button
-                key={s.id ?? i}
-                type="button"
-                role="tab"
-                aria-selected={i === slideIndex}
-                aria-label={`Ir a la imagen ${i + 1} del fondo`}
-                onClick={() => goTo(i)}
-                className={`h-1.5 rounded-full transition-all duration-300 ${
-                  i === slideIndex
-                    ? "w-6 bg-white"
-                    : "w-1.5 bg-white/40 hover:bg-white/70"
-                }`}
-              />
-            ))}
-          </div>
-        )}
-
-        {(isAdmin || isDocente) && (
-          <div className="absolute top-4 right-4 z-10">
-            <span
-              className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-semibold backdrop-blur ${
-                isAdmin
-                  ? "bg-accent-500/25 text-accent-100 ring-1 ring-accent-300/50"
-                  : "bg-primary-300/20 text-primary-100 ring-1 ring-primary-300/40"
-              }`}
-            >
-              <i className={`fas ${isAdmin ? "fa-shield-halved" : "fa-pen"} text-[9px]`} />
-              {isAdmin ? "Modo administrador" : "Modo edición docente"}
-            </span>
-          </div>
-        )}
-      </section>
-
-      <section>
-        <motion.div
-          initial={{ opacity: 0, y: 12 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true, margin: "-80px" }}
-          transition={{ duration: 0.5, ease: easeOut }}
-          className="max-w-2xl mb-8"
-        >
-          <p className="text-[11px] font-semibold tracking-[0.18em] uppercase text-primary-600 dark:text-primary-300">
-            Una herramienta para el docente del siglo XXI
-          </p>
-          <h2 className="mt-2 text-2xl sm:text-3xl font-bold tracking-[-0.015em] text-ink dark:text-white">
-            Empodera tu práctica pedagógica
-          </h2>
-          <p className="mt-3 text-[14px] text-ink-subtle leading-relaxed">
-            Herramientas digitales integradas para acceder, organizar y compartir
-            conocimiento con la comunidad educativa de la I.E. Bandera del Perú.
-          </p>
-        </motion.div>
-
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-          {features.map((f, i) => (
-            <motion.button
-              key={f.key}
-              initial={{ opacity: 0, y: 16 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true, margin: "-60px" }}
-              transition={{ duration: 0.45, delay: i * 0.08, ease: easeOut }}
-              onClick={() => setActiveTab(f.key)}
-              className="group relative flex flex-col text-left rounded-cardLg bg-white dark:bg-dark-card border border-line dark:border-dark-border p-6 transition-all duration-300 hover:-translate-y-1 hover:shadow-card-hover hover:border-primary-200 dark:hover:border-primary-500/40 min-h-[220px]"
-            >
-              <span
-                className={`inline-flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br ${f.accent} text-white shadow-sm`}
-              >
-                <i className={`fas ${f.icon} text-base`} />
-              </span>
-              <span
-                className={`mt-4 self-start inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-semibold ${f.chipBg}`}
-              >
-                Explorar
-              </span>
-              <h3 className="mt-3 text-[17px] font-semibold tracking-tight text-ink dark:text-white">
-                {f.title}
-              </h3>
-              <p className="mt-1.5 text-[13px] text-ink-subtle dark:text-ink-meta leading-relaxed">
-                {f.desc}
-              </p>
-              <span className="mt-auto pt-5 inline-flex items-center gap-1.5 text-[12px] font-semibold text-primary-600 dark:text-primary-300 group-hover:gap-2.5 transition-all">
-                Ir a la sección
-                <i className="fas fa-arrow-right text-[10px]" />
-              </span>
-            </motion.button>
-          ))}
+        <div className="school-hero-media">
+          <figure className="school-hero-visual">
+            <img src={image || "/portada-1280.webp"} srcSet={image ? undefined : "/portada-640.webp 640w, /portada-1280.webp 1280w"} sizes="(min-width: 900px) 630px, 96vw" alt={image ? "Imagen destacada del portal" : "Estudiantes trabajando en el aula de innovación"} fetchPriority="high" width="1600" height="900" />
+            <figcaption>I.E. Emblemática Bandera del Perú · Pisco, Ica</figcaption>
+          </figure>
+          {heroSlides.length > 1 && <div className="school-slides" role="group" aria-label="Imágenes destacadas">{heroSlides.map((slide, i) => <button key={slide.id} type="button" aria-pressed={active === i} aria-label={`Mostrar imagen ${i + 1}`} onClick={() => setIndex(i)} />)}</div>}
         </div>
       </section>
+      <section className="school-discover" aria-label="Explora el portal">
+        {sections.map(({ path, title, description, icon: Icon }) => (
+          <Link to={path} key={path} className="school-destination">
+            <Icon size={22} aria-hidden="true" />
+            <span><strong>{title}</strong><small>{description}</small></span>
+            <ArrowRight size={17} aria-hidden="true" />
+          </Link>
+        ))}
+      </section>
+      {latest.length > 0 && (
+        <section className="school-updates" aria-labelledby="school-news-heading">
+          <div className="school-section-heading"><h2 id="school-news-heading">Comunicados recientes</h2><Link to="/noticias" className="school-text-link">Ver comunicados <ArrowRight size={16} /></Link></div>
+          <div className="school-update-list">{latest.map((item) => <article key={item.id}><small>{formatFechaComunicado(item.fecha, "short")}</small><h3>{item.titulo}</h3><p>{item.desc}</p></article>)}</div>
+        </section>
+      )}
     </div>
   );
 }

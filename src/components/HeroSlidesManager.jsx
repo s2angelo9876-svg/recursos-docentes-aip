@@ -1,4 +1,6 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { MAX_UPLOAD_BYTES, MAX_UPLOAD_MIB } from "../../shared/upload-limits";
+import { useModalFocus } from "../hooks/useModalFocus";
+import { useCallback, useEffect, useRef, useState, useId } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { API_BASE } from "../utils/api.js";
 import { useApp } from "../context/AppContext";
@@ -10,19 +12,28 @@ const MAX_SLIDES = 3;
 const ACCEPTED_MIMES = ["image/jpeg", "image/png", "image/webp", "image/avif"];
 
 function SlideFormModal({ open, slide, onClose, onSaved }) {
-  const { token } = useApp();
   const fileInputRef = useRef(null);
   const [file, setFile] = useState(null);
-  const [preview, setPreview] = useState(slide?.imagenUrl || "");
+  const [preview, setPreview] = useState("");
   const [activo, setActivo] = useState(slide?.activo ?? true);
   const [uploading, setUploading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const titleId = useId();
+  const dialogRef = useModalFocus(open, { onClose: saving ? undefined : onClose });
+  const previewSrc = preview || slide?.imagenUrl;
+
+  useEffect(() => {
+    if (!file) return;
+    const url = URL.createObjectURL(file);
+    setPreview(url);
+    return () => URL.revokeObjectURL(url);
+  }, [file]);
 
   useEffect(() => {
     if (open) {
       setFile(null);
-      setPreview(slide?.imagenUrl || "");
+      setPreview("");
       setActivo(slide?.activo ?? true);
       setError("");
     }
@@ -34,15 +45,12 @@ function SlideFormModal({ open, slide, onClose, onSaved }) {
       setError("Formato no permitido. Usa JPG, PNG o WEBP.");
       return;
     }
-    if (f.size > 100 * 1024 * 1024) {
-      setError("La imagen excede el límite de 100 MB.");
+    if (f.size > MAX_UPLOAD_BYTES) {
+      setError(`La imagen excede el límite de ${MAX_UPLOAD_MIB} MiB.`);
       return;
     }
     setError("");
     setFile(f);
-    const reader = new FileReader();
-    reader.onload = () => setPreview(reader.result);
-    reader.readAsDataURL(f);
   };
 
   const onDrop = (e) => {
@@ -67,7 +75,7 @@ function SlideFormModal({ open, slide, onClose, onSaved }) {
         fd.append("file", file);
         const res = await fetch(`${API_BASE}/api/upload`, {
           method: "POST",
-          headers: { Authorization: `Bearer ${token}` },
+
           body: fd,
         });
         setUploading(false);
@@ -88,7 +96,7 @@ function SlideFormModal({ open, slide, onClose, onSaved }) {
         method,
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
+
         },
         body: JSON.stringify({ imagenUrl, imagenPath, activo }),
       });
@@ -114,9 +122,14 @@ function SlideFormModal({ open, slide, onClose, onSaved }) {
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          onClick={onClose}
+          onClick={saving ? undefined : onClose}
         >
           <motion.div
+            ref={dialogRef}
+            tabIndex={-1}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby={titleId}
             className="relative w-full max-w-lg bg-white dark:bg-dark-card rounded-2xl shadow-2xl overflow-hidden"
             initial={{ scale: 0.96, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
@@ -125,12 +138,13 @@ function SlideFormModal({ open, slide, onClose, onSaved }) {
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between px-6 py-4 border-b border-line dark:border-dark-border">
-              <h3 className="text-base font-bold text-ink dark:text-white">
-                {slide ? "Editar slide" : "Nuevo slide"}
+              <h3 id={titleId} className="text-base font-bold text-ink dark:text-white">
+                {slide ? "Editar imagen de portada" : "Nueva imagen de portada"}
               </h3>
               <button
                 type="button"
                 onClick={onClose}
+                disabled={saving}
                 className="w-8 h-8 inline-flex items-center justify-center rounded-lg text-ink-subtle hover:bg-gray-100 dark:hover:bg-dark-hover transition-colors"
                 aria-label="Cerrar"
               >
@@ -140,19 +154,18 @@ function SlideFormModal({ open, slide, onClose, onSaved }) {
 
             <div className="p-6 space-y-4">
               <div>
-                <label className="block text-[11px] font-semibold tracking-wider uppercase text-ink-subtle dark:text-ink-meta mb-2">
+                <label htmlFor={titleId + "-file"} className="block text-[11px] font-semibold tracking-wider uppercase text-ink-subtle dark:text-ink-meta mb-2">
                   Imagen {slide && "(opcional cambiar)"}
                 </label>
                 <div
                   onDrop={onDrop}
                   onDragOver={(e) => e.preventDefault()}
-                  onClick={() => fileInputRef.current?.click()}
                   className="relative w-full aspect-video rounded-xl border-2 border-dashed border-line dark:border-dark-border bg-gray-50 dark:bg-dark-bg hover:border-primary-400 hover:bg-primary-50/30 dark:hover:bg-primary-900/10 transition-colors cursor-pointer overflow-hidden flex items-center justify-center"
                 >
-                  {preview ? (
+                  {previewSrc ? (
 <SignedImage
-                  src={preview}
-                  alt="Preview"
+                  src={previewSrc}
+                  alt="Vista previa de la imagen de portada"
                   className="absolute inset-0 w-full h-full object-cover"
                 />
                   ) : (
@@ -164,10 +177,11 @@ function SlideFormModal({ open, slide, onClose, onSaved }) {
                   )}
                   <input
                     ref={fileInputRef}
+                    id={titleId + "-file"}
                     type="file"
-                    accept="image/jpeg,image/png,image/webp"
+                    accept="image/jpeg,image/png,image/webp,image/avif"
                     onChange={(e) => handleFile(e.target.files?.[0])}
-                    className="hidden"
+                    className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
                   />
                 </div>
                 {file && (
@@ -176,7 +190,7 @@ function SlideFormModal({ open, slide, onClose, onSaved }) {
                     onClick={(e) => {
                       e.stopPropagation();
                       setFile(null);
-                      setPreview(slide?.imagenUrl || "");
+                      setPreview("");
                     }}
                     className="mt-2 text-[11px] font-semibold text-accent-600 hover:text-accent-700"
                   >
@@ -192,11 +206,11 @@ function SlideFormModal({ open, slide, onClose, onSaved }) {
                   onChange={(e) => setActivo(e.target.checked)}
                   className="w-4 h-4 rounded border-line text-primary-600 focus:ring-primary-500"
                 />
-                <span className="text-[13px] text-ink dark:text-white">Slide activo (visible en el home)</span>
+                <span className="text-[13px] text-ink dark:text-white">Mostrar en la portada</span>
               </label>
 
               {error && (
-                <div className="px-3 py-2 rounded-lg bg-accent-50 dark:bg-accent-700/15 text-accent-700 dark:text-accent-300 text-[12px] font-medium border border-accent-200 dark:border-accent-900/40">
+                <div role="alert" className="px-3 py-2 rounded-lg bg-accent-50 dark:bg-accent-700/15 text-accent-700 dark:text-accent-300 text-[12px] font-medium border border-accent-200 dark:border-accent-900/40">
                   <i className="fas fa-circle-exclamation mr-1.5" />
                   {error}
                 </div>
@@ -244,7 +258,7 @@ function SlideFormModal({ open, slide, onClose, onSaved }) {
 }
 
 export default function HeroSlidesManager() {
-  const { token, loadDatabase } = useApp();
+  const { loadDatabase } = useApp();
   const [slides, setSlides] = useState([]);
   const [loading, setLoading] = useState(true);
   const [formOpen, setFormOpen] = useState(false);
@@ -256,7 +270,7 @@ export default function HeroSlidesManager() {
     try {
       setLoading(true);
       const res = await fetch(`${API_BASE}/api/admin/hero-slides`, {
-        headers: { Authorization: `Bearer ${token}` },
+
       });
       if (res.ok) {
         const data = await res.json();
@@ -268,7 +282,7 @@ export default function HeroSlidesManager() {
     } finally {
       setLoading(false);
     }
-  }, [token]);
+  }, []);
 
   useEffect(() => {
     fetchSlides();
@@ -287,12 +301,13 @@ export default function HeroSlidesManager() {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
+
         },
         body: JSON.stringify({ orden: next.map((s) => s.id) }),
       });
       if (!res.ok) throw new Error("Error al reordenar");
       dispatchToast({ tone: "success", message: "Orden actualizado." });
+      loadDatabase({ force: true });
     } catch (e) {
       dispatchToast({ tone: "error", message: e.message });
       fetchSlides();
@@ -305,7 +320,7 @@ export default function HeroSlidesManager() {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
+
         },
         body: JSON.stringify({
           imagenUrl: slide.imagenUrl,
@@ -319,8 +334,9 @@ export default function HeroSlidesManager() {
       );
       dispatchToast({
         tone: "success",
-        message: slide.activo ? "Slide desactivado." : "Slide activado.",
+        message: slide.activo ? "Imagen desactivada." : "Imagen activada.",
       });
+      loadDatabase({ force: true });
     } catch (e) {
       dispatchToast({ tone: "error", message: e.message });
     }
@@ -332,13 +348,13 @@ export default function HeroSlidesManager() {
     try {
       const res = await fetch(`${API_BASE}/api/admin/hero-slides/${confirmDelete.id}`, {
         method: "DELETE",
-        headers: { Authorization: `Bearer ${token}` },
+
       });
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
         throw new Error(body.error || "Error al eliminar");
       }
-      dispatchToast({ tone: "success", message: "Slide eliminado." });
+      dispatchToast({ tone: "success", message: "Imagen eliminada." });
       setConfirmDelete(null);
       fetchSlides();
       loadDatabase({ force: true });
@@ -362,15 +378,9 @@ export default function HeroSlidesManager() {
     <div className="space-y-5">
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div>
-          <p className="text-[11px] font-semibold tracking-[0.18em] uppercase text-primary-600 dark:text-primary-300">
-            Configuración del hero
-          </p>
-          <h3 className="mt-1 text-xl font-bold tracking-tight text-ink dark:text-white">
-            Carrusel de imágenes
-          </h3>
+          <h2 className="school-card-title">Imágenes destacadas</h2>
           <p className="mt-1 text-[13px] text-ink-subtle dark:text-ink-meta">
-            Sube hasta {MAX_SLIDES} imágenes para el banner principal. Se mostrarán en el home con
-            rotación automática cada 5.5 s.
+            Publica hasta {MAX_SLIDES} imágenes. La primera imagen activa se muestra al entrar en Inicio.
           </p>
         </div>
         <button
@@ -380,11 +390,11 @@ export default function HeroSlidesManager() {
             setFormOpen(true);
           }}
           disabled={atLimit}
-          title={atLimit ? `Máximo ${MAX_SLIDES} slides` : "Crear nuevo slide"}
-          className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-primary-600 hover:bg-primary-700 text-white text-[12px] font-bold uppercase tracking-wider transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
+          title={atLimit ? `Máximo ${MAX_SLIDES} imágenes` : undefined}
+          className="school-button disabled:opacity-50"
         >
           <i className="fas fa-plus text-[10px]" />
-          Nuevo slide
+          Nueva imagen de portada
         </button>
       </div>
 
@@ -400,9 +410,9 @@ export default function HeroSlidesManager() {
       ) : slides.length === 0 ? (
         <div className="rounded-2xl border-2 border-dashed border-line dark:border-dark-border p-10 text-center">
           <i className="fas fa-images text-3xl text-gray-300 dark:text-ink-meta mb-3 block" />
-          <p className="text-[13px] font-semibold text-ink dark:text-white">No hay slides todavía</p>
+          <p className="text-[13px] font-semibold text-ink dark:text-white">Todavía no hay imágenes destacadas</p>
           <p className="mt-1 text-[12px] text-ink-subtle dark:text-ink-meta">
-            Mientras no subas ninguno, se mostrará la imagen por defecto del home.
+            Inicio muestra la fotografía institucional mientras agregas una imagen.
           </p>
         </div>
       ) : (
@@ -410,12 +420,12 @@ export default function HeroSlidesManager() {
           {slides.map((s, i) => (
             <div
               key={s.id}
-              className="group relative rounded-2xl overflow-hidden bg-white dark:bg-dark-card border border-line dark:border-dark-border shadow-sm hover:shadow-card-hover transition-all"
+              className="group relative school-content-card overflow-hidden"
             >
               <div className="aspect-video bg-gray-100 dark:bg-dark-bg overflow-hidden">
                 <SignedImage
                   src={s.imagenUrl}
-                  alt={`Slide ${i + 1}`}
+                  alt={`Imagen de portada ${i + 1}`}
                   className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-[1.03]"
                 />
               </div>

@@ -1,3 +1,4 @@
+import { useModalFocus } from "../hooks/useModalFocus";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useApp } from "../context/AppContext";
 import { motion, AnimatePresence } from "framer-motion";
@@ -146,16 +147,14 @@ export default function CommandPalette() {
     [close]
   );
 
+  const dialogRef = useModalFocus(open, { onClose: close, initialFocus: "input" });
+
   useEffect(() => {
     const onKey = (e) => {
       const isMod = e.metaKey || e.ctrlKey;
       if (isMod && e.key.toLowerCase() === "k") {
         e.preventDefault();
         setOpen((v) => !v);
-      }
-      if (e.key === "Escape" && open) {
-        e.preventDefault();
-        close();
       }
     };
     const onOpen = () => {
@@ -167,17 +166,7 @@ export default function CommandPalette() {
       window.removeEventListener("keydown", onKey);
       window.removeEventListener(COMMAND_EVENT, onOpen);
     };
-  }, [open, close]);
-
-  useEffect(() => {
-    if (open) {
-      setActiveIdx(0);
-      // pequeño delay para que el input ya esté montado
-      const t = setTimeout(() => inputRef.current?.focus(), 30);
-      return () => clearTimeout(t);
-    }
-    return undefined;
-  }, [open]);
+  }, []);
 
   useEffect(() => {
     setActiveIdx(0);
@@ -222,6 +211,8 @@ export default function CommandPalette() {
         transition={{ duration: 0.15 }}
         className="fixed inset-0 z-[500] bg-slate-950/60 backdrop-blur-sm flex items-start justify-center pt-[12vh] px-4"
         onClick={close}
+        ref={dialogRef}
+        tabIndex={-1}
         role="dialog"
         aria-modal="true"
         aria-label="Búsqueda global"

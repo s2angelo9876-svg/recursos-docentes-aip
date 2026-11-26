@@ -1,30 +1,8 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
-import { copyFileSync, mkdirSync, readdirSync } from 'node:fs'
-import { resolve, dirname } from 'node:path'
-import { fileURLToPath } from 'node:url'
-
-const __dirname = dirname(fileURLToPath(import.meta.url))
-
-function copyFontAwesomeFonts() {
-  return {
-    name: 'copy-fa-fonts',
-    apply: 'build',
-    closeBundle() {
-      const src = resolve(__dirname, 'node_modules/@fortawesome/fontawesome-free/webfonts')
-      const dest = resolve(__dirname, 'dist/webfonts')
-      mkdirSync(dest, { recursive: true })
-      for (const file of readdirSync(src)) {
-        if (file.endsWith('.woff2')) {
-          copyFileSync(resolve(src, file), resolve(dest, file))
-        }
-      }
-    },
-  }
-}
 
 export default defineConfig({
-  plugins: [react(), copyFontAwesomeFonts()],
+  plugins: [react()],
   build: {
     target: 'es2020',
     cssCodeSplit: true,
@@ -49,8 +27,8 @@ export default defineConfig({
       '/api': {
         target: 'http://localhost:5000',
         changeOrigin: true,
-        proxyTimeout: 8000,
-        timeout: 8000,
+        proxyTimeout: 120_000,
+        timeout: 120_000,
         configure: (proxy) => {
           proxy.on('error', (err, _req, res) => {
             if (err.code === 'ECONNREFUSED') {

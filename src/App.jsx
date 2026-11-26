@@ -1,5 +1,6 @@
 import { useState, useEffect, lazy, Suspense, Component } from "react";
-import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate, useLocation } from "react-router-dom";
+import { MotionConfig } from "framer-motion";
+import { BrowserRouter as Router, Routes, Route, Link, Navigate, useNavigate, useLocation } from "react-router-dom";
 import { AppContextProvider, useApp } from "./context/AppContext";
 import Header from "./components/Header";
 import Hero from "./components/Hero";
@@ -49,29 +50,24 @@ class RouteErrorBoundary extends Component {
   }
 }
 
-function SectionHeader({ icon, iconColor, title, onAdd }) {
+const sectionDescriptions = {
+  "Biblioteca pedagógica": "Explora materiales para preparar tus clases y guárdalos como favoritos.",
+  "Evidencias por mes": "Consulta actividades y proyectos del Aula de Innovación Pedagógica.",
+  "Tutoriales TIC": "Guías en video para docentes y estudiantes.",
+  "Comunicados": "Avisos, talleres y novedades de la comunidad educativa.",
+};
+
+function SectionHeader({ title, onAdd }) {
   return (
-    <div className="flex items-center justify-between pb-2 border-b border-gray-200 dark:border-dark-border">
-      <div className="flex items-center gap-2.5">
-        <div className={`w-8 h-8 rounded-lg ${iconColor} flex items-center justify-center`}>
-          <i className={`${icon} text-[14px]`}></i>
-        </div>
-        <h2 className="text-lg font-black uppercase tracking-tight text-gray-900 dark:text-white">{title}</h2>
-      </div>
-      {onAdd && (
-        <button
-          onClick={onAdd}
-          className="flex items-center gap-1.5 px-3 py-1.5 bg-primary dark:bg-dark-accent hover:bg-blue-800 dark:hover:bg-blue-600 text-white rounded-xl text-[10px] font-black uppercase tracking-wider transition-all shadow-md active:scale-95"
-        >
-          <i className="fas fa-plus-circle text-[11px]"></i> Nuevo
-        </button>
-      )}
-    </div>
+    <header className="school-page-title">
+      <div><h1>{title}</h1><p>{sectionDescriptions[title]}</p></div>
+      {onAdd && <button type="button" className="school-button" onClick={onAdd}><i className="fas fa-plus" aria-hidden="true" /> Nuevo</button>}
+    </header>
   );
 }
 
 function AppContent() {
-  const { currentUser, deleteTutorial, deleteEvidencia, deleteRecurso } = useApp();
+  const { currentUser, deleteTutorial, deleteEvidencia, deleteRecurso, sessionReady, failedSections, isLoading, loadDatabase } = useApp();
   const isAdmin = currentUser?.rol === "Administrador";
   const isDocente = currentUser?.rol === "Docente";
 
@@ -91,6 +87,10 @@ function AppContent() {
 
   const tab = getTabFromPath(location.pathname);
 
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: "instant" });
+  }, [location.pathname]);
+
   const setActiveTab = (tabKey) => {
     if (tabKey === "portada") navigate("/");
     else navigate(`/${tabKey}`);
@@ -102,7 +102,7 @@ function AppContent() {
       const target = e.detail?.target;
       if (target) setActiveTab(target);
       // scroll-to-top en cada navegación del command palette
-      window.scrollTo({ top: 0, behavior: "smooth" });
+      window.scrollTo({ top: 0 });
     };
     window.addEventListener("innova:navigate", onNav);
     return () => window.removeEventListener("innova:navigate", onNav);
@@ -114,6 +114,7 @@ function AppContent() {
 
   // ── Confirm-delete modal state (reemplaza window.confirm) ──
   const [pendingDelete, setPendingDelete] = useState(null);
+  const [deleting, setDeleting] = useState(false);
 
   const openCmsAdd = (type) => setCmsModal({ open: true, type, item: null });
   const openCmsEdit = (type, item) => setCmsModal({ open: true, type, item });
@@ -122,49 +123,49 @@ function AppContent() {
   const closeDelete = () => setPendingDelete(null);
 
   const confirmDelete = async () => {
-    if (!pendingDelete) return;
-    if (pendingDelete.kind === "evidencia") {
-      await deleteEvidencia(pendingDelete.id);
-    } else if (pendingDelete.kind === "tutorial") {
-      await deleteTutorial(pendingDelete.id);
-    } else if (pendingDelete.kind === "recurso") {
-      await deleteRecurso(pendingDelete.id);
+    if (!pendingDelete || deleting) return;
+    setDeleting(true);
+    try {
+      const remove = {
+        evidencia: deleteEvidencia, tutorial: deleteTutorial, recurso: deleteRecurso,
+      }[pendingDelete.kind];
+      await remove(pendingDelete.id);
+    } finally {
+      setDeleting(false);
+      setPendingDelete(null);
     }
-    setPendingDelete(null);
   };
 
   return (
     <div className="min-h-screen bg-surface-alt dark:bg-dark-bg text-ink dark:text-white antialiased flex flex-col justify-between transition-colors duration-300">
-
       {/* Navigation Header */}
-      <Header activeTab={tab} setActiveTab={setActiveTab} />
-
-      {/* Admin / Docente edit banner */}
-      {isAdmin && (
-        <div className="bg-gradient-to-r from-amber-500 to-orange-500 text-white py-1.5 px-4 text-center text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-2">
-          <i className="fas fa-shield-alt animate-pulse"></i>
-          MODO ADMINISTRADOR ACTIVO — Puedes editar cualquier contenido directamente
-          <i className="fas fa-shield-alt animate-pulse"></i>
-        </div>
-      )}
-      {isDocente && (
-        <div className="bg-gradient-to-r from-blue-600 to-blue-500 text-white py-1.5 px-4 text-center text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-2">
-          <i className="fas fa-pen animate-pulse"></i>
-          MODO EDICIÓN DOCENTE — Puedes gestionar recursos y tutoriales
-          <i className="fas fa-pen animate-pulse"></i>
-        </div>
-      )}
+      <Header />
 
       {/* Dynamic Content Main area */}
-      <main id="main-content" key={location.pathname} className="route-transition max-w-6xl w-full mx-auto px-4 py-8 flex-grow">
+      <main id="main-content" tabIndex={-1} key={location.pathname} className={`school-main w-full flex-grow ${tab === "admin" && isAdmin ? "school-main-admin" : ""}`}>
+        {failedSections.length > 0 && tab !== "login" && (
+          <div className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-card border border-line-strong bg-white p-4 text-sm text-ink dark:border-dark-border dark:bg-dark-card dark:text-white">
+            <p role="status">
+              {isLoading ? "Reintentando la carga…" : `No se pudieron actualizar estas secciones: ${failedSections.join(", ")}.`}
+            </p>
+            <button
+              type="button"
+              disabled={isLoading}
+              onClick={() => loadDatabase({ force: true })}
+              className="min-h-10 rounded-btn bg-primary-700 px-3 font-semibold text-white hover:bg-primary-800 disabled:opacity-70"
+            >
+              Reintentar
+            </button>
+          </div>
+        )}
         <RouteErrorBoundary>
           <Suspense fallback={
             <div className="flex items-center justify-center py-24" aria-busy="true">
               <span className="inline-flex h-10 w-10 items-center justify-center rounded-full border-2 border-primary-200 border-t-primary-600 animate-spin" />
             </div>
           }>
-          <Routes location={location}>
-            <Route path="/" element={<Hero setActiveTab={setActiveTab} />} />
+          {sessionReady ? <Routes location={location}>
+            <Route path="/" element={<Hero />} />
             <Route path="/portada" element={<Navigate to="/" replace />} />
 
             <Route path="/login" element={
@@ -173,13 +174,12 @@ function AppContent() {
 
             <Route path="/recursos" element={
               !currentUser ? (
-                <Login onLoginSuccess={() => navigate("/recursos")} />
+                <Login description="Ingresa a tu cuenta para consultar los materiales de la biblioteca." onLoginSuccess={() => navigate(location.pathname + location.search)} />
               ) : (
                 <div className="space-y-6 text-left">
                   <SectionHeader
-                    icon="fas fa-book"
-                    iconColor="bg-blue-50 text-blue-600 dark:bg-blue-950/30 dark:text-blue-400"
-                    title="Recursos Pedagógicos"
+                    title="Biblioteca pedagógica"
+                    onAdd={isAdmin || isDocente ? () => openCmsAdd("recursos") : null}
                   />
                   <Repositorio
                     isAdminMode={isAdmin || isDocente}
@@ -193,9 +193,7 @@ function AppContent() {
             <Route path="/evidencias" element={
               <div className="space-y-6 text-left">
                 <SectionHeader
-                  icon="fas fa-images"
-                  iconColor="bg-green-50 text-green-600 dark:bg-green-950/30 dark:text-green-400"
-                  title="Evidencias por Mes"
+                  title="Evidencias por mes"
                   onAdd={isAdmin || isDocente ? () => openCmsAdd("evidencias") : null}
                 />
                 <Evidencias
@@ -209,13 +207,11 @@ function AppContent() {
             <Route path="/tutoriales" element={
               <div className="space-y-6 text-left">
                 <SectionHeader
-                  icon="fab fa-youtube"
-                  iconColor="bg-red-50 text-red-600 dark:bg-red-950/30 dark:text-red-400"
                   title="Tutoriales TIC"
-                  onAdd={isAdmin ? () => openCmsAdd("tutoriales") : null}
+                  onAdd={isAdmin || isDocente ? () => openCmsAdd("tutoriales") : null}
                 />
                 <Tutoriales
-                  isAdminMode={isAdmin}
+                  isAdminMode={isAdmin || isDocente}
                   onEditClick={(item) => openCmsEdit("tutoriales", item)}
                   onDeleteClick={(item) => setPendingDelete({ kind: "tutorial", id: item.id, titulo: item.titulo })}
                 />
@@ -227,9 +223,7 @@ function AppContent() {
             <Route path="/noticias" element={
               <div className="space-y-6 text-left">
                 <SectionHeader
-                  icon="fas fa-bullhorn"
-                  iconColor="bg-purple-50 text-purple-600 dark:bg-purple-950/30 dark:text-purple-400"
-                  title="Comunicados y Talleres TIC"
+                  title="Comunicados"
                   onAdd={isAdmin ? () => openCmsAdd("noticias") : null}
                 />
                 <Noticias
@@ -243,12 +237,12 @@ function AppContent() {
               currentUser ? (
                 currentUser.rol === "Administrador" ? <AdminPanel /> : <Navigate to="/" replace />
               ) : (
-                <Login onLoginSuccess={() => navigate("/admin")} />
+                <Login description="Ingresa con una cuenta de administración." onLoginSuccess={() => navigate(location.pathname + location.search)} />
               )
             } />
 
             <Route path="*" element={<Navigate to="/" replace />} />
-          </Routes>
+          </Routes> : <p role="status" className="p-6 text-ink-subtle">Comprobando sesión…</p>}
           </Suspense>
         </RouteErrorBoundary>
       </main>
@@ -262,13 +256,13 @@ function AppContent() {
       />
 
       {/* Footer */}
-      <footer className="bg-[#001D52] dark:bg-black text-white mt-12">
+      {(tab !== "admin" || !isAdmin) && <footer className="school-footer text-white mt-12">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 py-10">
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-6">
             <div className="flex items-center gap-3">
               <div className="flex items-center justify-center flex-shrink-0">
                 <img
-                  src="/escudo-bandera.png"
+                  src="/escudo-bandera.webp"
                   alt="Escudo I.E. Bandera del Perú"
                   width="44"
                   height="44"
@@ -279,25 +273,18 @@ function AppContent() {
               </div>
               <div className="leading-none">
                 <p className="text-[14px] font-semibold tracking-tight">Innova Bandera</p>
-                <p className="text-[11px] text-blue-200/70 mt-1">
+                <p className="school-footer-note mt-1">
                   I.E. Emblemática Bandera del Perú · Pisco, Ica
                 </p>
               </div>
             </div>
 
-            <nav aria-label="Enlaces del pie" className="flex flex-wrap items-center gap-x-6 gap-y-2">
-              <button onClick={() => setActiveTab("portada")} className="text-[13px] text-white/80 hover:text-white transition-colors">
-                Inicio
-              </button>
-              <button onClick={() => setActiveTab("recursos")} className="text-[13px] text-white/80 hover:text-white transition-colors">
-                Recursos
-              </button>
-              <button onClick={() => setActiveTab("evidencias")} className="text-[13px] text-white/80 hover:text-white transition-colors">
-                Evidencias
-              </button>
-              <button onClick={() => setActiveTab("noticias")} className="text-[13px] text-white/80 hover:text-white transition-colors">
-                Noticias
-              </button>
+            <nav aria-label="Enlaces del pie" className="flex flex-wrap items-center gap-x-5 gap-y-1">
+              <Link to="/" className="school-footer-link">Inicio</Link>
+              <Link to="/recursos" className="school-footer-link">Biblioteca</Link>
+              <Link to="/tutoriales" className="school-footer-link">Tutoriales</Link>
+              <Link to="/evidencias" className="school-footer-link">Evidencias</Link>
+              <Link to="/noticias" className="school-footer-link">Comunicados</Link>
             </nav>
 
             <div className="flex items-center gap-2">
@@ -307,24 +294,18 @@ function AppContent() {
                 rel="noopener noreferrer"
                 aria-label="Canal oficial de YouTube AIP"
                 title="Canal de YouTube @AIP.L.Fajardo"
-                className="h-9 w-9 rounded-full bg-white/10 hover:bg-accent-600 flex items-center justify-center transition-colors shadow-sm hover:shadow"
+                className="school-footer-social"
               >
                 <i className="fab fa-youtube text-sm" />
               </a>
             </div>
           </div>
 
-          <div className="mt-8 pt-6 border-t border-white/10 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 text-[11px] text-blue-200/60">
-            <p>
-              © {new Date().getFullYear()} Aula de Innovación Pedagógica · Prof. Luis Fajardo. Todos los derechos reservados.
-            </p>
-            <p className="flex items-center gap-1.5">
-              <span className="inline-block h-1.5 w-1.5 rounded-full bg-success animate-soft-pulse" />
-              Plataforma operativa · {new Date().toLocaleDateString("es-PE", { month: "long", year: "numeric" })}
-            </p>
-          </div>
+          <p className="school-footer-note mt-8 pt-6 border-t border-white/20">
+            © {new Date().getFullYear()} Aula de Innovación Pedagógica · Prof. Luis Fajardo. Todos los derechos reservados.
+          </p>
         </div>
-      </footer>
+      </footer>}
 
       <CommandPalette />
 
@@ -347,6 +328,7 @@ function AppContent() {
         confirmText="Sí, eliminar"
         cancelText="Cancelar"
         tone="danger"
+        loading={deleting}
         onConfirm={confirmDelete}
         onClose={closeDelete}
       />
@@ -360,7 +342,9 @@ export default function App() {
       <Router>
         <AppContextProvider>
           <ToastProvider>
-            <AppContent />
+            <MotionConfig reducedMotion="user">
+              <AppContent />
+            </MotionConfig>
           </ToastProvider>
         </AppContextProvider>
       </Router>

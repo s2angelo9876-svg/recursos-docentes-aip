@@ -5,19 +5,27 @@ import multer from "multer";
 import path from "path";
 import fs from "fs";
 import bcrypt from "bcryptjs";
-import jwt from "jsonwebtoken";
 import rateLimit from "express-rate-limit";
 import helmet from "helmet";
 import { fileURLToPath } from "url";
 import sharp from "sharp";
-import { Sequelize, Op, DataTypes } from "sequelize";
+import { Op } from "sequelize";
+import { randomUUID } from "node:crypto";
+import { sessionService } from "./server/services/sessions.js";
+import { storagePath, visibleStoragePaths } from "./server/services/storage-access.js";
+import { createDatabase } from "./server/database.js";
+import { checkMigrations, migrate } from "./server/migrations/index.js";
+import { csvCell } from "./shared/csv.js";
+import { parseBackup, restoreBackup } from "./server/services/backup.js";
 import { defineModels } from "./server/models.js";
-import * as XLSX from "xlsx";
+import { fileTypeFromBuffer } from "file-type";
+import { readTeacherRows } from "./server/services/spreadsheet.js";
+import { MAX_UPLOAD_BYTES, MAX_UPLOAD_FILES, MAX_UPLOAD_MIB } from "./shared/upload-limits.js";
 import {
   uploadFile,
-  deleteFile,
-  getSignedUrlSafe,
-  getSignedUrls,
+  getSignedUrl,
+  getBucketName,
+  verifyPrivateBucket,
 } from "./server/services/storage.js";
 import logger from "./server/services/logger.js";
 import { validateBody } from "./server/middleware.js";
@@ -44,18 +52,10 @@ const __dirname = path.dirname(__filename);
 const PORT = process.env.PORT || 5000;
 const isProduction = process.env.NODE_ENV === "production";
 
-if (!process.env.JWT_SECRET) {
-  if (isProduction) {
-    logger.error("❌ JWT_SECRET es obligatorio en producción. Defínalo en .env");
-    setTimeout(() => process.exit(1), 1000);
-  } else {
-    logger.warn("⚠️  JWT_SECRET no definido — usando clave de desarrollo. NO usar en producción.");
-  }
-}
-const SECRET_KEY = process.env.JWT_SECRET || "innova-bandera-dev-only-secret";
-
 const app = express();
-if (isProduction) app.set("trust proxy", 1);
+const trustedProxies = (process.env.TRUSTED_PROXIES || "").split(",").map((value) => value.trim()).filter(Boolean);
+if (trustedProxies.length) app.set("trust proxy", trustedProxies);
+const browserOrigins = (process.env.CORS_ORIGIN || "").split(",").map((value) => value.trim()).filter(Boolean);
 
 const supabaseHost = process.env.SUPABASE_URL
   ? new URL(process.env.SUPABASE_URL).origin
@@ -89,12 +89,22 @@ app.use(helmet({
 
 // CORS & parse JSON
 app.use(cors({
-  origin: isProduction
-    ? (process.env.CORS_ORIGIN || "").split(",").map((o) => o.trim()).filter(Boolean)
-    : true,
+  origin: browserOrigins,
   credentials: true,
 }));
-app.use(express.json());
+app.use("/api", (req, res, next) => {
+  if (["GET", "HEAD", "OPTIONS"].includes(req.method)) return next();
+  const origin = req.get("Origin");
+  if (req.get("Sec-Fetch-Site") === "cross-site" ||
+      (origin && !browserOrigins.includes(origin) && origin !== `${req.protocol}://${req.get("Host")}` &&
+        (isProduction || !/^http:\/\/(localhost|127\.0\.0\.1):5173$/.test(origin))) ||
+      (!origin && req.get("Cookie") && req.get("Sec-Fetch-Site") !== "same-origin")) {
+    return res.status(403).json({ error: "Origen de la solicitud no autorizado." });
+  }
+  next();
+});
+app.use("/api/import", express.json({ limit: "5mb" }));
+app.use(express.json({ limit: "100kb" }));
 
 // --- RATE LIMITERS ---
 const apiLimiter = rateLimit({
@@ -137,122 +147,69 @@ app.use("/api/upload", uploadLimiter);
 app.use("/api/uploads", uploadLimiter);
 app.use("/api/admin/auditoria", auditoriaLimiter);
 
-// Initialize database connection (Supabase PostgreSQL)
-function createSequelizeInstance() {
-  const databaseUrl = process.env.DATABASE_URL;
-
-  if (!databaseUrl) {
-    logger.error("❌ DATABASE_URL no está definida. Es obligatoria para conectar a Supabase PostgreSQL.");
-    setTimeout(() => process.exit(1), 1000);
-  }
-
-  logger.info("🔌 Conectando a PostgreSQL (Supabase).");
-  return new Sequelize(databaseUrl, {
-    dialect: "postgres",
-    dialectOptions: {
-      ssl: {
-        require: true,
-        rejectUnauthorized: false,
-      },
-    },
-    pool: {
-      max: 5,
-      min: 0,
-      acquire: 30000,
-      idle: 10000,
-    },
-    logging: false,
-  });
-}
-
-const sequelize = createSequelizeInstance();
+const sequelize = createDatabase(process.env.DATABASE_URL, process.env.DATABASE_CA_CERT);
 
 // --- SEQUELIZE SCHEMA DEFINITIONS ---
 
-const { Usuario, Recurso, Tutorial, Noticia, Evidencia, AuditoriaSesion, HeroSlide } = defineModels(sequelize);
+const { Sesion, Usuario, Recurso, Tutorial, Noticia, Evidencia, AuditoriaSesion, HeroSlide } = defineModels(sequelize);
 setAuditoriaModel(AuditoriaSesion);
+const sessions = sessionService(Sesion, Usuario, isProduction);
 
 // --- AUDITED AUTHENTICATION MIDDLEWARE ---
 
-function authenticateToken(req, res, next) {
-  const authHeader = req.headers["authorization"];
-  const token = authHeader && authHeader.split(" ")[1];
-
-  logger.info(`[AUTH] Petición ${req.method} ${req.path}`, {
-    hasAuthHeader: Boolean(authHeader),
-    hasToken: Boolean(token),
-    ip: getClientIp(req),
-  });
-
-  if (!token) {
-    logger.info("[AUTH] Denegado: token ausente", { path: req.path, ip: getClientIp(req) });
-    if (req.file) {
-      fs.unlink(req.file.path, () => { });
-      logger.info("[AUTH] Archivo temporal eliminado por falta de token");
-    }
-    return res.status(401).json({ error: "Token de sesión no proporcionado." });
-  }
-
-  jwt.verify(token, SECRET_KEY, (err, decodedUser) => {
-    if (err) {
-      logger.info(`[AUTH] Denegado: JWT inválido (${err.message})`, { path: req.path, ip: getClientIp(req) });
-      if (req.file) {
-        fs.unlink(req.file.path, () => { });
-        logger.info("[AUTH] Archivo temporal eliminado por token inválido/expirado");
-      }
-      return res.status(403).json({ error: "Token de sesión inválido o expirado." });
-    }
-    logger.info(`[AUTH] Verificado: usuario=${decodedUser.usuario}, rol=${decodedUser.rol}`, {
-      path: req.path,
-      ip: getClientIp(req),
-    });
-    req.user = decodedUser;
+async function authenticateSession(req, res, next) {
+  res.set("Cache-Control", "private, no-store");
+  try {
+    req.user = await sessions.read(req);
+    if (!req.user) return res.status(401).json({ error: "Inicia sesión para continuar." });
     next();
-  });
+  } catch (error) {
+    next(error);
+  }
 }
 
 function requireRole(roles) {
   return (req, res, next) => {
-    const userRol = req.user ? req.user.rol : "Nulo";
-    logger.info("[AUTH] Verificando roles", {
-      required: roles,
-      userRol,
-      path: req.path,
-      ip: getClientIp(req),
-    });
-
-    if (!req.user || !roles.includes(req.user.rol)) {
-      logger.info("[AUTH] Denegado: rol no autorizado", {
-        required: roles,
-        userRol,
-        path: req.path,
-        ip: getClientIp(req),
-      });
-      if (req.file) {
-        fs.unlink(req.file.path, () => { });
-        logger.info("[AUTH] Archivo temporal eliminado por falta de rol autorizado");
-      }
+    if (!roles.includes(req.user?.rol)) {
       return res.status(403).json({ error: "No tienes permisos suficientes para esta acción." });
     }
-    logger.info("[AUTH] Autorizado", { userRol, path: req.path, ip: getClientIp(req) });
     next();
   };
 }
 
 // --- MULTER STORAGE ENGINE ---
-const ALLOWED_MIME_TYPES = [
-  "application/pdf",
-  "image/png",
-  "image/jpeg",
-  "image/webp",
-  "image/gif",
-  "video/mp4",
-  "video/webm",
-  "application/msword",
+const ALLOWED_MIME_TYPES = new Set([
+  "application/pdf", "image/png", "image/jpeg", "image/webp", "image/gif", "image/avif",
+  "video/mp4", "video/webm",
   "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-  "application/vnd.ms-powerpoint",
   "application/vnd.openxmlformats-officedocument.presentationml.presentation",
-];
+  "application/msword", "application/vnd.ms-powerpoint",
+]);
+
+async function detectUploadMime(file) {
+  const detected = await fileTypeFromBuffer(file.buffer).catch(() => null);
+  if (detected && ALLOWED_MIME_TYPES.has(detected.mime)) return detected.mime;
+  if (detected?.mime === "application/x-cfb" && /\.(doc|ppt)$/i.test(file.originalname)) {
+    return "application/octet-stream";
+  }
+  const error = new Error("El contenido del archivo no coincide con un formato admitido.");
+  error.status = 415;
+  throw error;
+}
+
+let activeUploads = 0;
+function limitConcurrentUploads(_req, res, next) {
+  if (activeUploads >= 3) return res.status(429).json({ error: "Hay otras cargas en curso. Inténtalo en unos segundos." });
+  activeUploads++;
+  const release = () => {
+    activeUploads--;
+    res.off("finish", release);
+    res.off("close", release);
+  };
+  res.once("finish", release);
+  res.once("close", release);
+  next();
+}
 
 function cleanFileName(originalName) {
   const name = path.basename(originalName || "archivo");
@@ -282,7 +239,7 @@ async function convertToAvifIfImage(buffer, mimetype) {
     return { buffer, mimetype, converted: false };
   }
   try {
-    const avifBuffer = await sharp(buffer)
+    const avifBuffer = await sharp(buffer, { limitInputPixels: 24000000 })
       .rotate() // respeta orientación EXIF
       .avif({
         quality: 80,        // 80 = punto dulce calidad/tamaño para AVIF
@@ -292,10 +249,10 @@ async function convertToAvifIfImage(buffer, mimetype) {
       .toBuffer();
     return { buffer: avifBuffer, mimetype: "image/avif", converted: true };
   } catch (err) {
-    // Si sharp no puede procesar la imagen (archivo corrupto, formato raro),
-    // caemos al archivo original para no romper el upload.
-    logger.warn(`[AVIF] Conversión falló para mimetype ${mimetype}: ${err.message}. Se sube original.`);
-    return { buffer, mimetype, converted: false };
+    logger.warn("No se pudo convertir la imagen", { error: err.message });
+    const failure = new Error("La imagen no se pudo leer o supera el máximo de 24 megapíxeles.");
+    failure.status = 415;
+    throw failure;
   }
 }
 
@@ -314,7 +271,7 @@ async function applyWatermarkToBuffer(buffer, mimetype) {
     return { buffer, applied: false };
   }
   try {
-    const meta = await sharp(buffer).metadata();
+    const meta = await sharp(buffer, { limitInputPixels: 24000000 }).metadata();
     const w = meta.width || 1200;
     const h = meta.height || 800;
     const fontSize = Math.max(18, Math.round(w / 35));
@@ -340,7 +297,7 @@ async function applyWatermarkToBuffer(buffer, mimetype) {
       `<svg width="${w}" height="${h}" xmlns="http://www.w3.org/2000/svg">${texts.join("")}</svg>`
     );
 
-    const watermarked = await sharp(buffer)
+    const watermarked = await sharp(buffer, { limitInputPixels: 24000000 })
       .composite([{ input: svgOverlay, top: 0, left: 0 }])
       .toBuffer();
 
@@ -351,18 +308,9 @@ async function applyWatermarkToBuffer(buffer, mimetype) {
   }
 }
 
-const storage = multer.memoryStorage();
-
 const upload = multer({
-  storage,
-  limits: { fileSize: 100 * 1024 * 1024 },
-  fileFilter: (req, file, cb) => {
-    if (ALLOWED_MIME_TYPES.includes(file.mimetype)) {
-      cb(null, true);
-    } else {
-      cb(new Error(`Tipo de archivo no permitido: ${file.mimetype}`));
-    }
-  },
+  storage: multer.memoryStorage(),
+  limits: { fileSize: MAX_UPLOAD_BYTES, files: MAX_UPLOAD_FILES, fields: 2, parts: MAX_UPLOAD_FILES + 3, fieldSize: 1024 },
 });
 
 // --- AUTHENTICATION API ROUTES ---
@@ -375,7 +323,7 @@ const loginLimiter = rateLimit({
   message: { success: false, error: "Demasiados intentos. Intente en 15 minutos." },
 });
 
-app.post("/api/auth/register", authenticateToken, requireRole(["Administrador"]), validateBody(usuarioSchema), async (req, res) => {
+app.post("/api/auth/register", authenticateSession, requireRole(["Administrador"]), validateBody(usuarioSchema), async (req, res) => {
   try {
     const { nombre, usuario, contrasenia, contrasena, password, rol } = req.body;
     const passwordInput = contrasenia || contrasena || password;
@@ -412,11 +360,11 @@ app.post("/api/auth/register", authenticateToken, requireRole(["Administrador"])
       return res.status(400).json({ error: "El nombre de usuario ya está registrado." });
     }
     logger.error("Error al registrar usuario", { error: err.message, stack: err.stack });
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ error: "No se pudo completar la operación." });
   }
 });
 
-app.get("/api/auth/users", authenticateToken, requireRole(["Administrador"]), async (req, res) => {
+app.get("/api/auth/users", authenticateSession, requireRole(["Administrador"]), async (_req, res, next) => {
   try {
     const list = await Usuario.findAll({
       attributes: ["id", "nombre", "usuario", "rol"],
@@ -424,24 +372,25 @@ app.get("/api/auth/users", authenticateToken, requireRole(["Administrador"]), as
     });
     res.json(list);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    next(err);
   }
 });
 
-app.delete("/api/auth/users/:id", authenticateToken, requireRole(["Administrador"]), async (req, res) => {
+app.delete("/api/auth/users/:id", authenticateSession, requireRole(["Administrador"]), async (req, res) => {
   try {
     const { id } = req.params;
     if (String(req.user.id) === String(id)) {
       return res.status(400).json({ error: "No puedes eliminar tu propio usuario administrador." });
     }
-    const user = await Usuario.findByPk(id);
-    if (!user) {
-      return res.status(404).json({ error: "Usuario no encontrado" });
-    }
-    if (user.usuario === "admin") {
-      return res.status(400).json({ error: "No se puede eliminar el usuario administrador principal." });
-    }
-    await user.destroy();
+    const user = await sequelize.transaction(async (transaction) => {
+      await sequelize.query("SELECT pg_advisory_xact_lock(27081643)", { transaction });
+      const actor = await Usuario.findByPk(req.user.id, { transaction });
+      if (actor?.rol !== "Administrador") return null;
+      const target = await Usuario.findByPk(id, { transaction });
+      if (target) await target.destroy({ transaction });
+      return target;
+    });
+    if (!user) return res.status(404).json({ error: "Usuario no disponible." });
 
     await auditoriaFromRequest(req, {
       usuarioId: req.user.id,
@@ -458,11 +407,11 @@ app.delete("/api/auth/users/:id", authenticateToken, requireRole(["Administrador
     res.json({ success: true });
   } catch (err) {
     logger.error("Error al eliminar usuario", { error: err.message, stack: err.stack });
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ error: "No se pudo completar la operación." });
   }
 });
 
-app.put("/api/auth/users/:id/password", authenticateToken, requireRole(["Administrador"]), validateBody(passwordUpdateSchema), async (req, res) => {
+app.put("/api/auth/users/:id/password", authenticateSession, requireRole(["Administrador"]), validateBody(passwordUpdateSchema), async (req, res) => {
   try {
     const { id } = req.params;
     const { contrasenia, contrasena, password } = req.body;
@@ -492,26 +441,27 @@ app.put("/api/auth/users/:id/password", authenticateToken, requireRole(["Adminis
     res.json({ success: true });
   } catch (err) {
     logger.error("Error al actualizar contraseña", { error: err.message, stack: err.stack });
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ error: "No se pudo completar la operación." });
   }
 });
 
 const uploadExcel = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: 10 * 1024 * 1024 }
+  limits: { fileSize: 5 * 1024 * 1024, files: 1, fields: 0, parts: 2 }
 });
 
-app.post("/api/docentes/bulk-upload", authenticateToken, requireRole(["Administrador"]), uploadExcel.single("file"), async (req, res) => {
+app.post("/api/docentes/bulk-upload", authenticateSession, requireRole(["Administrador"]), limitConcurrentUploads, uploadExcel.single("file"), async (req, res) => {
   try {
     if (!req.file) {
       return res.status(400).json({ error: "No se ha proporcionado ningún archivo." });
     }
 
-    const workbook = XLSX.read(req.file.buffer, { type: "buffer" });
-    const sheetName = workbook.SheetNames[0];
-    const worksheet = workbook.Sheets[sheetName];
-
-    const rawRows = XLSX.utils.sheet_to_json(worksheet);
+    let rawRows;
+    try {
+      rawRows = await readTeacherRows(req.file.buffer, req.file.originalname);
+    } catch {
+      return res.status(400).json({ error: "Usa un XLSX o CSV válido, de hasta 1000 filas, con las columnas del formato de docentes." });
+    }
 
     if (rawRows.length === 0) {
       return res.status(400).json({ error: "El archivo Excel está vacío o no contiene filas válidas." });
@@ -522,14 +472,7 @@ app.post("/api/docentes/bulk-upload", authenticateToken, requireRole(["Administr
     const invalidRows = [];
 
     for (let i = 0; i < rawRows.length; i++) {
-      const row = rawRows[i];
-
-      const normalizedRow = {};
-      for (const key of Object.keys(row)) {
-        const normKey = key.trim().toUpperCase()
-          .normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-        normalizedRow[normKey] = row[key];
-      }
+      const normalizedRow = rawRows[i];
 
       const nombre = normalizedRow["NOMBRES Y APELLIDOS"] ? String(normalizedRow["NOMBRES Y APELLIDOS"]).trim() : null;
       const dni = normalizedRow["DNI"] ? String(normalizedRow["DNI"]).trim() : null;
@@ -558,10 +501,10 @@ app.post("/api/docentes/bulk-upload", authenticateToken, requireRole(["Administr
         continue;
       }
 
-      if (password.length < 6) {
+      if (password.length < 12 || Buffer.byteLength(password) > 72) {
         invalidRows.push({
           rowNumber: i + 2,
-          error: "La contraseña (password) debe tener al menos 6 caracteres."
+          error: "La contraseña debe tener al menos 12 caracteres y un máximo de 72 bytes."
         });
         continue;
       }
@@ -627,7 +570,7 @@ app.post("/api/docentes/bulk-upload", authenticateToken, requireRole(["Administr
 
   } catch (err) {
     logger.error("Error en carga masiva de docentes", { error: err.message, stack: err.stack });
-    res.status(500).json({ error: `Error en el servidor al procesar el archivo: ${err.message}` });
+    res.status(500).json({ error: "No se pudo procesar el archivo." });
   }
 });
 
@@ -638,7 +581,8 @@ app.post("/api/auth/login", loginLimiter, async (req, res) => {
 
   try {
     // 1. Validar campos obligatorios
-    if (!usuario || !contrasenia) {
+    if (typeof usuario !== "string" || !usuario.trim() || usuario.length > 50 ||
+      typeof contrasenia !== "string" || !contrasenia || Buffer.byteLength(contrasenia) > 72) {
       await registrarAuditoria({
         usuario: usuario || null,
         accion: "LOGIN_FALLIDO",
@@ -662,11 +606,13 @@ app.post("/api/auth/login", loginLimiter, async (req, res) => {
         userAgent,
         exito: false,
       });
-      return res.status(401).json({ success: false, error: "El usuario no se encuentra registrado." });
+      return res.status(401).json({ success: false, error: "Usuario o contraseña incorrectos." });
     }
 
     // 3. Comparar contraseña usando bcrypt de forma síncrona
-    const passwordValido = bcrypt.compareSync(contrasenia, user.contrasenia);
+    const passwordValido = typeof contrasenia === "string" &&
+      !(user.rol === "Administrador" && contrasenia.length < 12) &&
+      await bcrypt.compare(contrasenia, user.contrasenia);
     if (!passwordValido) {
       await registrarAuditoria({
         usuarioId: user.id,
@@ -679,15 +625,11 @@ app.post("/api/auth/login", loginLimiter, async (req, res) => {
         userAgent,
         exito: false,
       });
-      return res.status(401).json({ success: false, error: "La contraseña es incorrecta." });
+      return res.status(401).json({ success: false, error: "Usuario o contraseña incorrectos." });
     }
 
-    // 4. Generar un JWT real firmado para el ecosistema de la app
-    const token = jwt.sign(
-      { id: user.id, usuario: user.usuario, nombre: user.nombre, rol: user.rol },
-      SECRET_KEY,
-      { expiresIn: "24h" }
-    );
+    await sessions.open(req, res, user);
+    res.set("Cache-Control", "private, no-store");
 
     // 5. Registrar auditoría de login exitoso
     await registrarAuditoria({
@@ -705,7 +647,6 @@ app.post("/api/auth/login", loginLimiter, async (req, res) => {
     // 6. Responder estructuradamente al AppContext del frontend
     return res.json({
       success: true,
-      token: token,
       user: {
         usuario: user.usuario,
         nombre: user.nombre,
@@ -719,8 +660,13 @@ app.post("/api/auth/login", loginLimiter, async (req, res) => {
   }
 });
 
-app.post("/api/auth/logout", authenticateToken, async (req, res) => {
+app.get("/api/auth/session", authenticateSession, (req, res) => {
+  res.json({ user: req.user });
+});
+
+app.post("/api/auth/logout", authenticateSession, async (req, res) => {
   try {
+    await sessions.close(req, res);
     await auditoriaFromRequest(req, {
       usuarioId: req.user.id,
       usuarioNombre: req.user.nombre,
@@ -733,22 +679,22 @@ app.post("/api/auth/logout", authenticateToken, async (req, res) => {
     res.json({ success: true });
   } catch (err) {
     logger.error("Error al registrar logout", { error: err.message, stack: err.stack });
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ error: "No se pudo completar la operación." });
   }
 });
 
 // --- RECURSOS ENDPOINTS ---
 
-app.get("/api/recursos", async (req, res) => {
+app.get("/api/recursos", authenticateSession, async (_req, res, next) => {
   try {
     const list = await Recurso.findAll({ order: [["id", "DESC"]] });
     res.json(list);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    next(err);
   }
 });
 
-app.post("/api/recursos", authenticateToken, requireRole(["Administrador", "Docente"]), validateBody(recursoSchema), async (req, res) => {
+app.post("/api/recursos", authenticateSession, requireRole(["Administrador", "Docente"]), validateBody(recursoSchema), async (req, res) => {
   try {
     const resource = await Recurso.create(req.body);
 
@@ -767,11 +713,11 @@ app.post("/api/recursos", authenticateToken, requireRole(["Administrador", "Doce
     res.status(201).json(resource);
   } catch (err) {
     logger.error("Error al crear recurso", { error: err.message, stack: err.stack });
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ error: "No se pudo completar la operación." });
   }
 });
 
-app.put("/api/recursos/:id", authenticateToken, requireRole(["Administrador", "Docente"]), validateBody(recursoSchema), async (req, res) => {
+app.put("/api/recursos/:id", authenticateSession, requireRole(["Administrador", "Docente"]), validateBody(recursoSchema), async (req, res) => {
   try {
     const { id } = req.params;
     await Recurso.update(req.body, { where: { id } });
@@ -791,22 +737,15 @@ app.put("/api/recursos/:id", authenticateToken, requireRole(["Administrador", "D
     res.json({ success: true });
   } catch (err) {
     logger.error("Error al actualizar recurso", { error: err.message, stack: err.stack });
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ error: "No se pudo completar la operación." });
   }
 });
 
-app.delete("/api/recursos/:id", authenticateToken, requireRole(["Administrador", "Docente"]), async (req, res) => {
+app.delete("/api/recursos/:id", authenticateSession, requireRole(["Administrador", "Docente"]), async (req, res) => {
   try {
     const { id } = req.params;
     const resource = await Recurso.findByPk(id);
     if (!resource) return res.status(404).json({ error: "Recurso no encontrado" });
-
-    await deleteFile(resource.url);
-
-    const contentList = resource.contenidos || [];
-    for (const item of contentList) {
-      await deleteFile(item.url);
-    }
 
     await resource.destroy();
 
@@ -825,7 +764,7 @@ app.delete("/api/recursos/:id", authenticateToken, requireRole(["Administrador",
     res.json({ success: true });
   } catch (err) {
     logger.error("Error al eliminar recurso", { error: err.message, stack: err.stack });
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ error: "No se pudo completar la operación." });
   }
 });
 
@@ -837,11 +776,11 @@ app.get("/api/tutoriales", async (req, res) => {
     res.json(list);
   } catch (err) {
     logger.error("Error al listar tutoriales", { error: err.message, stack: err.stack });
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ error: "No se pudo completar la operación." });
   }
 });
 
-app.post("/api/tutoriales", authenticateToken, requireRole(["Administrador", "Docente"]), validateBody(tutorialSchema), async (req, res) => {
+app.post("/api/tutoriales", authenticateSession, requireRole(["Administrador", "Docente"]), validateBody(tutorialSchema), async (req, res) => {
   try {
     const tutorial = await Tutorial.create({
       titulo: req.body.titulo,
@@ -866,11 +805,11 @@ app.post("/api/tutoriales", authenticateToken, requireRole(["Administrador", "Do
     res.status(201).json(tutorial);
   } catch (err) {
     logger.error("Error al crear tutorial", { error: err.message, stack: err.stack });
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ error: "No se pudo completar la operación." });
   }
 });
 
-app.put("/api/tutoriales/:id", authenticateToken, requireRole(["Administrador", "Docente"]), validateBody(tutorialSchema), async (req, res) => {
+app.put("/api/tutoriales/:id", authenticateSession, requireRole(["Administrador", "Docente"]), validateBody(tutorialSchema), async (req, res) => {
   try {
     const { id } = req.params;
     await Tutorial.update({
@@ -896,11 +835,11 @@ app.put("/api/tutoriales/:id", authenticateToken, requireRole(["Administrador", 
     res.json({ success: true });
   } catch (err) {
     logger.error("Error al actualizar tutorial", { error: err.message, stack: err.stack });
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ error: "No se pudo completar la operación." });
   }
 });
 
-app.delete("/api/tutoriales/:id", authenticateToken, requireRole(["Administrador", "Docente"]), async (req, res) => {
+app.delete("/api/tutoriales/:id", authenticateSession, requireRole(["Administrador", "Docente"]), async (req, res) => {
   try {
     const { id } = req.params;
     const tutorial = await Tutorial.findByPk(id);
@@ -923,7 +862,7 @@ app.delete("/api/tutoriales/:id", authenticateToken, requireRole(["Administrador
     res.json({ success: true });
   } catch (err) {
     logger.error("Error al eliminar tutorial", { error: err.message, stack: err.stack });
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ error: "No se pudo completar la operación." });
   }
 });
 
@@ -935,11 +874,11 @@ app.get("/api/noticias", async (req, res) => {
     res.json(list);
   } catch (err) {
     logger.error("Error al listar noticias", { error: err.message, stack: err.stack });
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ error: "No se pudo completar la operación." });
   }
 });
 
-app.post("/api/noticias", authenticateToken, requireRole(["Administrador"]), validateBody(noticiaSchema), async (req, res) => {
+app.post("/api/noticias", authenticateSession, requireRole(["Administrador"]), validateBody(noticiaSchema), async (req, res) => {
   try {
     const news = await Noticia.create({
       ...req.body,
@@ -965,11 +904,11 @@ app.post("/api/noticias", authenticateToken, requireRole(["Administrador"]), val
     res.status(201).json(news);
   } catch (err) {
     logger.error("Error al crear noticia", { error: err.message, stack: err.stack });
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ error: "No se pudo completar la operación." });
   }
 });
 
-app.put("/api/noticias/:id", authenticateToken, requireRole(["Administrador"]), validateBody(noticiaSchema), async (req, res) => {
+app.put("/api/noticias/:id", authenticateSession, requireRole(["Administrador"]), validateBody(noticiaSchema), async (req, res) => {
   try {
     const { id } = req.params;
     await Noticia.update(req.body, { where: { id } });
@@ -989,11 +928,11 @@ app.put("/api/noticias/:id", authenticateToken, requireRole(["Administrador"]), 
     res.json({ success: true });
   } catch (err) {
     logger.error("Error al actualizar noticia", { error: err.message, stack: err.stack });
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ error: "No se pudo completar la operación." });
   }
 });
 
-app.delete("/api/noticias/:id", authenticateToken, requireRole(["Administrador"]), async (req, res) => {
+app.delete("/api/noticias/:id", authenticateSession, requireRole(["Administrador"]), async (req, res) => {
   try {
     const { id } = req.params;
     const news = await Noticia.findByPk(id);
@@ -1016,7 +955,7 @@ app.delete("/api/noticias/:id", authenticateToken, requireRole(["Administrador"]
     res.json({ success: true });
   } catch (err) {
     logger.error("Error al eliminar noticia", { error: err.message, stack: err.stack });
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ error: "No se pudo completar la operación." });
   }
 });
 
@@ -1037,11 +976,11 @@ app.get("/api/evidencias", async (req, res) => {
     res.json(list.map(normalizeEvidencia));
   } catch (err) {
     logger.error("Error al listar evidencias", { error: err.message, stack: err.stack });
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ error: "No se pudo completar la operación." });
   }
 });
 
-app.post("/api/evidencias", authenticateToken, requireRole(["Administrador", "Docente"]), validateBody(evidenciaSchema), async (req, res) => {
+app.post("/api/evidencias", authenticateSession, requireRole(["Administrador", "Docente"]), validateBody(evidenciaSchema), async (req, res) => {
   try {
     const body = { ...req.body };
     if (Array.isArray(body.imagenes) && body.imagenes.length > 0 && !body.url) {
@@ -1079,18 +1018,17 @@ app.post("/api/evidencias", authenticateToken, requireRole(["Administrador", "Do
       sqlMessage: err.parent?.message,
       body: { titulo: req.body?.titulo, hasImagenes: Array.isArray(req.body?.imagenes), hasDrive: !!req.body?.driveFolderUrl },
     });
-    const isUniqueError = err.name === "SequelizeUniqueConstraintError";
-    const isValidationError = err.name === "SequelizeValidationError";
-    const message = isUniqueError
-      ? "Ya existe una evidencia con esos datos."
-      : isValidationError
-        ? err.errors?.map((e) => e.message).join("; ") || err.message
-        : err.parent?.message || err.message;
-    res.status(500).json({ error: message });
+    if (err.name === "SequelizeUniqueConstraintError") {
+      return res.status(409).json({ error: "Ya existe una evidencia con esos datos." });
+    }
+    if (err.name === "SequelizeValidationError") {
+      return res.status(400).json({ error: "Revisa los datos de la evidencia." });
+    }
+    res.status(500).json({ error: "No se pudo guardar la evidencia." });
   }
 });
 
-app.put("/api/evidencias/:id", authenticateToken, requireRole(["Administrador", "Docente"]), validateBody(evidenciaSchema), async (req, res) => {
+app.put("/api/evidencias/:id", authenticateSession, requireRole(["Administrador", "Docente"]), validateBody(evidenciaSchema), async (req, res) => {
   try {
     const { id } = req.params;
     const body = { ...req.body };
@@ -1115,24 +1053,16 @@ app.put("/api/evidencias/:id", authenticateToken, requireRole(["Administrador", 
     res.json({ success: true });
   } catch (err) {
     logger.error("Error al actualizar evidencia", { error: err.message, stack: err.stack });
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ error: "No se pudo completar la operación." });
   }
 });
 
-app.delete("/api/evidencias/:id", authenticateToken, requireRole(["Administrador", "Docente"]), async (req, res) => {
+app.delete("/api/evidencias/:id", authenticateSession, requireRole(["Administrador", "Docente"]), async (req, res) => {
   try {
     const { id } = req.params;
     const evidencia = await Evidencia.findByPk(id);
     if (!evidencia) return res.status(404).json({ error: "Evidencia no encontrada" });
 
-    await deleteFile(evidencia.url);
-    if (Array.isArray(evidencia.imagenes)) {
-      for (const img of evidencia.imagenes) {
-        if (img?.url && img.url !== evidencia.url) {
-          await deleteFile(img.url);
-        }
-      }
-    }
     await evidencia.destroy();
 
     await auditoriaFromRequest(req, {
@@ -1150,196 +1080,169 @@ app.delete("/api/evidencias/:id", authenticateToken, requireRole(["Administrador
     res.json({ success: true });
   } catch (err) {
     logger.error("Error al eliminar evidencia", { error: err.message, stack: err.stack });
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ error: "No se pudo completar la operación." });
   }
 });
 
 // --- FILE UPLOAD ENDPOINT ---
-app.post("/api/upload", authenticateToken, requireRole(["Administrador", "Docente"]), (req, res) => {
-  upload.single("file")(req, res, async (err) => {
-    if (err) {
-      if (err instanceof multer.MulterError) {
-        if (err.code === "LIMIT_FILE_SIZE") {
-          return res.status(400).json({ error: "El archivo excede el límite de 100 MB." });
-        }
-        return res.status(400).json({ error: err.message });
-      }
-      if (err.message?.includes("Tipo de archivo no permitido")) {
-        return res.status(400).json({ error: err.message });
-      }
-      return res.status(500).json({ error: err.message });
-    }
-    if (!req.file) {
-      logger.info("[AUDIT] Subida fallida: Multer no capturó ningún archivo.");
-      return res.status(400).json({ error: "No se envió ningún archivo" });
-    }
+app.post("/api/upload", authenticateSession, requireRole(["Administrador", "Docente"]), limitConcurrentUploads, upload.single("file"), async (req, res) => {
+  if (!req.file) {
+    logger.info("[AUDIT] Subida fallida: Multer no capturó ningún archivo.");
+    return res.status(400).json({ error: "No se envió ningún archivo" });
+  }
 
-    try {
-      // Convertir imagen a AVIF (reduce ~70% del tamaño preservando resolución)
-      const { buffer: fileBuffer, mimetype: fileMime, converted } = await convertToAvifIfImage(
-        req.file.buffer,
-        req.file.mimetype
-      );
+  try {
+    // Convertir imagen a AVIF (reduce ~70% del tamaño preservando resolución)
+    const { buffer: fileBuffer, mimetype: fileMime, converted } = await convertToAvifIfImage(
+      req.file.buffer,
+      await detectUploadMime(req.file)
+    );
 
-      // Si fue convertido, renombrar la extensión a .avif para consistencia
-      const baseName = converted
-        ? req.file.originalname.replace(/\.[^.]+$/, "") + ".avif"
-        : req.file.originalname;
+    // Si fue convertido, renombrar la extensión a .avif para consistencia
+    const baseName = converted
+      ? req.file.originalname.replace(/\.[^.]+$/, "") + ".avif"
+      : req.file.originalname;
 
-      const filename = generateFileName(baseName);
-      const result = await uploadFile(fileBuffer, filename, fileMime);
+    const filename = `uploads/${req.user.id}/${randomUUID()}-${generateFileName(baseName)}`;
+    const result = await uploadFile(fileBuffer, filename, fileMime);
 
-      const originalSize = req.file.size;
-      const newSize = fileBuffer.length;
-      const compressionPct = converted && originalSize > 0
-        ? Math.max(0, Math.round((1 - newSize / originalSize) * 100))
-        : 0;
+    const originalSize = req.file.size;
+    const newSize = fileBuffer.length;
+    const compressionPct = converted && originalSize > 0
+      ? Math.max(0, Math.round((1 - newSize / originalSize) * 100))
+      : 0;
 
-      logger.info(
-        `[AUDIT] Subida exitosa: Archivo=${result.filename} ` +
-        `(${newSize} bytes${converted ? `, original=${originalSize}, -${compressionPct}%` : ""}) ` +
-        `| Storage=${result.storage} | mime=${fileMime}`
-      );
+    logger.info(
+      `[AUDIT] Subida exitosa: Archivo=${result.filename} ` +
+      `(${newSize} bytes${converted ? `, original=${originalSize}, -${compressionPct}%` : ""}) ` +
+      `| Storage=${result.storage} | mime=${fileMime}`
+    );
 
-      res.json({
-        success: true,
-        url: result.url,
-        filename: result.filename,
-        mimetype: fileMime,
-        size: newSize,
-        originalSize: converted ? originalSize : undefined,
-        compressionPct: converted ? compressionPct : undefined,
-        converted,
-      });
-    } catch (uploadErr) {
-      logger.error("[AUDIT] Error al guardar archivo:", { error: uploadErr.message });
-      res.status(500).json({ error: uploadErr.message });
-    }
-  });
+    res.json({
+      success: true,
+      url: result.url,
+      filename: result.filename,
+      mimetype: fileMime,
+      size: newSize,
+      originalSize: converted ? originalSize : undefined,
+      compressionPct: converted ? compressionPct : undefined,
+      converted,
+    });
+  } catch (uploadErr) {
+    logger.error("[AUDIT] Error al guardar archivo:", { error: uploadErr.message });
+    res.status(uploadErr.status === 415 ? 415 : 500).json({
+      error: uploadErr.status === 415 ? uploadErr.message : "No se pudo guardar el archivo.",
+    });
+  }
 });
 
 // --- MULTIPLE FILE UPLOAD ENDPOINT (para colecciones de evidencias) ---
-// Sin límite de cantidad: el usuario puede subir tantas fotos como necesite
-// (colecciones de 70-80 archivos son habituales). El límite de 100MB por archivo
-// se mantiene; el frontend acumula selecciones antes de mandar una sola request.
-app.post("/api/uploads", authenticateToken, requireRole(["Administrador", "Docente"]), (req, res) => {
-  upload.array("files")(req, res, async (err) => {
-    if (err) {
-      if (err instanceof multer.MulterError) {
-        if (err.code === "LIMIT_FILE_SIZE") {
-          return res.status(400).json({ error: "Uno o más archivos exceden el límite de 100 MB." });
-        }
-        return res.status(400).json({ error: err.message });
-      }
-      if (err.message?.includes("Tipo de archivo no permitido")) {
-        return res.status(400).json({ error: err.message });
-      }
-      return res.status(500).json({ error: err.message });
-    }
-    const files = req.files || [];
-    if (files.length === 0) {
-      return res.status(400).json({ error: "No se enviaron archivos" });
-    }
+app.post("/api/uploads", authenticateSession, requireRole(["Administrador", "Docente"]), limitConcurrentUploads, upload.array("files", MAX_UPLOAD_FILES), async (req, res) => {
+  const files = req.files || [];
+  if (files.length === 0) {
+    return res.status(400).json({ error: "No se enviaron archivos" });
+  }
 
-    try {
-      const uploaded = [];
-      const failed = [];
-      let totalOriginalBytes = 0;
-      let totalCompressedBytes = 0;
-      let totalConverted = 0;
-      let totalWatermarked = 0;
+  try {
+    const uploaded = [];
+    const failed = [];
+    let totalOriginalBytes = 0;
+    let totalCompressedBytes = 0;
+    let totalConverted = 0;
+    let totalWatermarked = 0;
 
-      // El cliente puede omitir el watermark pasando `applyWatermark: "false"`
-      // en el body multipart. Por defecto, se aplica a todas las imágenes (fotos).
-      const applyWatermark = req.body?.applyWatermark !== "false";
+    // El cliente puede omitir el watermark pasando `applyWatermark: "false"`
+    // en el body multipart. Por defecto, se aplica a todas las imágenes (fotos).
+    const applyWatermark = req.body?.applyWatermark !== "false";
 
-      for (const f of files) {
-        try {
-          // 1) Convertir imagen a AVIF si aplica (reduce ~70% del tamaño)
-          let { buffer: fileBuffer, mimetype: fileMime, converted } = await convertToAvifIfImage(
-            f.buffer,
-            f.mimetype
-          );
+    for (const f of files) {
+      try {
+        // 1) Convertir imagen a AVIF si aplica (reduce ~70% del tamaño)
+        let { buffer: fileBuffer, mimetype: fileMime, converted } = await convertToAvifIfImage(
+          f.buffer,
+          await detectUploadMime(f)
+        );
 
-          // 2) Aplicar watermark a fotos (no a videos ni PDFs).
-          //    Se aplica DESPUÉS de la conversión AVIF para que el texto
-          //    quede incrustado en la imagen final que se servirá.
-          let watermarked = false;
-          if (applyWatermark && (fileMime || "").startsWith("image/")) {
-            const wm = await applyWatermarkToBuffer(fileBuffer, fileMime);
-            if (wm.applied) {
-              fileBuffer = wm.buffer;
-              watermarked = true;
-              totalWatermarked += 1;
-            }
+        // 2) Aplicar watermark a fotos (no a videos ni PDFs).
+        //    Se aplica DESPUÉS de la conversión AVIF para que el texto
+        //    quede incrustado en la imagen final que se servirá.
+        let watermarked = false;
+        if (applyWatermark && (fileMime || "").startsWith("image/")) {
+          const wm = await applyWatermarkToBuffer(fileBuffer, fileMime);
+          if (wm.applied) {
+            fileBuffer = wm.buffer;
+            watermarked = true;
+            totalWatermarked += 1;
           }
-
-          const baseName = converted
-            ? f.originalname.replace(/\.[^.]+$/, "") + ".avif"
-            : f.originalname;
-
-          const filename = generateFileName(baseName);
-          const result = await uploadFile(fileBuffer, filename, fileMime);
-
-          const originalSize = f.size;
-          const newSize = fileBuffer.length;
-          const compressionPct = converted && originalSize > 0
-            ? Math.max(0, Math.round((1 - newSize / originalSize) * 100))
-            : 0;
-
-          totalOriginalBytes += originalSize;
-          totalCompressedBytes += newSize;
-          if (converted) totalConverted += 1;
-
-          uploaded.push({
-            url: result.url,
-            name: f.originalname,
-            filename,
-            size: newSize,
-            originalSize: converted ? originalSize : undefined,
-            compressionPct: converted ? compressionPct : undefined,
-            mimetype: fileMime,
-            watermarked,
-          });
-        } catch (fileErr) {
-          logger.error(`[AUDIT] Fallo al subir ${f.originalname}:`, { error: fileErr.message });
-          failed.push({ name: f.originalname, error: fileErr.message });
         }
+
+        const baseName = converted
+          ? f.originalname.replace(/\.[^.]+$/, "") + ".avif"
+          : f.originalname;
+
+        const filename = `uploads/${req.user.id}/${randomUUID()}-${generateFileName(baseName)}`;
+        const result = await uploadFile(fileBuffer, filename, fileMime);
+
+        const originalSize = f.size;
+        const newSize = fileBuffer.length;
+        const compressionPct = converted && originalSize > 0
+          ? Math.max(0, Math.round((1 - newSize / originalSize) * 100))
+          : 0;
+
+        totalOriginalBytes += originalSize;
+        totalCompressedBytes += newSize;
+        if (converted) totalConverted += 1;
+
+        uploaded.push({
+          url: result.url,
+          name: f.originalname,
+          filename,
+          size: newSize,
+          originalSize: converted ? originalSize : undefined,
+          compressionPct: converted ? compressionPct : undefined,
+          mimetype: fileMime,
+          watermarked,
+        });
+      } catch (fileErr) {
+        logger.error(`[AUDIT] Fallo al subir ${f.originalname}:`, { error: fileErr.message });
+        failed.push({ name: f.originalname, error: fileErr.status === 415 ? fileErr.message : "No se pudo guardar el archivo." });
       }
-
-      const totalSaved = totalOriginalBytes - totalCompressedBytes;
-      const overallPct = totalOriginalBytes > 0
-        ? Math.round((totalSaved / totalOriginalBytes) * 100)
-        : 0;
-
-      logger.info(
-        `[AUDIT] Subida múltiple: ${uploaded.length} OK, ${failed.length} fallidos de ${files.length} ` +
-        `| ${totalConverted} convertidas a AVIF ` +
-        `| ${totalWatermarked} con watermark ` +
-        `| ${(totalOriginalBytes / 1024 / 1024).toFixed(2)} MB → ${(totalCompressedBytes / 1024 / 1024).toFixed(2)} MB (-${overallPct}%)`
-      );
-
-      // 207 Multi-Status si hubo fallos parciales; 200 si todo OK
-      const status = failed.length > 0 ? (uploaded.length > 0 ? 207 : 400) : 200;
-      res.status(status).json({
-        success: uploaded.length === files.length,
-        uploaded,
-        failed,
-        stats: {
-          totalFiles: files.length,
-          convertedToAvif: totalConverted,
-          watermarked: totalWatermarked,
-          originalSizeMB: +(totalOriginalBytes / 1024 / 1024).toFixed(2),
-          compressedSizeMB: +(totalCompressedBytes / 1024 / 1024).toFixed(2),
-          savedMB: +(totalSaved / 1024 / 1024).toFixed(2),
-          compressionPct: overallPct,
-        },
-      });
-    } catch (uploadErr) {
-      logger.error("[AUDIT] Error al guardar archivos:", { error: uploadErr.message });
-      res.status(500).json({ error: uploadErr.message });
     }
-  });
+
+    const totalSaved = totalOriginalBytes - totalCompressedBytes;
+    const overallPct = totalOriginalBytes > 0
+      ? Math.round((totalSaved / totalOriginalBytes) * 100)
+      : 0;
+
+    logger.info(
+      `[AUDIT] Subida múltiple: ${uploaded.length} OK, ${failed.length} fallidos de ${files.length} ` +
+      `| ${totalConverted} convertidas a AVIF ` +
+      `| ${totalWatermarked} con watermark ` +
+      `| ${(totalOriginalBytes / 1024 / 1024).toFixed(2)} MB → ${(totalCompressedBytes / 1024 / 1024).toFixed(2)} MB (-${overallPct}%)`
+    );
+
+    // 207 Multi-Status si hubo fallos parciales; 200 si todo OK
+    const status = failed.length > 0 ? (uploaded.length > 0 ? 207 : 400) : 200;
+    res.status(status).json({
+      success: uploaded.length === files.length,
+      uploaded,
+      failed,
+      stats: {
+        totalFiles: files.length,
+        convertedToAvif: totalConverted,
+        watermarked: totalWatermarked,
+        originalSizeMB: +(totalOriginalBytes / 1024 / 1024).toFixed(2),
+        compressedSizeMB: +(totalCompressedBytes / 1024 / 1024).toFixed(2),
+        savedMB: +(totalSaved / 1024 / 1024).toFixed(2),
+        compressionPct: overallPct,
+      },
+    });
+  } catch (uploadErr) {
+    logger.error("[AUDIT] Error al guardar archivos:", { error: uploadErr.message });
+    res.status(uploadErr.status === 415 ? 415 : 500).json({
+      error: uploadErr.status === 415 ? uploadErr.message : "No se pudo guardar el archivo.",
+    });
+  }
 });
 
 // --- HERO SLIDES ENDPOINTS ---
@@ -1365,11 +1268,11 @@ app.get("/api/hero-slides", async (req, res) => {
     res.json(list.map(sanitizeHeroSlidePublic));
   } catch (err) {
     logger.error("Error al listar hero slides", { error: err.message, stack: err.stack });
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ error: "No se pudo completar la operación." });
   }
 });
 
-app.get("/api/admin/hero-slides", authenticateToken, requireRole(["Administrador"]), async (req, res) => {
+app.get("/api/admin/hero-slides", authenticateSession, requireRole(["Administrador"]), async (req, res) => {
   try {
     const list = await HeroSlide.findAll({
       order: [["orden", "ASC"], ["id", "ASC"]],
@@ -1388,11 +1291,11 @@ app.get("/api/admin/hero-slides", authenticateToken, requireRole(["Administrador
     }));
   } catch (err) {
     logger.error("Error al listar hero slides (admin)", { error: err.message, stack: err.stack });
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ error: "No se pudo completar la operación." });
   }
 });
 
-app.post("/api/admin/hero-slides", authenticateToken, requireRole(["Administrador"]), validateBody(heroSlideSchema), async (req, res) => {
+app.post("/api/admin/hero-slides", authenticateSession, requireRole(["Administrador"]), validateBody(heroSlideSchema), async (req, res) => {
   try {
     const { imagenUrl, imagenPath, activo } = req.body;
 
@@ -1426,28 +1329,22 @@ app.post("/api/admin/hero-slides", authenticateToken, requireRole(["Administrado
     res.status(201).json(slide);
   } catch (err) {
     logger.error("Error al crear hero slide", { error: err.message, stack: err.stack });
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ error: "No se pudo completar la operación." });
   }
 });
 
-app.put("/api/admin/hero-slides/:id", authenticateToken, requireRole(["Administrador"]), validateBody(heroSlideSchema), async (req, res) => {
+app.put("/api/admin/hero-slides/:id", authenticateSession, requireRole(["Administrador"]), validateBody(heroSlideSchema), async (req, res) => {
   try {
     const { id } = req.params;
     const slide = await HeroSlide.findByPk(id);
     if (!slide) return res.status(404).json({ error: "Slide no encontrado" });
 
     const { imagenUrl, imagenPath, activo } = req.body;
-    const oldImagenPath = slide.imagenPath;
 
     slide.imagenUrl = imagenUrl;
     if (typeof imagenPath === "string") slide.imagenPath = imagenPath || null;
     if (typeof activo === "boolean") slide.activo = activo;
     await slide.save();
-
-    if (oldImagenPath && oldImagenPath !== slide.imagenPath && oldImagenPath.includes("/storage/")) {
-      const oldUrl = `${process.env.SUPABASE_URL}/storage/v1/object/public/${process.env.SUPABASE_STORAGE_BUCKET || "recursos-uploads"}/${oldImagenPath}`;
-      await deleteFile(oldUrl);
-    }
 
     await auditoriaFromRequest(req, {
       usuarioId: req.user.id,
@@ -1464,11 +1361,11 @@ app.put("/api/admin/hero-slides/:id", authenticateToken, requireRole(["Administr
     res.json({ success: true, slide });
   } catch (err) {
     logger.error("Error al actualizar hero slide", { error: err.message, stack: err.stack });
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ error: "No se pudo completar la operación." });
   }
 });
 
-app.put("/api/admin/hero-slides-reorder", authenticateToken, requireRole(["Administrador"]), async (req, res) => {
+app.put("/api/admin/hero-slides-reorder", authenticateSession, requireRole(["Administrador"]), async (req, res) => {
   try {
     const { orden } = req.body;
     if (!Array.isArray(orden)) {
@@ -1495,17 +1392,16 @@ app.put("/api/admin/hero-slides-reorder", authenticateToken, requireRole(["Admin
     res.json({ success: true });
   } catch (err) {
     logger.error("Error al reordenar hero slides", { error: err.message, stack: err.stack });
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ error: "No se pudo completar la operación." });
   }
 });
 
-app.delete("/api/admin/hero-slides/:id", authenticateToken, requireRole(["Administrador"]), async (req, res) => {
+app.delete("/api/admin/hero-slides/:id", authenticateSession, requireRole(["Administrador"]), async (req, res) => {
   try {
     const { id } = req.params;
     const slide = await HeroSlide.findByPk(id);
     if (!slide) return res.status(404).json({ error: "Slide no encontrado" });
 
-    await deleteFile(slide.imagenUrl);
     await slide.destroy();
 
     const remaining = await HeroSlide.findAll({ order: [["orden", "ASC"]] });
@@ -1530,131 +1426,90 @@ app.delete("/api/admin/hero-slides/:id", authenticateToken, requireRole(["Admini
     res.json({ success: true });
   } catch (err) {
     logger.error("Error al eliminar hero slide", { error: err.message, stack: err.stack });
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ error: "No se pudo completar la operación." });
   }
 });
 
 // --- SIGNED URL ENDPOINTS (imágenes con acceso protegido) ---
 
-// Extrae el path del Storage a partir de una URL completa o un path relativo.
-// Acepta: "foto.jpg", "recursos-uploads/foto.jpg", "https://xxx.supabase.co/storage/v1/object/public/recursos-uploads/foto.jpg"
-// Devuelve SIEMPRE el path DENTRO del bucket (sin el prefijo "recursos-uploads/")
-// porque Supabase createSignedUrl() opera con path relativo al bucket.
-function extractStoragePath(input) {
-  if (!input || typeof input !== "string") return null;
-  const trimmed = input.trim();
-  if (!trimmed) return null;
-  // URL pública absoluta
-  if (trimmed.includes("/storage/v1/object/")) {
-    const match = trimmed.match(/\/storage\/v1\/object\/(?:public|sign)\/([^?]+)/);
-    if (!match) return null;
-    const raw = decodeURIComponent(match[1]);
-    return stripBucketPrefix(raw);
+async function signVisibleFiles(req, res, input, single, redirect = false) {
+  res.set("Cache-Control", "private, no-store");
+  const bucket = getBucketName();
+  const paths = input.map((value) => storagePath(value, supabaseHost, bucket));
+  if (paths.some((value) => !value)) return res.status(400).json({ error: "Ruta de archivo inválida." });
+
+  const user = await sessions.read(req);
+  const [hero, evidence, resources] = await Promise.all([
+    HeroSlide.findAll({ attributes: ["imagenUrl"], where: user?.rol === "Administrador" ? {} : { activo: true } }),
+    Evidencia.findAll({ attributes: ["url", "imagenes"] }),
+    user ? Recurso.findAll({ attributes: ["url", "contenidos"] }) : [],
+  ]);
+  const visible = visibleStoragePaths({ hero, evidence, resources }, supabaseHost, bucket);
+  const ownFolder = user && ["Administrador", "Docente"].includes(user.rol) ? `uploads/${user.id}/` : null;
+  const authorized = [...new Set(paths)].filter((file) => visible.has(file) || (ownFolder && file.startsWith(ownFolder)));
+  if (single && !authorized.length) return res.status(404).json({ error: "Archivo no disponible." });
+
+  const urls = Object.create(null);
+  for (let i = 0; i < authorized.length; i += 8) {
+    await Promise.all(authorized.slice(i, i + 8).map(async (file) => {
+      try {
+        urls[file] = await getSignedUrl(file);
+      } catch {
+        // El objeto puede haber caducado o haber sido retirado del almacenamiento.
+      }
+    }));
   }
-  // Path relativo: "recursos-uploads/foto.jpg" o "/recursos-uploads/foto.jpg" o "foto.jpg"
-  if (trimmed.startsWith("/")) return stripBucketPrefix(trimmed.slice(1));
-  return stripBucketPrefix(trimmed);
+
+  if (single && !urls[paths[0]]) return res.status(404).json({ error: "Archivo no disponible." });
+  if (redirect) return res.redirect(302, urls[paths[0]]);
+  res.json(single ? { url: urls[paths[0]], expiresIn: 60 } : { urls, expiresIn: 60 });
 }
 
-function stripBucketPrefix(p) {
-  const bucket = process.env.SUPABASE_STORAGE_BUCKET || "recursos-uploads";
-  if (p === bucket) return "";
-  if (p.startsWith(bucket + "/")) return p.slice(bucket.length + 1);
-  return p;
-}
-
-app.get("/api/storage/sign", signedUrlLimiter, async (req, res) => {
-  try {
-    const path = extractStoragePath(req.query.path);
-    if (!path) {
-      return res.status(400).json({ error: "Parámetro 'path' requerido" });
-    }
-    const url = await getSignedUrlSafe(path);
-    res.json({ url, expiresIn: 600 });
-  } catch (err) {
-    logger.error("Error al firmar URL", { error: err.message });
-    res.status(500).json({ error: "No se pudo firmar la URL" });
+app.get("/api/storage/sign", signedUrlLimiter, (req, res) => signVisibleFiles(req, res, [req.query.path], true));
+app.get("/api/storage/open", signedUrlLimiter, (req, res) => signVisibleFiles(req, res, [req.query.path], true, true));
+app.post("/api/storage/sign-batch", signedUrlLimiter, (req, res) => {
+  const { paths } = req.body || {};
+  if (!Array.isArray(paths) || !paths.length || paths.length > 50) {
+    return res.status(400).json({ error: "Envía entre 1 y 50 rutas." });
   }
-});
-
-app.post("/api/storage/sign-batch", signedUrlLimiter, async (req, res) => {
-  try {
-    const { paths } = req.body || {};
-    if (!Array.isArray(paths) || paths.length === 0) {
-      return res.status(400).json({ error: "El campo 'paths' debe ser un array" });
-    }
-    if (paths.length > 200) {
-      return res.status(400).json({ error: "Máximo 200 paths por request" });
-    }
-    const cleanPaths = paths.map(extractStoragePath).filter(Boolean);
-    const urls = await getSignedUrls(cleanPaths);
-    const result = {};
-    for (let i = 0; i < cleanPaths.length; i++) {
-      result[cleanPaths[i]] = urls[i];
-    }
-    res.json({ urls: result, expiresIn: 600 });
-  } catch (err) {
-    logger.error("Error al firmar URLs en batch", { error: err.message });
-    res.status(500).json({ error: "No se pudieron firmar las URLs" });
-  }
+  return signVisibleFiles(req, res, paths, false);
 });
 
 // --- API BACKUP EXPORT ENDPOINT (Fase 5) ---
-app.post("/api/admin/backup", authenticateToken, requireRole(["Administrador"]), async (req, res) => {
+app.post("/api/admin/backup", authenticateSession, requireRole(["Administrador"]), async (req, res) => {
   try {
-    const backupsDir = path.join(__dirname, "backups");
-    if (!fs.existsSync(backupsDir)) {
-      fs.mkdirSync(backupsDir, { recursive: true });
-    }
-    const timestamp = new Date().toISOString().replace(/[^a-zA-Z0-9]/g, "_");
-    const currentBackupDir = path.join(backupsDir, `respaldo_${timestamp}`);
-    fs.mkdirSync(currentBackupDir, { recursive: true });
-
-    // Exportar datos a JSON para respaldo
-    const [recursos, tutoriales, noticias, evidencias] = await Promise.all([
-      Recurso.findAll(),
-      Tutorial.findAll(),
-      Noticia.findAll(),
-      Evidencia.findAll(),
-    ]);
-    fs.writeFileSync(
-      path.join(currentBackupDir, "data.json"),
-      JSON.stringify({ recursos, tutoriales, noticias, evidencias }, null, 2)
+    const [recursos, tutoriales, noticias, evidencias] = await sequelize.transaction(
+      { isolationLevel: "REPEATABLE READ" },
+      (transaction) => Promise.all(
+        [Recurso, Tutorial, Noticia, Evidencia].map((model) => model.findAll({ transaction, raw: true })),
+      ),
     );
-
-    logger.info(`[AUDIT] Copia de seguridad generada: ${currentBackupDir}`);
-    res.json({ success: true, folder: `backups/respaldo_${timestamp}` });
+    res.attachment(`innova-bandera-${new Date().toISOString().slice(0, 10)}.json`);
+    res.json({ version: 1, recursos, tutoriales, noticias, evidencias });
   } catch (err) {
-    logger.error("Error al generar copia de seguridad:", { error: err.message, stack: err.stack });
-    res.status(500).json({ error: "Fallo al generar copia de seguridad en el servidor." });
+    logger.error("Error al exportar respaldo", { error: err.message });
+    res.status(500).json({ error: "No se pudo generar el respaldo." });
   }
 });
 
 // --- API BACKUP IMPORT ---
-app.post("/api/import", authenticateToken, requireRole(["Administrador"]), async (req, res) => {
+app.post("/api/import", authenticateSession, requireRole(["Administrador"]), async (req, res) => {
+  const data = parseBackup(req.body);
+  if (!data) return res.status(400).json({ error: "El respaldo debe contener las cuatro secciones válidas." });
   try {
-    const { recursos, tutoriales, proyectos, noticias, evidencias } = req.body;
-    const tutorialesImport = tutoriales || proyectos || [];
-
-    await Recurso.destroy({ where: {} });
-    await Tutorial.destroy({ where: {} });
-    await Noticia.destroy({ where: {} });
-    await Evidencia.destroy({ where: {} });
-
-    if (recursos && recursos.length > 0) await Recurso.bulkCreate(recursos);
-    if (tutorialesImport.length > 0) await Tutorial.bulkCreate(tutorialesImport);
-    if (noticias && noticias.length > 0) await Noticia.bulkCreate(noticias);
-    if (evidencias && evidencias.length > 0) await Evidencia.bulkCreate(evidencias);
-
+    await restoreBackup(sequelize, {
+      recursos: Recurso, tutoriales: Tutorial, noticias: Noticia, evidencias: Evidencia,
+    }, data);
     res.json({ success: true });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    logger.error("No se pudo restaurar el respaldo", { error: err.message });
+    res.status(500).json({ error: "No se restauró ningún cambio." });
   }
 });
 
 // --- AUDITORÍA ENDPOINTS (Paso 8 + 10) ---
 
-app.get("/api/admin/auditoria", authenticateToken, requireRole(["Administrador"]), auditoriaLimiter, async (req, res) => {
+app.get("/api/admin/auditoria", authenticateSession, requireRole(["Administrador"]), auditoriaLimiter, async (req, res) => {
   try {
     const {
       page = 1,
@@ -1696,11 +1551,11 @@ app.get("/api/admin/auditoria", authenticateToken, requireRole(["Administrador"]
     });
   } catch (err) {
     logger.error("Error al listar auditoría", { error: err.message });
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ error: "No se pudo completar la operación." });
   }
 });
 
-app.get("/api/admin/auditoria/stats", authenticateToken, requireRole(["Administrador"]), auditoriaLimiter, async (req, res) => {
+app.get("/api/admin/auditoria/stats", authenticateSession, requireRole(["Administrador"]), auditoriaLimiter, async (req, res) => {
   try {
     const { desde, hasta } = req.query;
     const where = {};
@@ -1733,11 +1588,11 @@ app.get("/api/admin/auditoria/stats", authenticateToken, requireRole(["Administr
     res.json({ total, exitosos, fallidos, porAccion });
   } catch (err) {
     logger.error("Error al obtener estadísticas de auditoría", { error: err.message });
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ error: "No se pudo completar la operación." });
   }
 });
 
-app.get("/api/admin/auditoria/export-csv", authenticateToken, requireRole(["Administrador"]), auditoriaLimiter, async (req, res) => {
+app.get("/api/admin/auditoria/export-csv", authenticateSession, requireRole(["Administrador"]), auditoriaLimiter, async (req, res) => {
   try {
     const { desde, hasta, accion, usuario } = req.query;
     const where = {};
@@ -1760,23 +1615,17 @@ app.get("/api/admin/auditoria/export-csv", authenticateToken, requireRole(["Admi
       raw: true,
     });
 
-    const escape = (v) => {
-      if (v === null || v === undefined) return "";
-      const s = String(v).replace(/"/g, '""');
-      return `"${s}"`;
-    };
-
     const headers = ["ID", "Fecha", "Accion", "Usuario", "Rol", "Entidad", "EntidadID", "Detalle", "IP", "Exito"];
     const csvRows = rows.map((r) => [
       r.id,
-      escape(new Date(r.createdAt).toISOString()),
-      escape(r.accion),
-      escape(r.usuario),
-      escape(r.rol),
-      escape(r.entidad),
+      csvCell(new Date(r.createdAt).toISOString()),
+      csvCell(r.accion),
+      csvCell(r.usuario),
+      csvCell(r.rol),
+      csvCell(r.entidad),
       r.entidadId ?? "",
-      escape(r.detalle),
-      escape(r.ip),
+      csvCell(r.detalle),
+      csvCell(r.ip),
       r.exito ? "SI" : "NO",
     ].join(","));
 
@@ -1798,8 +1647,23 @@ app.get("/api/admin/auditoria/export-csv", authenticateToken, requireRole(["Admi
     });
   } catch (err) {
     logger.error("Error al exportar auditoría", { error: err.message });
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ error: "No se pudo completar la operación." });
   }
+});
+
+app.use("/api", (_req, res) => res.status(404).json({ error: "Ruta no disponible." }));
+
+app.use((err, req, res, next) => {
+  if (res.headersSent) return next(err);
+  if (err.type === "entity.too.large" || err.code === "LIMIT_FILE_SIZE") {
+    return res.status(413).json({ error: req.path === "/api/upload" || req.path === "/api/uploads"
+      ? `Cada archivo admite hasta ${MAX_UPLOAD_MIB} MiB.` : "La solicitud supera el tamaño permitido." });
+  }
+  if (err.status === 400 || err instanceof multer.MulterError) {
+    return res.status(400).json({ error: "La solicitud no tiene un formato válido." });
+  }
+  logger.error("Error interno de API", { path: req.path, error: err.message });
+  res.status(500).json({ error: "No se pudo completar la operación." });
 });
 
 // --- PRODUCTION: serve Vite build ---
@@ -1905,53 +1769,12 @@ const SEED_NOTICIAS = [
   { fecha: "10 Jun 2026", titulo: "Inauguración del Repositorio Digital Innova Bandera", desc: "Lanzamos de manera oficial el nuevo centro de recursos digitales para la innovación pedagógica en el aula.", autor: "Dirección Académica" }
 ];
 
-sequelize.sync({ alter: true })
-  .then(async () => {
-    logger.info("🔋 Base de datos sincronizada.");
+async function start() {
+  await verifyPrivateBucket();
+  if (isProduction) await checkMigrations(sequelize);
+  else await migrate(sequelize);
 
-    try {
-      const cols = await sequelize.getQueryInterface().describeTable("Evidencia");
-      const required = ["imagenes", "driveFolderUrl", "fecha"];
-      const missing = required.filter((c) => !cols[c]);
-      if (missing.length > 0) {
-        logger.error(`⚠️ Columnas faltantes en Evidencia: ${missing.join(", ")}`);
-        for (const col of missing) {
-          try {
-            logger.info(`➕ Agregando columna Evidencia.${col}...`);
-            if (col === "imagenes") {
-              await sequelize.getQueryInterface().addColumn("Evidencia", "imagenes", { type: DataTypes.JSON, allowNull: true });
-            } else if (col === "driveFolderUrl") {
-              await sequelize.getQueryInterface().addColumn("Evidencia", "driveFolderUrl", { type: DataTypes.STRING, allowNull: true });
-            } else if (col === "fecha") {
-              await sequelize.getQueryInterface().addColumn("Evidencia", "fecha", { type: DataTypes.DATEONLY, allowNull: true, defaultValue: DataTypes.NOW });
-            }
-            logger.info(`✅ Columna Evidencia.${col} agregada.`);
-          } catch (addErr) {
-            logger.error(`❌ No se pudo agregar Evidencia.${col}: ${addErr.message}`);
-          }
-        }
-      } else {
-        logger.info("✅ Todas las columnas de Evidencia presentes.");
-      }
-    } catch (schemaErr) {
-      logger.error("Error al verificar esquema de Evidencia:", { error: schemaErr.message });
-    }
-
-    const userCount = await Usuario.count();
-
-    if (userCount === 0) {
-      await Usuario.bulkCreate([
-        {
-          nombre: "Administrador",
-          usuario: "admin",
-          contrasenia: bcrypt.hashSync("admin123", 10),
-          rol: "Administrador"
-        }
-      ]);
-
-      logger.info("👥 Usuario administrador único creado.");
-    }
-
+  if (!isProduction && process.env.SEED_DEMO_CONTENT === "1") {
     const seedData = loadSeedData();
 
     if (await Recurso.count() === 0 && seedData.recursos.length > 0) {
@@ -1974,11 +1797,15 @@ sequelize.sync({ alter: true })
       logger.info(`🖼️ ${seedData.evidencias.length} evidencias de ejemplo cargadas.`);
     }
 
-    app.listen(PORT, "0.0.0.0", () => {
-      logger.info(`🚀 Servidor activo en puerto ${PORT}`);
-    });
+  }
 
-  })
-  .catch(err => {
-    logger.error("❌ Error al sincronizar:", { error: err.message, stack: err.stack });
-  });
+  const server = app.listen(PORT, "0.0.0.0", () => logger.info(`Servidor activo en puerto ${PORT}`));
+  server.headersTimeout = 15_000;
+  server.requestTimeout = 120_000;
+}
+
+start().catch(async (err) => {
+  logger.error("Error al iniciar el servidor", { error: err.message });
+  await sequelize.close();
+  process.exitCode = 1;
+});

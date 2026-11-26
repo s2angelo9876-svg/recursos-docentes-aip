@@ -19,11 +19,24 @@ export const AUDIENCIAS = ["docente", "estudiante", "ambos"];
 export const AREA_TODAS = "Todas las áreas";
 export const AREAS_TUTORIAL = [...AREAS_CNEB, AREA_TODAS];
 
+function safeLink(value) {
+  if (value.startsWith("/")) return !["/", "\\"].includes(value[1]) && !value.includes("\\");
+  try {
+    const url = new URL(value);
+    return ["https:", "http:"].includes(url.protocol) && !url.username && !url.password;
+  } catch {
+    return false;
+  }
+}
+
+const link = z.string().trim().min(1).max(1000).refine(safeLink, "Usa un enlace web válido.");
+const password = z.string().min(12).refine((value) => Buffer.byteLength(value) <= 72, "La contraseña admite hasta 72 bytes.");
+
 const contenidoSchema = z.object({
   id: z.union([z.number(), z.string()]).optional(),
   titulo: z.string().min(1, "El título del material es obligatorio").max(200),
   tipo: z.enum(["url", "archivo"]),
-  url: z.string().min(1, "La URL o ruta del material es obligatoria").max(1000),
+  url: link,
   fileName: z.string().max(200).optional().nullable(),
 });
 
@@ -33,7 +46,7 @@ export const recursoSchema = z.object({
   grados: z.array(z.enum(GRADOS)).min(1, "Selecciona al menos un grado"),
   tipo: z.enum(TIPOS_RECURSO, { message: "Tipo de recurso no válido" }),
   desc: z.string().min(1, "La descripción es obligatoria").max(3000),
-  url: z.string().max(1000).optional().or(z.literal("")),
+  url: link.optional().or(z.literal("")),
   contenidos: z.array(contenidoSchema).default([]),
 });
 
@@ -41,7 +54,7 @@ export const tutorialSchema = z.object({
   titulo: z.string().min(1, "El título es obligatorio").max(200),
   area: z.enum(AREAS_TUTORIAL, { message: "Área curricular no válida" }),
   desc: z.string().min(1, "La descripción es obligatoria").max(3000),
-  url: z.string().min(1, "El enlace de YouTube es obligatorio").max(500),
+  url: link,
   audiencia: z.enum(AUDIENCIAS, { message: "Audiencia no válida" }).default("ambos"),
 });
 
@@ -67,7 +80,7 @@ export const CATEGORIAS_EVIDENCIA = [
 export const TIPOS_EVIDENCIA = ["Foto", "Video", "Ambos"];
 
 export const imagenEvidenciaSchema = z.object({
-  url: z.string().min(1).max(1000),
+  url: link,
   name: z.string().max(255).optional(),
   size: z.number().int().nonnegative().optional(),
   mimetype: z.string().max(120).optional(),
@@ -79,13 +92,13 @@ export const evidenciaSchema = z.object({
   categoria: z.enum(CATEGORIAS_EVIDENCIA, { message: "Categoría no válida" }).default("Otro"),
   tipo: z.enum(TIPOS_EVIDENCIA, { message: "Tipo de evidencia no válido" }).default("Foto"),
   desc: z.string().min(1, "La descripción es obligatoria").max(3000),
-  url: z.string().min(1).max(1000).nullish(),
+  url: link.nullish(),
   imagenes: z.array(imagenEvidenciaSchema)
     .max(MAX_IMAGENES_POR_EVIDENCIA, {
       message: `Máximo ${MAX_IMAGENES_POR_EVIDENCIA} imágenes por evidencia. Para más fotos, sube la colección a Google Drive.`,
     })
     .nullish(),
-  driveFolderUrl: z.string().min(1).max(1000).nullish(),
+  driveFolderUrl: link.nullish(),
   fecha: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Fecha no válida (YYYY-MM-DD)").optional(),
 }).refine(
   (data) =>
@@ -98,27 +111,27 @@ export const evidenciaSchema = z.object({
 export const usuarioSchema = z.object({
   nombre: z.string().min(1, "El nombre es obligatorio").max(100),
   usuario: z.string().min(3, "El usuario debe tener al menos 3 caracteres").max(50),
-  contrasenia: z.string().min(6).max(100).optional(),
-  contrasena: z.string().min(6).max(100).optional(),
-  password: z.string().min(6).max(100).optional(),
+  contrasenia: password.optional(),
+  contrasena: password.optional(),
+  password: password.optional(),
   rol: z.enum(["Docente", "Invitado"], { message: "Rol no válido" }),
 }).refine((data) => {
   const pwd = data.contrasenia || data.contrasena || data.password;
-  return pwd && pwd.length >= 6;
+  return pwd && pwd.length >= 12;
 }, {
-  message: "La contraseña es obligatoria y debe tener al menos 6 caracteres",
+  message: "La contraseña es obligatoria y debe tener al menos 12 caracteres",
   path: ["contrasenia"],
 });
 
 export const passwordUpdateSchema = z.object({
-  contrasenia: z.string().min(6).max(100).optional(),
-  contrasena: z.string().min(6).max(100).optional(),
-  password: z.string().min(6).max(100).optional(),
+  contrasenia: password.optional(),
+  contrasena: password.optional(),
+  password: password.optional(),
 }).refine((data) => {
   const pwd = data.contrasenia || data.contrasena || data.password;
-  return pwd && pwd.length >= 6;
+  return pwd && pwd.length >= 12;
 }, {
-  message: "La nueva contraseña es obligatoria y debe tener al menos 6 caracteres",
+  message: "La nueva contraseña es obligatoria y debe tener al menos 12 caracteres",
   path: ["contrasenia"],
 });
 

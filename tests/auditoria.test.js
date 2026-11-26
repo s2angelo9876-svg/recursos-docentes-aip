@@ -3,10 +3,10 @@ import assert from "node:assert";
 
 // ---------- Unit: auditoria helpers ----------
 describe("auditoria helpers", () => {
-  it("getClientIp extrae la primera IP de X-Forwarded-For", async () => {
+  it("getClientIp usa la IP resuelta por Express", async () => {
     const { getClientIp } = await import("../server/services/auditoria.js");
-    const mockReq = { headers: { "x-forwarded-for": "1.2.3.4, 5.6.7.8" }, socket: {} };
-    assert.strictEqual(getClientIp(mockReq), "1.2.3.4");
+    const mockReq = { headers: { "x-forwarded-for": "1.2.3.4, 5.6.7.8" }, ip: "9.9.9.9", socket: {} };
+    assert.strictEqual(getClientIp(mockReq), "9.9.9.9");
   });
 
   it("getClientIp cae al socket cuando no hay header", async () => {

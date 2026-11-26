@@ -11,6 +11,4 @@ services:
       - PORT=10000
       - NODE_ENV=production
       - CORS_ORIGIN=http://localhost:5000
-    volumes:
-      - ./backups:/app/backups
     restart: always

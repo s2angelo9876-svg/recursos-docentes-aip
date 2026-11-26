@@ -1,4 +1,5 @@
-import { useEffect, useRef } from "react";
+import { useModalFocus } from "../hooks/useModalFocus";
+import { useId } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 
 const TONE = {
@@ -30,30 +31,19 @@ export default function ConfirmModal({
   onConfirm,
   onClose,
 }) {
-  const confirmRef = useRef(null);
+  const titleId = useId();
+  const dialogRef = useModalFocus(open, {
+    onClose: loading ? undefined : onClose,
+    initialFocus: "[data-modal-cancel]",
+  });
   const t = TONE[tone] || TONE.danger;
-
-  useEffect(() => {
-    if (!open) return;
-    const onKey = (e) => {
-      if (e.key === "Escape" && !loading) onClose?.();
-    };
-    document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
-  }, [open, loading, onClose]);
-
-  useEffect(() => {
-    if (open) {
-      // small timeout so the modal mounts before focusing
-      const t = setTimeout(() => confirmRef.current?.focus(), 50);
-      return () => clearTimeout(t);
-    }
-  }, [open]);
 
   return (
     <AnimatePresence>
       {open && (
         <motion.div
+          ref={dialogRef}
+          tabIndex={-1}
           className="fixed inset-0 z-[300] flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-sm"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
@@ -62,7 +52,8 @@ export default function ConfirmModal({
           onClick={() => !loading && onClose?.()}
           role="dialog"
           aria-modal="true"
-          aria-labelledby="confirm-title"
+          aria-labelledby={titleId}
+          aria-describedby={message ? titleId + "-description" : undefined}
         >
           <motion.div
             initial={{ opacity: 0, scale: 0.96, y: 8 }}
@@ -81,13 +72,13 @@ export default function ConfirmModal({
                 </span>
                 <div className="flex-1 min-w-0">
                   <h3
-                    id="confirm-title"
+                    id={titleId}
                     className="text-[16px] font-semibold tracking-tight text-ink dark:text-white"
                   >
                     {title}
                   </h3>
                   {message && (
-                    <p className="mt-1.5 text-[13.5px] text-ink-subtle leading-relaxed">
+                    <p id={titleId + "-description"} className="mt-1.5 text-sm text-ink-muted leading-relaxed dark:text-ink-meta">
                       {message}
                     </p>
                   )}
@@ -97,6 +88,7 @@ export default function ConfirmModal({
             <div className="px-6 py-4 bg-surface-alt/60 dark:bg-dark-elev/40 border-t border-line dark:border-dark-border flex justify-end gap-2">
               <button
                 type="button"
+                data-modal-cancel
                 onClick={onClose}
                 disabled={loading}
                 className="h-10 px-4 rounded-btn text-[13px] font-semibold text-ink dark:text-white bg-white dark:bg-dark-card border border-line dark:border-dark-border hover:bg-surface-alt dark:hover:bg-dark-hover transition-colors disabled:opacity-50"
@@ -104,7 +96,6 @@ export default function ConfirmModal({
                 {cancelText}
               </button>
               <button
-                ref={confirmRef}
                 type="button"
                 onClick={onConfirm}
                 disabled={loading}
